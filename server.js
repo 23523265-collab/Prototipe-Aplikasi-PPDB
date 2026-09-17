@@ -1,20 +1,79 @@
 require("dotenv").config();
 const express = require("express");
+const session = require("express-session");
+const multer = require("multer");
 const path = require("path");
 const supabase = require("./supabase");
 const engine = require("./engine");
+const { hashPassword, verifyPassword, requirePendaftarLogin, requirePanitiaLogin } = require("./auth");
+const storage = require("./storage");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Penjaga sederhana supaya satu jalur tidak diproses dua kali secara bersamaan
 // (mitigasi race condition yang tercatat di PRD bagian 13 - Risiko dan Mitigasi)
 const jalurSedangDiproses = new Set();
 
 app.use(express.json());
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "sippdb-dev-secret-ganti-di-produksi",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { httpOnly: true, maxAge: 1000 * 60 * 60 * 8 }, // 8 jam
+  })
+);
 app.use(express.static(path.join(__dirname, "public")));
 
-// ---- Sekolah & Jalur ----
+/* =========================================================
+   AUTENTIKASI
+   ========================================================= */
+
+app.get("/api/auth/me", (req, res) => {
+  res.json({
+    pendaftar: req.session.pendaftarId ? { id: req.session.pendaftarId, nomor: req.session.pendaftarNomor } : null,
+    panitia: req.session.panitia || null,
+  });
+});
+
+app.post("/api/auth/pendaftar/login", async (req, res) => {
+  const { nomor, password } = req.body;
+  if (!nomor || !password) return res.status(400).json({ error: "Nomor dan password wajib diisi." });
+
+  const { data: pendaftar, error } = await supabase.from("pendaftar").select("*").eq("nomor", nomor).single();
+  if (error || !pendaftar) return res.status(401).json({ error: "Nomor pendaftaran atau password salah." });
+  if (!verifyPassword(password, pendaftar.password_hash)) {
+    return res.status(401).json({ error: "Nomor pendaftaran atau password salah." });
+  }
+
+  req.session.pendaftarId = pendaftar.id;
+  req.session.pendaftarNomor = pendaftar.nomor;
+  res.json({ ok: true, nomor: pendaftar.nomor, nama: pendaftar.nama });
+});
+
+app.post("/api/auth/panitia/login", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: "Username dan password wajib diisi." });
+
+  const { data: akun, error } = await supabase.from("akun_panitia").select("*").eq("username", username).single();
+  if (error || !akun) return res.status(401).json({ error: "Username atau password salah." });
+  if (!verifyPassword(password, akun.password_hash)) {
+    return res.status(401).json({ error: "Username atau password salah." });
+  }
+
+  req.session.panitia = { id: akun.id, nama: akun.nama, sekolahId: akun.sekolah_id, username: akun.username };
+  res.json({ ok: true, nama: akun.nama, sekolahId: akun.sekolah_id });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+/* =========================================================
+   SEKOLAH & JALUR (data publik, tidak perlu login)
+   ========================================================= */
 app.get("/api/sekolah", async (req, res) => {
   const { data, error } = await supabase.from("sekolah").select("*").order("id");
   if (error) return res.status(500).json({ error: error.message });
@@ -27,7 +86,10 @@ app.get("/api/jalur", async (req, res) => {
   res.json(data);
 });
 
-// ---- Pendaftar (ringkas, untuk Beranda & Pengumuman) ----
+/* =========================================================
+   PENDAFTAR
+   ========================================================= */
+
 app.get("/api/pendaftar", async (req, res) => {
   const { data: pendaftarList, error } = await supabase.from("pendaftar").select("*").order("id");
   if (error) return res.status(500).json({ error: error.message });
@@ -35,21 +97,29 @@ app.get("/api/pendaftar", async (req, res) => {
   const { data: sekolahList } = await supabase.from("sekolah").select("*");
   const namaSekolah = (id) => sekolahList.find((s) => s.id === id)?.nama || null;
 
-  const rows = pendaftarList.map((p) => ({ ...p, sekolah_aktif_nama: namaSekolah(p.sekolah_aktif_id) }));
+  const rows = pendaftarList.map((p) => ({
+    id: p.id, nomor: p.nomor, nama: p.nama, status_global: p.status_global,
+    prioritas_aktif: p.prioritas_aktif, sekolah_aktif_id: p.sekolah_aktif_id,
+    sekolah_aktif_nama: namaSekolah(p.sekolah_aktif_id),
+  }));
   res.json(rows);
 });
 
-// ---- Detail satu pendaftar (untuk Cek Status) ----
-app.get("/api/pendaftar/nomor/:nomor", async (req, res) => {
+app.get("/api/pendaftar/nomor/:nomor", requirePendaftarLogin, async (req, res) => {
+  if (req.session.pendaftarNomor !== req.params.nomor) {
+    return res.status(403).json({ error: "Anda hanya dapat melihat status pendaftaran milik sendiri." });
+  }
+
   const { data: pendaftar, error } = await supabase.from("pendaftar").select("*").eq("nomor", req.params.nomor).single();
   if (error || !pendaftar) return res.status(404).json({ error: "Nomor pendaftaran tidak ditemukan." });
 
-  const [{ data: pilihanRaw }, { data: riwayatRaw }, { data: notifikasi }, { data: sekolahList }, { data: jalurList }] = await Promise.all([
+  const [{ data: pilihanRaw }, { data: riwayatRaw }, { data: notifikasi }, { data: sekolahList }, { data: jalurList }, { data: dokumen }] = await Promise.all([
     supabase.from("pilihan").select("*").eq("pendaftar_id", pendaftar.id).order("urutan_prioritas"),
     supabase.from("riwayat_transfer").select("*").eq("pendaftar_id", pendaftar.id).order("id"),
     supabase.from("notifikasi").select("*").eq("pendaftar_id", pendaftar.id).order("id", { ascending: false }),
     supabase.from("sekolah").select("*"),
     supabase.from("jalur").select("*"),
+    supabase.from("dokumen").select("*").eq("pendaftar_id", pendaftar.id).order("id"),
   ]);
 
   const namaSekolah = (id) => sekolahList.find((s) => s.id === id)?.nama || "-";
@@ -58,14 +128,17 @@ app.get("/api/pendaftar/nomor/:nomor", async (req, res) => {
   const pilihan = pilihanRaw.map((p) => ({ ...p, sekolah_nama: namaSekolah(p.sekolah_id), jalur_nama: namaJalur(p.jalur_id) }));
   const riwayat = riwayatRaw.map((r) => ({ ...r, dari_nama: namaSekolah(r.dari_sekolah_id), ke_nama: namaSekolah(r.ke_sekolah_id) }));
 
-  res.json({ pendaftar, pilihan, riwayat, notifikasi });
+  const { password_hash, ...pendaftarAman } = pendaftar;
+  res.json({ pendaftar: pendaftarAman, pilihan, riwayat, notifikasi, dokumen });
 });
 
-// ---- Pendaftaran baru (FR-01): hingga 3 pilihan sekolah berjenjang ----
 app.post("/api/pendaftar", async (req, res) => {
-  const { nama, nik, tanggalLahir, pilihan } = req.body; // pilihan: [{sekolahId, jalurId}, ...] max 3
-  if (!nama || !nik || !tanggalLahir || !Array.isArray(pilihan) || pilihan.length === 0) {
-    return res.status(400).json({ error: "Data pendaftaran belum lengkap." });
+  const { nama, nik, tanggalLahir, password, pilihan } = req.body;
+  if (!nama || !nik || !tanggalLahir || !password || !Array.isArray(pilihan) || pilihan.length === 0) {
+    return res.status(400).json({ error: "Data pendaftaran belum lengkap (termasuk password)." });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "Password minimal 6 karakter." });
   }
   if (pilihan.length > 3) {
     return res.status(400).json({ error: "Maksimal 3 pilihan sekolah." });
@@ -82,6 +155,7 @@ app.post("/api/pendaftar", async (req, res) => {
     .from("pendaftar")
     .insert({
       nomor, nama, nik, tanggal_lahir: tanggalLahir,
+      password_hash: hashPassword(password),
       status_berkas: "Menunggu Verifikasi", status_global: "Aktif",
       sekolah_aktif_id: pilihan[0].sekolahId, prioritas_aktif: 1,
     })
@@ -94,24 +168,62 @@ app.post("/api/pendaftar", async (req, res) => {
     sekolah_id: p.sekolahId,
     urutan_prioritas: i + 1,
     jalur_id: p.jalurId,
-    skor: Math.floor(55 + Math.random() * 45), // simulasi skor komposit
+    skor: Math.floor(55 + Math.random() * 45),
     status: i === 0 ? "Menunggu Verifikasi Berkas" : "Menunggu Giliran",
   }));
   const { error: err2 } = await supabase.from("pilihan").insert(rows);
   if (err2) return res.status(500).json({ error: err2.message });
 
+  // Otomatis login setelah daftar, supaya bisa langsung unggah berkas
+  req.session.pendaftarId = pendaftarBaru.id;
+  req.session.pendaftarNomor = pendaftarBaru.nomor;
+
   res.status(201).json({ nomor, id: pendaftarBaru.id });
 });
 
-// ---- FR-02: Verifikasi berkas ----
-app.patch("/api/pendaftar/:id/berkas", async (req, res) => {
-  await engine.verifikasiBerkas(Number(req.params.id), req.body.status);
+app.post("/api/pendaftar/:id/dokumen", requirePendaftarLogin, upload.single("file"), async (req, res) => {
+  const pendaftarId = Number(req.params.id);
+  if (req.session.pendaftarId !== pendaftarId) {
+    return res.status(403).json({ error: "Anda hanya dapat mengunggah berkas milik sendiri." });
+  }
+  const { jenis } = req.body;
+  if (!req.file) return res.status(400).json({ error: "File tidak ditemukan." });
+  if (!jenis) return res.status(400).json({ error: "Jenis dokumen wajib diisi." });
+
+  try {
+    const url = await storage.uploadBerkas(pendaftarId, jenis, req.file);
+    const { data, error } = await supabase
+      .from("dokumen")
+      .insert({ pendaftar_id: pendaftarId, jenis, nama_file: req.file.originalname, url })
+      .select()
+      .single();
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* =========================================================
+   PANEL PANITIA (wajib login panitia)
+   ========================================================= */
+
+app.patch("/api/pendaftar/:id/berkas", requirePanitiaLogin, async (req, res) => {
+  const pendaftarId = Number(req.params.id);
+  const { data: pendaftar } = await supabase.from("pendaftar").select("sekolah_aktif_id").eq("id", pendaftarId).single();
+  if (!pendaftar || pendaftar.sekolah_aktif_id !== req.session.panitia.sekolahId) {
+    return res.status(403).json({ error: "Pendaftar ini tidak sedang aktif di sekolah Anda." });
+  }
+  await engine.verifikasiBerkas(pendaftarId, req.body.status);
   res.json({ ok: true });
 });
 
-// ---- Daftar pendaftar aktif di satu sekolah (untuk Panel Panitia) ----
-app.get("/api/sekolah/:id/antrean", async (req, res) => {
+app.get("/api/sekolah/:id/antrean", requirePanitiaLogin, async (req, res) => {
   const sekolahId = Number(req.params.id);
+  if (sekolahId !== req.session.panitia.sekolahId) {
+    return res.status(403).json({ error: "Anda hanya dapat melihat antrean sekolah Anda sendiri." });
+  }
+
   const { data: pendaftarAktif, error } = await supabase
     .from("pendaftar")
     .select("*")
@@ -132,19 +244,27 @@ app.get("/api/sekolah/:id/antrean", async (req, res) => {
       .eq("urutan_prioritas", p.prioritas_aktif)
       .single();
     if (!pil) continue;
+
+    const { data: dokumen } = await supabase.from("dokumen").select("*").eq("pendaftar_id", p.id);
+
     rows.push({
       pendaftar_id: p.id, nomor: p.nomor, nama: p.nama, nik: p.nik,
       status_berkas: p.status_berkas, prioritas_aktif: p.prioritas_aktif,
       pilihan_id: pil.id, jalur_id: pil.jalur_id, skor: pil.skor,
       status_pilihan: pil.status, jalur_nama: namaJalur(pil.jalur_id),
+      dokumen: dokumen || [],
     });
   }
   res.json(rows);
 });
 
-// ---- FR-04 + FR-05: Jalankan seleksi untuk satu jalur (memicu auto-transfer bila ditolak) ----
-app.post("/api/jalur/:id/jalankan-seleksi", async (req, res) => {
+app.post("/api/jalur/:id/jalankan-seleksi", requirePanitiaLogin, async (req, res) => {
   const jalurId = Number(req.params.id);
+
+  const { data: jalur } = await supabase.from("jalur").select("sekolah_id").eq("id", jalurId).single();
+  if (!jalur || jalur.sekolah_id !== req.session.panitia.sekolahId) {
+    return res.status(403).json({ error: "Jalur ini bukan milik sekolah Anda." });
+  }
 
   if (jalurSedangDiproses.has(jalurId)) {
     return res.status(409).json({ error: "Seleksi untuk jalur ini sedang diproses. Tunggu sebentar sebelum mencoba lagi." });
@@ -161,6 +281,8 @@ app.post("/api/jalur/:id/jalankan-seleksi", async (req, res) => {
   }
 });
 
+storage.pastikanBucketAda();
+
 app.listen(PORT, () => {
-  console.log(`SiPPDB (Supabase) server berjalan di http://localhost:${PORT}`);
+  console.log(`SiPPDB (Supabase + Auth + Upload) server berjalan di http://localhost:${PORT}`);
 });

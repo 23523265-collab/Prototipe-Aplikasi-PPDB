@@ -39,70 +39,109 @@
         <div class="stat-grid" id="stat-grid"></div>
       </section>
 
+      <!-- ===================== PENDAFTARAN ===================== -->
       <section id="view-daftar" class="view">
-        <h2>Formulir Pendaftaran</h2>
-        <p class="muted">Pilih hingga 3 sekolah secara berurutan. Sistem akan memproses Pilihan 1 terlebih dahulu.</p>
-        <div id="daftar-success" class="alert alert-success" style="display:none"></div>
-        <form id="form-daftar">
-          <label>Nama Lengkap<input required name="nama" placeholder="Sesuai akta kelahiran" /></label>
-          <label>NIK<input required name="nik" placeholder="16 digit sesuai KK" /></label>
-          <label>Tanggal Lahir<input required type="date" name="tanggalLahir" /></label>
+        <div id="daftar-form-wrap">
+          <h2>Formulir Pendaftaran</h2>
+          <p class="muted">Pilih hingga 3 sekolah secara berurutan. Sistem akan memproses Pilihan 1 terlebih dahulu.</p>
+          <div id="daftar-success" class="alert alert-success" style="display:none"></div>
+          <form id="form-daftar">
+            <label>Nama Lengkap<input required name="nama" placeholder="Sesuai akta kelahiran" /></label>
+            <label>NIK<input required name="nik" placeholder="16 digit sesuai KK" /></label>
+            <label>Tanggal Lahir<input required type="date" name="tanggalLahir" /></label>
+            <label>Buat Password<input required type="password" name="password" placeholder="Minimal 6 karakter, untuk cek status nanti" minlength="6" /></label>
 
-          <div class="pilihan-block" data-index="0">
-            <p class="pilihan-title">Pilihan 1 (Utama)</p>
-            <div class="pilihan-row">
-              <select class="select-sekolah" data-index="0"></select>
-              <select class="select-jalur" data-index="0"></select>
+            <div class="pilihan-block" data-index="0">
+              <p class="pilihan-title">Pilihan 1 (Utama)</p>
+              <div class="pilihan-row">
+                <select class="select-sekolah" data-index="0"></select>
+                <select class="select-jalur" data-index="0"></select>
+              </div>
             </div>
-          </div>
-          <div class="pilihan-block" data-index="1">
-            <p class="pilihan-title">Pilihan 2 (Cadangan)</p>
-            <div class="pilihan-row">
-              <select class="select-sekolah" data-index="1"></select>
-              <select class="select-jalur" data-index="1"></select>
+            <div class="pilihan-block" data-index="1">
+              <p class="pilihan-title">Pilihan 2 (Cadangan)</p>
+              <div class="pilihan-row">
+                <select class="select-sekolah" data-index="1"></select>
+                <select class="select-jalur" data-index="1"></select>
+              </div>
             </div>
-          </div>
-          <div class="pilihan-block" data-index="2">
-            <p class="pilihan-title">Pilihan 3 (Cadangan)</p>
-            <div class="pilihan-row">
-              <select class="select-sekolah" data-index="2"></select>
-              <select class="select-jalur" data-index="2"></select>
+            <div class="pilihan-block" data-index="2">
+              <p class="pilihan-title">Pilihan 3 (Cadangan)</p>
+              <div class="pilihan-row">
+                <select class="select-sekolah" data-index="2"></select>
+                <select class="select-jalur" data-index="2"></select>
+              </div>
             </div>
-          </div>
 
-          <button type="submit" class="btn btn-primary" style="width:100%">Kirim Pendaftaran</button>
-        </form>
+            <button type="submit" class="btn btn-primary" style="width:100%">Kirim Pendaftaran</button>
+          </form>
+        </div>
+
+        <div id="daftar-upload-wrap" style="display:none">
+          <h2>Unggah Berkas</h2>
+          <p class="muted">Nomor pendaftaran: <strong id="upload-nomor"></strong>. Unggah dokumen di bawah ini (PDF/JPG/PNG, maks 5MB).</p>
+          <div id="upload-list"></div>
+          <button class="btn btn-outline" style="margin-top:12px" data-goto="status">Selesai, lihat status</button>
+        </div>
       </section>
 
+      <!-- ===================== CEK STATUS ===================== -->
       <section id="view-status" class="view">
-        <h2>Cek Status Pendaftaran</h2>
-        <p class="muted">Masukkan nomor pendaftaran, contoh: PPDB-0001</p>
-        <div class="search-row">
-          <input id="input-cek-nomor" placeholder="PPDB-0001" />
-          <button class="btn btn-primary" id="btn-cek-status">Cari</button>
+        <div id="status-login-wrap">
+          <h2>Login Pendaftar</h2>
+          <p class="muted">Masuk dengan nomor pendaftaran dan password yang dibuat saat mendaftar.</p>
+          <div id="status-login-error" class="alert alert-error" style="display:none"></div>
+          <form id="form-login-pendaftar" style="max-width:360px">
+            <label>Nomor Pendaftaran<input required name="nomor" placeholder="PPDB-0001" /></label>
+            <label>Password<input required type="password" name="password" /></label>
+            <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
+          </form>
         </div>
-        <div id="status-result"></div>
+
+        <div id="status-view-wrap" style="display:none">
+          <div class="row-between">
+            <h2>Status Pendaftaran</h2>
+            <button class="btn btn-outline" id="btn-logout-pendaftar">Keluar</button>
+          </div>
+          <div id="status-result"></div>
+        </div>
       </section>
 
+      <!-- ===================== PANITIA ===================== -->
       <section id="view-panitia" class="view">
-        <h2>Verifikasi &amp; Seleksi</h2>
-        <p class="muted">Pilih sekolah untuk masuk sebagai panitia sekolah tersebut.</p>
-        <div class="search-row">
-          <select id="select-panitia-sekolah" style="flex:1"></select>
+        <div id="panitia-login-wrap">
+          <h2>Login Panitia</h2>
+          <p class="muted">Masuk dengan akun panitia sekolah Anda.</p>
+          <div id="panitia-login-error" class="alert alert-error" style="display:none"></div>
+          <form id="form-login-panitia" style="max-width:360px">
+            <label>Username<input required name="username" placeholder="panitia_sma2" /></label>
+            <label>Password<input required type="password" name="password" /></label>
+            <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
+          </form>
         </div>
 
-        <h3 class="sub-heading">Antrean Aktif di Sekolah Ini</h3>
-        <div class="table-wrap">
-          <table id="table-panitia">
-            <thead>
-              <tr><th>Nomor</th><th>Nama</th><th>Pilihan Ke-</th><th>Jalur</th><th>Skor</th><th>Berkas</th><th>Aksi</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+        <div id="panitia-view-wrap" style="display:none">
+          <div class="row-between">
+            <h2>Verifikasi &amp; Seleksi</h2>
+            <div>
+              <span class="muted" id="panitia-nama-label" style="margin-right:12px"></span>
+              <button class="btn btn-outline" id="btn-logout-panitia">Keluar</button>
+            </div>
+          </div>
 
-        <h3 class="sub-heading">Jalankan Seleksi per Jalur</h3>
-        <div id="jalur-seleksi-container"></div>
+          <h3 class="sub-heading" style="margin-top:0">Antrean Aktif di Sekolah Ini</h3>
+          <div class="table-wrap">
+            <table id="table-panitia">
+              <thead>
+                <tr><th>Nomor</th><th>Nama</th><th>Pilihan Ke-</th><th>Jalur</th><th>Skor</th><th>Berkas</th><th>Dokumen</th><th>Aksi</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <h3 class="sub-heading">Jalankan Seleksi per Jalur</h3>
+          <div id="jalur-seleksi-container"></div>
+        </div>
       </section>
 
       <section id="view-pengumuman" class="view">

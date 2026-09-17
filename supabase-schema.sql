@@ -23,11 +23,29 @@ create table if not exists pendaftar (
   nama text not null,
   nik text not null,
   tanggal_lahir date not null,
+  password_hash text,
   status_berkas text not null default 'Menunggu Verifikasi',
   status_global text not null default 'Aktif', -- Aktif | Diterima Final | Tidak Diterima Final
   sekolah_aktif_id integer references sekolah(id),
   prioritas_aktif integer not null default 1,
   created_at timestamp default now()
+);
+
+create table if not exists akun_panitia (
+  id serial primary key,
+  username text unique not null,
+  password_hash text not null,
+  nama text not null,
+  sekolah_id integer not null references sekolah(id)
+);
+
+create table if not exists dokumen (
+  id serial primary key,
+  pendaftar_id integer not null references pendaftar(id),
+  jenis text not null, -- 'Kartu Keluarga' | 'Akta Kelahiran' | 'Rapor Terakhir'
+  nama_file text not null,
+  url text not null,
+  uploaded_at timestamp default now()
 );
 
 create table if not exists pilihan (
@@ -85,73 +103,79 @@ begin
   insert into jalur (sekolah_id, nama, kuota, syarat_nilai_minimum) values (s3, 'Zonasi', 3, null) returning id into j3z;
   insert into jalur (sekolah_id, nama, kuota, syarat_nilai_minimum) values (s3, 'Prestasi', 2, 75) returning id into j3p;
 
+  -- Akun panitia contoh (satu per sekolah). Password untuk ketiganya: panitia123
+  insert into akun_panitia (username, password_hash, nama, sekolah_id) values
+    ('panitia_sma2', '$2b$10$RPk5QB5BgXvAzqewauevveXveEzp8UVvH79azWGF5mYmYQDpzbUoK', 'Panitia SMA Negeri 2', s1),
+    ('panitia_sma5', '$2b$10$RPk5QB5BgXvAzqewauevveXveEzp8UVvH79azWGF5mYmYQDpzbUoK', 'Panitia SMA Negeri 5', s2),
+    ('panitia_sma8', '$2b$10$RPk5QB5BgXvAzqewauevveXveEzp8UVvH79azWGF5mYmYQDpzbUoK', 'Panitia SMA Negeri 8', s3);
+
   -- Pendaftar 1: Ahmad Fadhil
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0001', 'Ahmad Fadhil', '3471012345670001', '2011-03-12', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0001', 'Ahmad Fadhil', '3471012345670001', '2011-03-12', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s1, 1, j1z, 91, 'Menunggu Verifikasi Berkas'),
     (p_id, s2, 2, j2z, 88, 'Menunggu Giliran'),
     (p_id, s3, 3, j3z, 85, 'Menunggu Giliran');
 
   -- Pendaftar 2: Siti Nur Aini
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0002', 'Siti Nur Aini', '3471012345670002', '2011-07-22', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0002', 'Siti Nur Aini', '3471012345670002', '2011-07-22', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s1, 1, j1z, 78, 'Menunggu Verifikasi Berkas'),
     (p_id, s2, 2, j2p, 80, 'Menunggu Giliran'),
     (p_id, s3, 3, j3z, 82, 'Menunggu Giliran');
 
   -- Pendaftar 3: Bagas Wicaksono
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0003', 'Bagas Wicaksono', '3471012345670003', '2011-01-05', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0003', 'Bagas Wicaksono', '3471012345670003', '2011-01-05', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s1, 1, j1z, 85, 'Menunggu Verifikasi Berkas'),
     (p_id, s2, 2, j2z, 79, 'Menunggu Giliran'),
     (p_id, s3, 3, j3z, 88, 'Menunggu Giliran');
 
   -- Pendaftar 4: Dewi Anggraini
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0004', 'Dewi Anggraini', '347101234567000', '2011-09-30', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0004', 'Dewi Anggraini', '347101234567000', '2011-09-30', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s1, 1, j1p, 70, 'Menunggu Verifikasi Berkas'),
     (p_id, s2, 2, j2z, 84, 'Menunggu Giliran'),
     (p_id, s3, 3, j3p, 77, 'Menunggu Giliran');
 
   -- Pendaftar 5: Reza Pratama
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0005', 'Reza Pratama', '3471012345670005', '2011-05-18', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0005', 'Reza Pratama', '3471012345670005', '2011-05-18', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s1, 1, j1p, 95, 'Menunggu Verifikasi Berkas'),
     (p_id, s2, 2, j2p, 90, 'Menunggu Giliran'),
     (p_id, s3, 3, j3p, 92, 'Menunggu Giliran');
 
   -- Pendaftar 6: Farah Salsabila
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0006', 'Farah Salsabila', '3471012345670006', '2011-11-02', 'Menunggu Verifikasi', s2, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0006', 'Farah Salsabila', '3471012345670006', '2011-11-02', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s2, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s2, 1, j2p, 82, 'Menunggu Verifikasi Berkas'),
     (p_id, s1, 2, j1z, 74, 'Menunggu Giliran'),
     (p_id, s3, 3, j3z, 80, 'Menunggu Giliran');
 
   -- Pendaftar 7: Yusuf Maulana
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0007', 'Yusuf Maulana', '3471012345670007', '2011-02-14', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0007', 'Yusuf Maulana', '3471012345670007', '2011-02-14', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s1, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s1, 1, j1p, 68, 'Menunggu Verifikasi Berkas'),
     (p_id, s2, 2, j2z, 72, 'Menunggu Giliran'),
     (p_id, s3, 3, j3p, 74, 'Menunggu Giliran');
 
   -- Pendaftar 8: Nadia Ramadhani
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0008', 'Nadia Ramadhani', '3471012345670008', '2011-04-09', 'Menunggu Verifikasi', s3, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0008', 'Nadia Ramadhani', '3471012345670008', '2011-04-09', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s3, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s3, 1, j3z, 74, 'Menunggu Verifikasi Berkas'),
     (p_id, s1, 2, j1z, 69, 'Menunggu Giliran'),
     (p_id, s2, 3, j2z, 71, 'Menunggu Giliran');
 
   -- Pendaftar 9: Fajar Ilham
-  insert into pendaftar (nomor, nama, nik, tanggal_lahir, status_berkas, sekolah_aktif_id, prioritas_aktif)
-    values ('PPDB-0009', 'Fajar Ilham', '3471012345670009', '2011-08-27', 'Menunggu Verifikasi', s3, 1) returning id into p_id;
+  insert into pendaftar (nomor, nama, nik, tanggal_lahir, password_hash, status_berkas, sekolah_aktif_id, prioritas_aktif)
+    values ('PPDB-0009', 'Fajar Ilham', '3471012345670009', '2011-08-27', '$2b$10$XWuhahEyuuyBM8C1Zj/m3Ok9WtnZhVW6PMQmdZs1VTLCWm/ZWDcL2', 'Menunggu Verifikasi', s3, 1) returning id into p_id;
   insert into pilihan (pendaftar_id, sekolah_id, urutan_prioritas, jalur_id, skor, status) values
     (p_id, s3, 1, j3p, 66, 'Menunggu Verifikasi Berkas'),
     (p_id, s2, 2, j2z, 73, 'Menunggu Giliran'),

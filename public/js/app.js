@@ -1,10 +1,11 @@
 let sekolahList = [];
 let jalurList = [];
 let pendaftarList = [];
+let sesi = { pendaftar: null, panitia: null };
+let pendaftarBaruId = null; // dipakai sesaat setelah daftar, untuk upload berkas
 
 const sekolahNama = (id) => sekolahList.find((s) => s.id === id)?.nama ?? "-";
 const jalurById = (id) => jalurList.find((j) => j.id === id);
-const jalurNamaFor = (id) => jalurById(id)?.nama ?? "-";
 
 // ---------- Navigation ----------
 document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
@@ -19,7 +20,8 @@ function showView(view) {
   document.getElementById(`view-${view}`).classList.add("active");
   document.querySelectorAll(".nav-item[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (view === "beranda") renderBeranda();
-  if (view === "panitia") renderPanitia();
+  if (view === "panitia") renderPanitiaView();
+  if (view === "status") renderStatusView();
   if (view === "pengumuman") renderPengumuman();
 }
 
@@ -42,14 +44,19 @@ function pillHTML(status) {
   return `<span class="pill ${cls}">${icon} ${status}</span>`;
 }
 
+// ---------- Sesi login ----------
+async function muatSesi() {
+  sesi = await fetch("/api/auth/me").then((r) => r.json());
+}
+
 // ---------- Load base data ----------
 async function loadData() {
+  await muatSesi();
   sekolahList = await fetch("/api/sekolah").then((r) => r.json());
   jalurList = await fetch("/api/jalur").then((r) => r.json());
   pendaftarList = await fetch("/api/pendaftar").then((r) => r.json());
 
   populateSekolahSelects();
-  populatePanitiaSelect();
   renderBeranda();
 }
 
@@ -70,12 +77,6 @@ function populateSekolahSelects() {
   });
 }
 
-function populatePanitiaSelect() {
-  const sel = document.getElementById("select-panitia-sekolah");
-  sel.innerHTML = sekolahList.map((s) => `<option value="${s.id}">Masuk sebagai panitia: ${s.nama}</option>`).join("");
-  sel.addEventListener("change", renderPanitia);
-}
-
 // ---------- Beranda ----------
 function renderBeranda() {
   const totalAktif = pendaftarList.filter((p) => p.status_global === "Aktif").length;
@@ -89,7 +90,9 @@ function renderBeranda() {
   `;
 }
 
-// ---------- Pendaftaran ----------
+/* =========================================================
+   PENDAFTARAN + UPLOAD BERKAS
+   ========================================================= */
 document.getElementById("form-daftar").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -107,6 +110,7 @@ document.getElementById("form-daftar").addEventListener("submit", async (e) => {
     nama: form.nama.value,
     nik: form.nik.value,
     tanggalLahir: form.tanggalLahir.value,
+    password: form.password.value,
     pilihan,
   };
   const res = await fetch("/api/pendaftar", {
@@ -117,11 +121,11 @@ document.getElementById("form-daftar").addEventListener("submit", async (e) => {
   const data = await res.json();
   const box = document.getElementById("daftar-success");
   if (res.ok) {
-    box.className = "alert alert-success";
-    box.style.display = "block";
-    box.innerText = `Pendaftaran berhasil! Nomor pendaftaran kamu: ${data.nomor}. Sistem akan memproses Pilihan 1 terlebih dahulu.`;
-    form.reset();
-    document.querySelectorAll(".select-jalur").forEach((s) => (s.innerHTML = ""));
+    pendaftarBaruId = data.id;
+    document.getElementById("daftar-form-wrap").style.display = "none";
+    document.getElementById("daftar-upload-wrap").style.display = "block";
+    document.getElementById("upload-nomor").innerText = data.nomor;
+    renderUploadList();
     await loadData();
   } else {
     box.className = "alert alert-error";
@@ -130,16 +134,86 @@ document.getElementById("form-daftar").addEventListener("submit", async (e) => {
   }
 });
 
-// ---------- Cek Status ----------
-document.getElementById("btn-cek-status").addEventListener("click", async () => {
-  const nomor = document.getElementById("input-cek-nomor").value.trim().toUpperCase();
-  const container = document.getElementById("status-result");
-  const res = await fetch(`/api/pendaftar/nomor/${nomor}`);
+function renderUploadList() {
+  const jenisList = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
+  const container = document.getElementById("upload-list");
+  container.innerHTML = jenisList.map((jenis, i) => `
+    <div class="upload-item">
+      <div class="upload-info">
+        <strong>${jenis}</strong>
+        <div class="upload-status" id="upload-status-${i}">Belum diunggah</div>
+      </div>
+      <div>
+        <input type="file" id="upload-file-${i}" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="unggahBerkas(${i}, '${jenis}')" />
+        <button class="btn btn-outline" onclick="document.getElementById('upload-file-${i}').click()">Pilih File</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+async function unggahBerkas(idx, jenis) {
+  const input = document.getElementById(`upload-file-${idx}`);
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById(`upload-status-${idx}`);
+  statusEl.innerText = "Mengunggah...";
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("jenis", jenis);
+
+  const res = await fetch(`/api/pendaftar/${pendaftarBaruId}/dokumen`, { method: "POST", body: formData });
+  const data = await res.json();
+  if (res.ok) {
+    statusEl.innerHTML = `<span style="color:#047857">\u2713 ${file.name}</span>`;
+  } else {
+    statusEl.innerHTML = `<span style="color:#b91c1c">${data.error || "Gagal mengunggah"}</span>`;
+  }
+}
+
+/* =========================================================
+   LOGIN & CEK STATUS PENDAFTAR
+   ========================================================= */
+document.getElementById("form-login-pendaftar").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const errBox = document.getElementById("status-login-error");
+  const res = await fetch("/api/auth/pendaftar/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nomor: form.nomor.value, password: form.password.value }),
+  });
+  const data = await res.json();
   if (!res.ok) {
-    container.innerHTML = `<p style="color:#b91c1c;font-size:14px">Nomor pendaftaran tidak ditemukan.</p>`;
+    errBox.style.display = "block";
+    errBox.innerText = data.error;
     return;
   }
-  const { pendaftar, pilihan, riwayat, notifikasi } = await res.json();
+  errBox.style.display = "none";
+  await muatSesi();
+  await renderStatusView();
+});
+
+document.getElementById("btn-logout-pendaftar").addEventListener("click", async () => {
+  await fetch("/api/auth/logout", { method: "POST" });
+  await muatSesi();
+  renderStatusView();
+});
+
+async function renderStatusView() {
+  await muatSesi();
+  const loggedIn = !!sesi.pendaftar;
+  document.getElementById("status-login-wrap").style.display = loggedIn ? "none" : "block";
+  document.getElementById("status-view-wrap").style.display = loggedIn ? "block" : "none";
+  if (!loggedIn) return;
+
+  const container = document.getElementById("status-result");
+  const res = await fetch(`/api/pendaftar/nomor/${sesi.pendaftar.nomor}`);
+  if (!res.ok) {
+    container.innerHTML = `<p style="color:#b91c1c;font-size:14px">Gagal memuat data.</p>`;
+    return;
+  }
+  const { pendaftar, pilihan, riwayat, notifikasi, dokumen } = await res.json();
 
   let statusBanner = "";
   if (pendaftar.status_global === "Diterima Final") {
@@ -160,6 +234,10 @@ document.getElementById("btn-cek-status").addEventListener("click", async () => 
     </tr>
   `).join("");
 
+  const dokumenRows = (dokumen || []).length
+    ? dokumen.map((d) => `<li class="timeline-item"><a href="${d.url}" target="_blank" rel="noopener">${d.jenis} — ${d.nama_file}</a></li>`).join("")
+    : `<li class="timeline-item" style="color:var(--muted)">Belum ada berkas diunggah.</li>`;
+
   const notifItems = notifikasi.map((n) => `<li class="timeline-item"><div class="t-title">${n.isi_pesan}</div><div class="t-meta">${n.waktu}</div></li>`).join("");
 
   container.innerHTML = `
@@ -176,16 +254,52 @@ document.getElementById("btn-cek-status").addEventListener("click", async () => 
         <tbody>${pilihanRows}</tbody>
       </table>
     </div>
-    <h3 class="sub-heading" style="margin-top:0">Riwayat Notifikasi</h3>
+    <h3 class="sub-heading" style="margin-top:0">Berkas Terunggah</h3>
+    <ul class="timeline">${dokumenRows}</ul>
+    <h3 class="sub-heading">Riwayat Notifikasi</h3>
     <ul class="timeline">${notifItems || '<li class="timeline-item">Belum ada notifikasi.</li>'}</ul>
   `;
+}
+
+/* =========================================================
+   LOGIN & PANEL PANITIA
+   ========================================================= */
+document.getElementById("form-login-panitia").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const errBox = document.getElementById("panitia-login-error");
+  const res = await fetch("/api/auth/panitia/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: form.username.value, password: form.password.value }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    errBox.style.display = "block";
+    errBox.innerText = data.error;
+    return;
+  }
+  errBox.style.display = "none";
+  await muatSesi();
+  await renderPanitiaView();
 });
 
-// ---------- Panitia ----------
-async function renderPanitia() {
-  const sekolahId = document.getElementById("select-panitia-sekolah").value;
-  if (!sekolahId) return;
+document.getElementById("btn-logout-panitia").addEventListener("click", async () => {
+  await fetch("/api/auth/logout", { method: "POST" });
+  await muatSesi();
+  renderPanitiaView();
+});
 
+async function renderPanitiaView() {
+  await muatSesi();
+  const loggedIn = !!sesi.panitia;
+  document.getElementById("panitia-login-wrap").style.display = loggedIn ? "none" : "block";
+  document.getElementById("panitia-view-wrap").style.display = loggedIn ? "block" : "none";
+  if (!loggedIn) return;
+
+  document.getElementById("panitia-nama-label").innerText = `${sesi.panitia.nama} · ${sekolahNama(sesi.panitia.sekolahId)}`;
+
+  const sekolahId = sesi.panitia.sekolahId;
   const antrean = await fetch(`/api/sekolah/${sekolahId}/antrean`).then((r) => r.json());
   const tbody = document.querySelector("#table-panitia tbody");
   tbody.innerHTML = antrean.length
@@ -197,6 +311,7 @@ async function renderPanitia() {
           <td>${a.jalur_nama}</td>
           <td>${a.skor}</td>
           <td>${pillHTML(a.status_berkas)}</td>
+          <td>${(a.dokumen || []).length ? a.dokumen.map((d) => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:12px">${d.jenis}</a>`).join("<br/>") : '<span style="font-size:12px;color:var(--muted)">Belum ada</span>'}</td>
           <td>
             <button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>
             <button class="action-btn action-kurang" onclick="verifikasi(${a.pendaftar_id}, 'Kurang Lengkap')">Kurang</button>
@@ -204,7 +319,7 @@ async function renderPanitia() {
           </td>
         </tr>
       `).join("")
-    : `<tr><td colspan="7" style="text-align:center;color:var(--muted)">Belum ada pendaftar aktif di sekolah ini.</td></tr>`;
+    : `<tr><td colspan="8" style="text-align:center;color:var(--muted)">Belum ada pendaftar aktif di sekolah ini.</td></tr>`;
 
   const jalurSekolah = jalurList.filter((j) => j.sekolah_id === Number(sekolahId));
   const container = document.getElementById("jalur-seleksi-container");
@@ -218,13 +333,18 @@ async function renderPanitia() {
 }
 
 async function verifikasi(pendaftarId, status) {
-  await fetch(`/api/pendaftar/${pendaftarId}/berkas`, {
+  const res = await fetch(`/api/pendaftar/${pendaftarId}/berkas`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   });
+  if (!res.ok) {
+    const data = await res.json();
+    alert(data.error || "Gagal memverifikasi.");
+    return;
+  }
   await loadData();
-  await renderPanitia();
+  await renderPanitiaView();
 }
 
 async function jalankanSeleksi(jalurId, btn) {
@@ -241,7 +361,7 @@ async function jalankanSeleksi(jalurId, btn) {
       return;
     }
     await loadData();
-    await renderPanitia();
+    await renderPanitiaView();
     alert(`Seleksi dijalankan. ${data.jumlahDiproses} pendaftar diproses pada jalur ini.`);
   } finally {
     if (btn) {
@@ -251,7 +371,9 @@ async function jalankanSeleksi(jalurId, btn) {
   }
 }
 
-// ---------- Pengumuman ----------
+/* =========================================================
+   PENGUMUMAN
+   ========================================================= */
 function renderPengumuman() {
   const container = document.getElementById("pengumuman-container");
   container.innerHTML = `

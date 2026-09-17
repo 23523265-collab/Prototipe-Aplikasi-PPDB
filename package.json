@@ -1,7 +1,7 @@
 {
-  "name": "sippdb-supabase",
-  "version": "3.0.0",
-  "description": "Prototipe SiPPDB multi-sekolah dengan Auto-Transfer, database Supabase (PostgreSQL)",
+  "name": "sippdb-auth-upload",
+  "version": "4.0.0",
+  "description": "Prototipe SiPPDB multi-sekolah dengan Auto-Transfer, autentikasi, dan upload berkas asli (Supabase)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,6 +10,9 @@
   "dependencies": {
     "express": "^5.2.1",
     "@supabase/supabase-js": "^2.116.0",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "bcryptjs": "^3.0.3",
+    "express-session": "^1.19.0",
+    "multer": "^2.4.0"
   }
 }
