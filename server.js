@@ -1,11 +1,11 @@
 require("dotenv").config();
 const express = require("express");
-const session = require("express-session");
+const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const path = require("path");
 const supabase = require("./supabase");
 const engine = require("./engine");
-const { hashPassword, verifyPassword, requirePendaftarLogin, requirePanitiaLogin } = require("./auth");
+const auth = require("./auth");
 const storage = require("./storage");
 
 const app = express();
@@ -17,25 +17,25 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 const jalurSedangDiproses = new Set();
 
 app.use(express.json());
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "sippdb-dev-secret-ganti-di-produksi",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { httpOnly: true, maxAge: 1000 * 60 * 60 * 8 }, // 8 jam
-  })
-);
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 /* =========================================================
-   AUTENTIKASI
+   AUTENTIKASI (sesi disimpan di Supabase, bukan di memori server --
+   penting untuk kompatibilitas dengan Vercel serverless)
    ========================================================= */
 
-app.get("/api/auth/me", (req, res) => {
-  res.json({
-    pendaftar: req.session.pendaftarId ? { id: req.session.pendaftarId, nomor: req.session.pendaftarNomor } : null,
-    panitia: req.session.panitia || null,
-  });
+app.get("/api/auth/me", async (req, res) => {
+  const sesi = await auth.ambilSesi(req.cookies?.sid);
+  if (!sesi) return res.json({ pendaftar: null, panitia: null });
+
+  if (sesi.tipe === "pendaftar") {
+    const { data } = await supabase.from("pendaftar").select("id, nomor").eq("id", sesi.pendaftar_id).single();
+    return res.json({ pendaftar: data || null, panitia: null });
+  } else {
+    const { data } = await supabase.from("akun_panitia").select("id, nama, sekolah_id").eq("id", sesi.panitia_id).single();
+    return res.json({ pendaftar: null, panitia: data ? { id: data.id, nama: data.nama, sekolahId: data.sekolah_id } : null });
+  }
 });
 
 app.post("/api/auth/pendaftar/login", async (req, res) => {
@@ -44,12 +44,12 @@ app.post("/api/auth/pendaftar/login", async (req, res) => {
 
   const { data: pendaftar, error } = await supabase.from("pendaftar").select("*").eq("nomor", nomor).single();
   if (error || !pendaftar) return res.status(401).json({ error: "Nomor pendaftaran atau password salah." });
-  if (!verifyPassword(password, pendaftar.password_hash)) {
+  if (!auth.verifyPassword(password, pendaftar.password_hash)) {
     return res.status(401).json({ error: "Nomor pendaftaran atau password salah." });
   }
 
-  req.session.pendaftarId = pendaftar.id;
-  req.session.pendaftarNomor = pendaftar.nomor;
+  const token = await auth.buatSesi("pendaftar", { pendaftarId: pendaftar.id });
+  res.cookie("sid", token, auth.opsiCookie(req));
   res.json({ ok: true, nomor: pendaftar.nomor, nama: pendaftar.nama });
 });
 
@@ -59,16 +59,19 @@ app.post("/api/auth/panitia/login", async (req, res) => {
 
   const { data: akun, error } = await supabase.from("akun_panitia").select("*").eq("username", username).single();
   if (error || !akun) return res.status(401).json({ error: "Username atau password salah." });
-  if (!verifyPassword(password, akun.password_hash)) {
+  if (!auth.verifyPassword(password, akun.password_hash)) {
     return res.status(401).json({ error: "Username atau password salah." });
   }
 
-  req.session.panitia = { id: akun.id, nama: akun.nama, sekolahId: akun.sekolah_id, username: akun.username };
+  const token = await auth.buatSesi("panitia", { panitiaId: akun.id });
+  res.cookie("sid", token, auth.opsiCookie(req));
   res.json({ ok: true, nama: akun.nama, sekolahId: akun.sekolah_id });
 });
 
-app.post("/api/auth/logout", (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
+app.post("/api/auth/logout", async (req, res) => {
+  await auth.hapusSesi(req.cookies?.sid);
+  res.clearCookie("sid", { path: "/" });
+  res.json({ ok: true });
 });
 
 /* =========================================================
@@ -105,8 +108,8 @@ app.get("/api/pendaftar", async (req, res) => {
   res.json(rows);
 });
 
-app.get("/api/pendaftar/nomor/:nomor", requirePendaftarLogin, async (req, res) => {
-  if (req.session.pendaftarNomor !== req.params.nomor) {
+app.get("/api/pendaftar/nomor/:nomor", auth.requirePendaftarLogin, async (req, res) => {
+  if (req.pendaftar.nomor !== req.params.nomor) {
     return res.status(403).json({ error: "Anda hanya dapat melihat status pendaftaran milik sendiri." });
   }
 
@@ -155,7 +158,7 @@ app.post("/api/pendaftar", async (req, res) => {
     .from("pendaftar")
     .insert({
       nomor, nama, nik, tanggal_lahir: tanggalLahir,
-      password_hash: hashPassword(password),
+      password_hash: auth.hashPassword(password),
       status_berkas: "Menunggu Verifikasi", status_global: "Aktif",
       sekolah_aktif_id: pilihan[0].sekolahId, prioritas_aktif: 1,
     })
@@ -175,15 +178,15 @@ app.post("/api/pendaftar", async (req, res) => {
   if (err2) return res.status(500).json({ error: err2.message });
 
   // Otomatis login setelah daftar, supaya bisa langsung unggah berkas
-  req.session.pendaftarId = pendaftarBaru.id;
-  req.session.pendaftarNomor = pendaftarBaru.nomor;
+  const token = await auth.buatSesi("pendaftar", { pendaftarId: pendaftarBaru.id });
+  res.cookie("sid", token, auth.opsiCookie(req));
 
   res.status(201).json({ nomor, id: pendaftarBaru.id });
 });
 
-app.post("/api/pendaftar/:id/dokumen", requirePendaftarLogin, upload.single("file"), async (req, res) => {
+app.post("/api/pendaftar/:id/dokumen", auth.requirePendaftarLogin, upload.single("file"), async (req, res) => {
   const pendaftarId = Number(req.params.id);
-  if (req.session.pendaftarId !== pendaftarId) {
+  if (req.pendaftar.id !== pendaftarId) {
     return res.status(403).json({ error: "Anda hanya dapat mengunggah berkas milik sendiri." });
   }
   const { jenis } = req.body;
@@ -208,19 +211,19 @@ app.post("/api/pendaftar/:id/dokumen", requirePendaftarLogin, upload.single("fil
    PANEL PANITIA (wajib login panitia)
    ========================================================= */
 
-app.patch("/api/pendaftar/:id/berkas", requirePanitiaLogin, async (req, res) => {
+app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res) => {
   const pendaftarId = Number(req.params.id);
   const { data: pendaftar } = await supabase.from("pendaftar").select("sekolah_aktif_id").eq("id", pendaftarId).single();
-  if (!pendaftar || pendaftar.sekolah_aktif_id !== req.session.panitia.sekolahId) {
+  if (!pendaftar || pendaftar.sekolah_aktif_id !== req.panitia.sekolahId) {
     return res.status(403).json({ error: "Pendaftar ini tidak sedang aktif di sekolah Anda." });
   }
   await engine.verifikasiBerkas(pendaftarId, req.body.status);
   res.json({ ok: true });
 });
 
-app.get("/api/sekolah/:id/antrean", requirePanitiaLogin, async (req, res) => {
+app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) => {
   const sekolahId = Number(req.params.id);
-  if (sekolahId !== req.session.panitia.sekolahId) {
+  if (sekolahId !== req.panitia.sekolahId) {
     return res.status(403).json({ error: "Anda hanya dapat melihat antrean sekolah Anda sendiri." });
   }
 
@@ -258,11 +261,11 @@ app.get("/api/sekolah/:id/antrean", requirePanitiaLogin, async (req, res) => {
   res.json(rows);
 });
 
-app.post("/api/jalur/:id/jalankan-seleksi", requirePanitiaLogin, async (req, res) => {
+app.post("/api/jalur/:id/jalankan-seleksi", auth.requirePanitiaLogin, async (req, res) => {
   const jalurId = Number(req.params.id);
 
   const { data: jalur } = await supabase.from("jalur").select("sekolah_id").eq("id", jalurId).single();
-  if (!jalur || jalur.sekolah_id !== req.session.panitia.sekolahId) {
+  if (!jalur || jalur.sekolah_id !== req.panitia.sekolahId) {
     return res.status(403).json({ error: "Jalur ini bukan milik sekolah Anda." });
   }
 
@@ -284,5 +287,5 @@ app.post("/api/jalur/:id/jalankan-seleksi", requirePanitiaLogin, async (req, res
 storage.pastikanBucketAda();
 
 app.listen(PORT, () => {
-  console.log(`SiPPDB (Supabase + Auth + Upload) server berjalan di http://localhost:${PORT}`);
+  console.log(`SiPPDB (Supabase + Auth + Upload, sesi via DB) server berjalan di http://localhost:${PORT}`);
 });

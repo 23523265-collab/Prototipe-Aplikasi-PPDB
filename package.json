@@ -1,7 +1,7 @@
 {
   "name": "sippdb-auth-upload",
-  "version": "4.0.0",
-  "description": "Prototipe SiPPDB multi-sekolah dengan Auto-Transfer, autentikasi, dan upload berkas asli (Supabase)",
+  "version": "4.1.0",
+  "description": "Prototipe SiPPDB multi-sekolah dengan Auto-Transfer, autentikasi (sesi via database), dan upload berkas asli (Supabase)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -12,7 +12,7 @@
     "@supabase/supabase-js": "^2.116.0",
     "dotenv": "^17.4.2",
     "bcryptjs": "^3.0.3",
-    "express-session": "^1.19.0",
+    "cookie-parser": "^1.4.7",
     "multer": "^2.4.0"
   }
 }
