@@ -1,4 +1,5 @@
 const supabase = require("./supabase");
+const email = require("./email");
 
 async function getSekolahNama(id) {
   const { data } = await supabase.from("sekolah").select("nama").eq("id", id).single();
@@ -7,6 +8,21 @@ async function getSekolahNama(id) {
 
 async function tambahNotifikasi(pendaftarId, isi) {
   await supabase.from("notifikasi").insert({ pendaftar_id: pendaftarId, isi_pesan: isi });
+
+  // FR-08: kirim juga notifikasi via email (di luar tampilan di aplikasi)
+  const { data: pendaftar } = await supabase
+    .from("pendaftar")
+    .select("nama, email, nomor")
+    .eq("id", pendaftarId)
+    .single();
+
+  if (pendaftar?.email) {
+    await email.kirimEmail(
+      pendaftar.email,
+      `Update Status Pendaftaran ${pendaftar.nomor} - SiPPDB`,
+      `Halo <strong>${pendaftar.nama}</strong>,<br><br>${isi}<br><br>Cek status lengkap pendaftaran Anda di aplikasi SiPPDB.`
+    );
+  }
 }
 
 /**

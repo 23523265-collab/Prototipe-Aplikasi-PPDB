@@ -1,7 +1,7 @@
 {
-  "name": "sippdb-auth-upload",
-  "version": "4.1.0",
-  "description": "Prototipe SiPPDB multi-sekolah dengan Auto-Transfer, autentikasi (sesi via database), dan upload berkas asli (Supabase)",
+  "name": "sippdb-auth-upload-email",
+  "version": "4.2.0",
+  "description": "Prototipe SiPPDB multi-sekolah dengan Auto-Transfer, autentikasi, upload berkas, dan notifikasi email (Supabase + Nodemailer)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -13,6 +13,7 @@
     "dotenv": "^17.4.2",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
-    "multer": "^2.4.0"
+    "multer": "^2.4.0",
+    "nodemailer": "^6.9.15"
   }
 }

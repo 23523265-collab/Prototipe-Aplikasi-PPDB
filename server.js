@@ -136,9 +136,9 @@ app.get("/api/pendaftar/nomor/:nomor", auth.requirePendaftarLogin, async (req, r
 });
 
 app.post("/api/pendaftar", async (req, res) => {
-  const { nama, nik, tanggalLahir, password, pilihan } = req.body;
-  if (!nama || !nik || !tanggalLahir || !password || !Array.isArray(pilihan) || pilihan.length === 0) {
-    return res.status(400).json({ error: "Data pendaftaran belum lengkap (termasuk password)." });
+  const { nama, nik, tanggalLahir, email: emailPendaftar, password, pilihan } = req.body;
+  if (!nama || !nik || !tanggalLahir || !emailPendaftar || !password || !Array.isArray(pilihan) || pilihan.length === 0) {
+    return res.status(400).json({ error: "Data pendaftaran belum lengkap (termasuk email dan password)." });
   }
   if (password.length < 6) {
     return res.status(400).json({ error: "Password minimal 6 karakter." });
@@ -158,6 +158,7 @@ app.post("/api/pendaftar", async (req, res) => {
     .from("pendaftar")
     .insert({
       nomor, nama, nik, tanggal_lahir: tanggalLahir,
+      email: emailPendaftar,
       password_hash: auth.hashPassword(password),
       status_berkas: "Menunggu Verifikasi", status_global: "Aktif",
       sekolah_aktif_id: pilihan[0].sekolahId, prioritas_aktif: 1,

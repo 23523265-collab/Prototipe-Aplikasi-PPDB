@@ -109,6 +109,7 @@ document.getElementById("form-daftar").addEventListener("submit", async (e) => {
   const body = {
     nama: form.nama.value,
     nik: form.nik.value,
+    email: form.email.value,
     tanggalLahir: form.tanggalLahir.value,
     password: form.password.value,
     pilihan,
