@@ -304,7 +304,16 @@ async function renderPanitiaView() {
   const antrean = await fetch(`/api/sekolah/${sekolahId}/antrean`).then((r) => r.json());
   const tbody = document.querySelector("#table-panitia tbody");
   tbody.innerHTML = antrean.length
-    ? antrean.map((a) => `
+    ? antrean.map((a) => {
+        const peringatan = [];
+        if (a.catatan_validasi_nik) peringatan.push(`NIK: ${a.catatan_validasi_nik}`);
+        (a.dokumen || []).forEach((d) => {
+          if (d.catatan_validasi) peringatan.push(`${d.jenis}: ${d.catatan_validasi}`);
+        });
+        const peringatanHTML = peringatan.length
+          ? `<ul style="margin:0;padding-left:16px;font-size:11.5px;color:#b45309">${peringatan.map((x) => `<li>${x}</li>`).join("")}</ul>`
+          : '<span style="font-size:12px;color:#047857">✓ Tidak ada</span>';
+        return `
         <tr>
           <td>${a.nomor}</td>
           <td><strong>${a.nama}</strong></td>
@@ -313,13 +322,15 @@ async function renderPanitiaView() {
           <td>${a.skor}</td>
           <td>${pillHTML(a.status_berkas)}</td>
           <td>${(a.dokumen || []).length ? a.dokumen.map((d) => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:12px">${d.jenis}</a>`).join("<br/>") : '<span style="font-size:12px;color:var(--muted)">Belum ada</span>'}</td>
+          <td>${peringatanHTML}</td>
           <td>
             <button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>
             <button class="action-btn action-kurang" onclick="verifikasi(${a.pendaftar_id}, 'Kurang Lengkap')">Kurang</button>
             <button class="action-btn action-tolak" onclick="verifikasi(${a.pendaftar_id}, 'Ditolak')">Tolak</button>
           </td>
         </tr>
-      `).join("")
+      `;
+      }).join("")
     : `<tr><td colspan="8" style="text-align:center;color:var(--muted)">Belum ada pendaftar aktif di sekolah ini.</td></tr>`;
 
   const jalurSekolah = jalurList.filter((j) => j.sekolah_id === Number(sekolahId));

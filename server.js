@@ -7,6 +7,7 @@ const supabase = require("./supabase");
 const engine = require("./engine");
 const auth = require("./auth");
 const storage = require("./storage");
+const validasi = require("./validasi");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -154,6 +155,9 @@ app.post("/api/pendaftar", async (req, res) => {
   const { count } = await supabase.from("pendaftar").select("*", { count: "exact", head: true });
   const nomor = `PPDB-${String((count || 0) + 1).padStart(4, "0")}`;
 
+  // FR-09: Pra-Verifikasi NIK -- hanya flag, tidak menolak pendaftaran
+  const catatanNik = validasi.validasiNIK(nik);
+
   const { data: pendaftarBaru, error: err1 } = await supabase
     .from("pendaftar")
     .insert({
@@ -162,6 +166,7 @@ app.post("/api/pendaftar", async (req, res) => {
       password_hash: auth.hashPassword(password),
       status_berkas: "Menunggu Verifikasi", status_global: "Aktif",
       sekolah_aktif_id: pilihan[0].sekolahId, prioritas_aktif: 1,
+      catatan_validasi_nik: catatanNik,
     })
     .select()
     .single();
@@ -196,9 +201,11 @@ app.post("/api/pendaftar/:id/dokumen", auth.requirePendaftarLogin, upload.single
 
   try {
     const url = await storage.uploadBerkas(pendaftarId, jenis, req.file);
+    // FR-09: Pra-Verifikasi Berkas -- hanya flag, panitia yang tetap memutuskan
+    const catatanValidasi = validasi.validasiBerkas(req.file);
     const { data, error } = await supabase
       .from("dokumen")
-      .insert({ pendaftar_id: pendaftarId, jenis, nama_file: req.file.originalname, url })
+      .insert({ pendaftar_id: pendaftarId, jenis, nama_file: req.file.originalname, url, catatan_validasi: catatanValidasi })
       .select()
       .single();
     if (error) return res.status(500).json({ error: error.message });
@@ -257,6 +264,7 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
       pilihan_id: pil.id, jalur_id: pil.jalur_id, skor: pil.skor,
       status_pilihan: pil.status, jalur_nama: namaJalur(pil.jalur_id),
       dokumen: dokumen || [],
+      catatan_validasi_nik: p.catatan_validasi_nik,
     });
   }
   res.json(rows);
