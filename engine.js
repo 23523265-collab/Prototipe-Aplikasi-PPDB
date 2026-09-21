@@ -119,6 +119,12 @@ async function verifikasiBerkas(pendaftarId, statusBaru) {
       .eq("urutan_prioritas", pendaftar.prioritas_aktif)
       .single();
     await supabase.from("pilihan").update({ status: "Menunggu Seleksi" }).eq("id", pilihanAktif.id);
+
+    const sekolahNama = await getSekolahNama(pilihanAktif.sekolah_id);
+    await tambahNotifikasi(
+      pendaftarId,
+      `Berkas Anda di ${sekolahNama} telah diverifikasi dan dinyatakan Lengkap. Pendaftaran Anda akan diproses ke tahap seleksi.`
+    );
   } else if (statusBaru === "Kurang Lengkap" || statusBaru === "Ditolak") {
     await tolakDanAlihkan(pendaftarId, "Berkas tidak lengkap/tidak sesuai");
   }
