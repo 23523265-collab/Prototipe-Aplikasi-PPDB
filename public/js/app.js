@@ -1,11 +1,10 @@
 let sekolahList = [];
 let jalurList = [];
 let pendaftarList = [];
-let sesi = { pendaftar: null, panitia: null };
+let sesi = { pendaftar: null };
 let pendaftarBaruId = null; // dipakai sesaat setelah daftar, untuk upload berkas
 
 const sekolahNama = (id) => sekolahList.find((s) => s.id === id)?.nama ?? "-";
-const jalurById = (id) => jalurList.find((j) => j.id === id);
 
 // ---------- Navigation ----------
 document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
@@ -20,33 +19,33 @@ function showView(view) {
   document.getElementById(`view-${view}`).classList.add("active");
   document.querySelectorAll(".nav-item[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (view === "beranda") renderBeranda();
-  if (view === "panitia") renderPanitiaView();
   if (view === "status") renderStatusView();
   if (view === "pengumuman") renderPengumuman();
 }
 
 function pillHTML(status) {
   const map = {
-    "Lengkap": ["pill-green", "\u2713"],
-    "Menunggu Verifikasi": ["pill-amber", "\u23f1"],
-    "Menunggu Verifikasi Berkas": ["pill-amber", "\u23f1"],
-    "Menunggu Seleksi": ["pill-amber", "\u23f1"],
-    "Menunggu Giliran": ["pill-gray", "\u2014"],
-    "Kurang Lengkap": ["pill-orange", "\u26a0"],
-    "Ditolak": ["pill-red", "\u2715"],
-    "Diterima": ["pill-green", "\u2713"],
-    "Dibatalkan": ["pill-gray", "\u2014"],
-    "Aktif": ["pill-amber", "\u23f1"],
-    "Diterima Final": ["pill-green", "\u2713"],
-    "Tidak Diterima Final": ["pill-red", "\u2715"],
+    "Lengkap": ["pill-green", "✓"],
+    "Menunggu Verifikasi": ["pill-amber", "⏱"],
+    "Menunggu Verifikasi Berkas": ["pill-amber", "⏱"],
+    "Menunggu Seleksi": ["pill-amber", "⏱"],
+    "Menunggu Giliran": ["pill-gray", "—"],
+    "Kurang Lengkap": ["pill-orange", "⚠"],
+    "Ditolak": ["pill-red", "✕"],
+    "Diterima": ["pill-green", "✓"],
+    "Dibatalkan": ["pill-gray", "—"],
+    "Aktif": ["pill-amber", "⏱"],
+    "Diterima Final": ["pill-green", "✓"],
+    "Tidak Diterima Final": ["pill-red", "✕"],
   };
-  const [cls, icon] = map[status] || ["pill-gray", "\u2014"];
+  const [cls, icon] = map[status] || ["pill-gray", "—"];
   return `<span class="pill ${cls}">${icon} ${status}</span>`;
 }
 
 // ---------- Sesi login ----------
 async function muatSesi() {
-  sesi = await fetch("/api/auth/me").then((r) => r.json());
+  const data = await fetch("/api/auth/me").then((r) => r.json());
+  sesi = { pendaftar: data.pendaftar };
 }
 
 // ---------- Load base data ----------
@@ -83,10 +82,10 @@ function renderBeranda() {
   const totalDiterima = pendaftarList.filter((p) => p.status_global === "Diterima Final").length;
   const totalTidakDiterima = pendaftarList.filter((p) => p.status_global === "Tidak Diterima Final").length;
   document.getElementById("stat-grid").innerHTML = `
-    <div class="stat-card"><div class="stat-num">${pendaftarList.length}</div><div class="stat-label">Total pendaftar</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:var(--amber)">${totalAktif}</div><div class="stat-label">Masih diproses (aktif)</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#047857">${totalDiterima}</div><div class="stat-label">Diterima</div></div>
-    <div class="stat-card"><div class="stat-num" style="color:#b91c1c">${totalTidakDiterima}</div><div class="stat-label">Tidak diterima (habis pilihan)</div></div>
+    <div class="stat-card"><span class="stat-ico">👥</span><div class="stat-num">${pendaftarList.length}</div><div class="stat-label">Total pendaftar</div></div>
+    <div class="stat-card"><span class="stat-ico">⏱</span><div class="stat-num" style="color:var(--amber)">${totalAktif}</div><div class="stat-label">Masih diproses (aktif)</div></div>
+    <div class="stat-card"><span class="stat-ico">✅</span><div class="stat-num" style="color:#047857">${totalDiterima}</div><div class="stat-label">Diterima</div></div>
+    <div class="stat-card"><span class="stat-ico">✕</span><div class="stat-num" style="color:#b91c1c">${totalTidakDiterima}</div><div class="stat-label">Tidak diterima (habis pilihan)</div></div>
   `;
 }
 
@@ -166,7 +165,7 @@ async function unggahBerkas(idx, jenis) {
   const res = await fetch(`/api/pendaftar/${pendaftarBaruId}/dokumen`, { method: "POST", body: formData });
   const data = await res.json();
   if (res.ok) {
-    statusEl.innerHTML = `<span style="color:#047857">\u2713 ${file.name}</span>`;
+    statusEl.innerHTML = `<span style="color:#047857">✓ ${file.name}</span>`;
   } else {
     statusEl.innerHTML = `<span style="color:#b91c1c">${data.error || "Gagal mengunggah"}</span>`;
   }
@@ -260,127 +259,6 @@ async function renderStatusView() {
     <h3 class="sub-heading">Riwayat Notifikasi</h3>
     <ul class="timeline">${notifItems || '<li class="timeline-item">Belum ada notifikasi.</li>'}</ul>
   `;
-}
-
-/* =========================================================
-   LOGIN & PANEL PANITIA
-   ========================================================= */
-document.getElementById("form-login-panitia").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = e.target;
-  const errBox = document.getElementById("panitia-login-error");
-  const res = await fetch("/api/auth/panitia/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: form.username.value, password: form.password.value }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    errBox.style.display = "block";
-    errBox.innerText = data.error;
-    return;
-  }
-  errBox.style.display = "none";
-  await muatSesi();
-  await renderPanitiaView();
-});
-
-document.getElementById("btn-logout-panitia").addEventListener("click", async () => {
-  await fetch("/api/auth/logout", { method: "POST" });
-  await muatSesi();
-  renderPanitiaView();
-});
-
-async function renderPanitiaView() {
-  await muatSesi();
-  const loggedIn = !!sesi.panitia;
-  document.getElementById("panitia-login-wrap").style.display = loggedIn ? "none" : "block";
-  document.getElementById("panitia-view-wrap").style.display = loggedIn ? "block" : "none";
-  if (!loggedIn) return;
-
-  document.getElementById("panitia-nama-label").innerText = `${sesi.panitia.nama} · ${sekolahNama(sesi.panitia.sekolahId)}`;
-
-  const sekolahId = sesi.panitia.sekolahId;
-  const antrean = await fetch(`/api/sekolah/${sekolahId}/antrean`).then((r) => r.json());
-  const tbody = document.querySelector("#table-panitia tbody");
-  tbody.innerHTML = antrean.length
-    ? antrean.map((a) => {
-        const peringatan = [];
-        if (a.catatan_validasi_nik) peringatan.push(`NIK: ${a.catatan_validasi_nik}`);
-        (a.dokumen || []).forEach((d) => {
-          if (d.catatan_validasi) peringatan.push(`${d.jenis}: ${d.catatan_validasi}`);
-        });
-        const peringatanHTML = peringatan.length
-          ? `<ul style="margin:0;padding-left:16px;font-size:11.5px;color:#b45309">${peringatan.map((x) => `<li>${x}</li>`).join("")}</ul>`
-          : '<span style="font-size:12px;color:#047857">✓ Tidak ada</span>';
-        return `
-        <tr>
-          <td>${a.nomor}</td>
-          <td><strong>${a.nama}</strong></td>
-          <td>${a.prioritas_aktif}</td>
-          <td>${a.jalur_nama}</td>
-          <td>${a.skor}</td>
-          <td>${pillHTML(a.status_berkas)}</td>
-          <td>${(a.dokumen || []).length ? a.dokumen.map((d) => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:12px">${d.jenis}</a>`).join("<br/>") : '<span style="font-size:12px;color:var(--muted)">Belum ada</span>'}</td>
-          <td>${peringatanHTML}</td>
-          <td>
-            <button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>
-            <button class="action-btn action-kurang" onclick="verifikasi(${a.pendaftar_id}, 'Kurang Lengkap')">Kurang</button>
-            <button class="action-btn action-tolak" onclick="verifikasi(${a.pendaftar_id}, 'Ditolak')">Tolak</button>
-          </td>
-        </tr>
-      `;
-      }).join("")
-    : `<tr><td colspan="8" style="text-align:center;color:var(--muted)">Belum ada pendaftar aktif di sekolah ini.</td></tr>`;
-
-  const jalurSekolah = jalurList.filter((j) => j.sekolah_id === Number(sekolahId));
-  const container = document.getElementById("jalur-seleksi-container");
-  container.innerHTML = jalurSekolah.map((j) => `
-    <div class="jalur-mini-card">
-      <strong>${j.nama}</strong> · kuota ${j.kuota}${j.syarat_nilai_minimum ? `, min. nilai ${j.syarat_nilai_minimum}` : ""}
-      <br/>
-      <button class="btn btn-accent" style="margin-top:8px;padding:6px 12px;font-size:13px" onclick="jalankanSeleksi(${j.id}, this)">Jalankan Seleksi</button>
-    </div>
-  `).join("");
-}
-
-async function verifikasi(pendaftarId, status) {
-  const res = await fetch(`/api/pendaftar/${pendaftarId}/berkas`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
-  });
-  if (!res.ok) {
-    const data = await res.json();
-    alert(data.error || "Gagal memverifikasi.");
-    return;
-  }
-  await loadData();
-  await renderPanitiaView();
-}
-
-async function jalankanSeleksi(jalurId, btn) {
-  if (btn) {
-    btn.disabled = true;
-    btn.dataset.originalText = btn.innerText;
-    btn.innerText = "Memproses...";
-  }
-  try {
-    const res = await fetch(`/api/jalur/${jalurId}/jalankan-seleksi`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.error || "Seleksi gagal dijalankan.");
-      return;
-    }
-    await loadData();
-    await renderPanitiaView();
-    alert(`Seleksi dijalankan. ${data.jumlahDiproses} pendaftar diproses pada jalur ini.`);
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerText = btn.dataset.originalText;
-    }
-  }
 }
 
 /* =========================================================

@@ -17,31 +17,34 @@
         </div>
       </div>
       <nav>
-        <button class="nav-item active" data-view="beranda">Beranda</button>
-        <button class="nav-item" data-view="daftar">Pendaftaran</button>
-        <button class="nav-item" data-view="status">Cek Status</button>
-        <p class="nav-label">Panel Panitia</p>
-        <button class="nav-item" data-view="panitia">Verifikasi &amp; Seleksi</button>
+        <button class="nav-item active" data-view="beranda"><span class="nav-ico">🏠</span>Beranda</button>
+        <button class="nav-item" data-view="daftar"><span class="nav-ico">📝</span>Pendaftaran</button>
+        <button class="nav-item" data-view="status"><span class="nav-ico">🔎</span>Cek Status</button>
         <p class="nav-label">Umum</p>
-        <button class="nav-item" data-view="pengumuman">Pengumuman</button>
+        <button class="nav-item" data-view="pengumuman"><span class="nav-ico">📢</span>Pengumuman</button>
       </nav>
+      <div class="sidebar-foot">
+        <a class="sidebar-foot-link" href="/panitia.html">🔒 Login Panitia</a>
+      </div>
     </aside>
 
     <main class="content">
       <section id="view-beranda" class="view active">
-        <p class="eyebrow">Penerimaan Peserta Didik Baru 2026/2027 · Lintas Sekolah</p>
-        <h1>Daftar sekali, pilih hingga 3 sekolah.<br />Sisanya biar sistem yang urus.</h1>
-        <p class="lead">Kalau tidak diterima di Pilihan 1, sistem otomatis mengalihkan pendaftaranmu ke Pilihan 2 — tanpa perlu daftar ulang dari awal.</p>
-        <div class="cta-row">
-          <button class="btn btn-primary" data-goto="daftar">Daftar Sekarang</button>
-          <button class="btn btn-outline" data-goto="status">Cek Status Pendaftaran</button>
+        <div class="hero-wrap">
+          <p class="eyebrow">✨ Penerimaan Peserta Didik Baru 2026/2027 · Lintas Sekolah</p>
+          <h1>Daftar sekali, pilih hingga 3 sekolah.<br />Sisanya biar sistem yang urus.</h1>
+          <p class="lead">Kalau tidak diterima di Pilihan 1, sistem otomatis mengalihkan pendaftaranmu ke Pilihan 2 — tanpa perlu daftar ulang dari awal.</p>
+          <div class="cta-row">
+            <button class="btn btn-primary" data-goto="daftar">Daftar Sekarang</button>
+            <button class="btn btn-outline" data-goto="status">Cek Status Pendaftaran</button>
+          </div>
+          <div class="stat-grid" id="stat-grid"></div>
         </div>
-        <div class="stat-grid" id="stat-grid"></div>
       </section>
 
       <!-- ===================== PENDAFTARAN ===================== -->
       <section id="view-daftar" class="view">
-        <div id="daftar-form-wrap">
+        <div id="daftar-form-wrap" class="panel-card">
           <h2>Formulir Pendaftaran</h2>
           <p class="muted">Pilih hingga 3 sekolah secara berurutan. Sistem akan memproses Pilihan 1 terlebih dahulu.</p>
           <div id="daftar-success" class="alert alert-success" style="display:none"></div>
@@ -78,7 +81,7 @@
           </form>
         </div>
 
-        <div id="daftar-upload-wrap" style="display:none">
+        <div id="daftar-upload-wrap" class="panel-card" style="display:none">
           <h2>Unggah Berkas</h2>
           <p class="muted">Nomor pendaftaran: <strong id="upload-nomor"></strong>. Unggah dokumen di bawah ini (PDF/JPG/PNG, maks 5MB).</p>
           <div id="upload-list"></div>
@@ -88,7 +91,7 @@
 
       <!-- ===================== CEK STATUS ===================== -->
       <section id="view-status" class="view">
-        <div id="status-login-wrap">
+        <div id="status-login-wrap" class="panel-card">
           <h2>Login Pendaftar</h2>
           <p class="muted">Masuk dengan nomor pendaftaran dan password yang dibuat saat mendaftar.</p>
           <div id="status-login-error" class="alert alert-error" style="display:none"></div>
@@ -105,43 +108,6 @@
             <button class="btn btn-outline" id="btn-logout-pendaftar">Keluar</button>
           </div>
           <div id="status-result"></div>
-        </div>
-      </section>
-
-      <!-- ===================== PANITIA ===================== -->
-      <section id="view-panitia" class="view">
-        <div id="panitia-login-wrap">
-          <h2>Login Panitia</h2>
-          <p class="muted">Masuk dengan akun panitia sekolah Anda.</p>
-          <div id="panitia-login-error" class="alert alert-error" style="display:none"></div>
-          <form id="form-login-panitia" style="max-width:360px">
-            <label>Username<input required name="username" placeholder="panitia_sma2" /></label>
-            <label>Password<input required type="password" name="password" /></label>
-            <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
-          </form>
-        </div>
-
-        <div id="panitia-view-wrap" style="display:none">
-          <div class="row-between">
-            <h2>Verifikasi &amp; Seleksi</h2>
-            <div>
-              <span class="muted" id="panitia-nama-label" style="margin-right:12px"></span>
-              <button class="btn btn-outline" id="btn-logout-panitia">Keluar</button>
-            </div>
-          </div>
-
-          <h3 class="sub-heading" style="margin-top:0">Antrean Aktif di Sekolah Ini</h3>
-          <div class="table-wrap">
-            <table id="table-panitia">
-              <thead>
-                <tr><th>Nomor</th><th>Nama</th><th>Pilihan Ke-</th><th>Jalur</th><th>Skor</th><th>Berkas</th><th>Dokumen</th><th>Peringatan Otomatis</th><th>Aksi</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-
-          <h3 class="sub-heading">Jalankan Seleksi per Jalur</h3>
-          <div id="jalur-seleksi-container"></div>
         </div>
       </section>
 

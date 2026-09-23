@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Panitia — SiPPDB</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="staff-topbar">
+    <div class="staff-brand">
+      <div class="brand-badge">🎓</div>
+      <p class="staff-brand-title">SiPPDB <span class="staff-badge">🔒 Staf Panitia</span></p>
+    </div>
+    <div class="staff-topbar-right">
+      <span id="panitia-nama-label"></span>
+      <button class="btn btn-outline" id="btn-logout-panitia" style="display:none">Keluar</button>
+      <a href="/" class="sidebar-foot-link" style="color:#c8d3e6">← Situs Pendaftar</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== LOGIN ===================== -->
+    <div id="panitia-login-wrap" class="auth-shell">
+      <div class="auth-card">
+        <div class="auth-icon">🔑</div>
+        <h2>Login Panitia</h2>
+        <p class="muted">Masuk dengan akun panitia sekolah Anda. Halaman ini khusus staf dan tidak ditautkan dari situs pendaftar.</p>
+        <div id="panitia-login-error" class="alert alert-error" style="display:none"></div>
+        <form id="form-login-panitia">
+          <label>Username<input required name="username" placeholder="panitia_sma2" autocomplete="username" /></label>
+          <label>Password<input required type="password" name="password" autocomplete="current-password" /></label>
+          <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <div id="panitia-view-wrap" class="staff-main" style="display:none">
+      <h3 class="sub-heading" style="margin-top:0">Antrean Aktif di Sekolah Ini</h3>
+      <div class="table-wrap">
+        <table id="table-panitia">
+          <thead>
+            <tr><th>Nomor</th><th>Nama</th><th>Pilihan Ke-</th><th>Jalur</th><th>Skor</th><th>Berkas</th><th>Dokumen</th><th>Peringatan Otomatis</th><th>Aksi</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <h3 class="sub-heading">Jalankan Seleksi per Jalur</h3>
+      <div id="jalur-seleksi-container"></div>
+    </div>
+  </main>
+
+  <script src="/js/panitia.js"></script>
+</body>
+</html>
