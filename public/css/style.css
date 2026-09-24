@@ -243,6 +243,7 @@ tbody tr:hover { background: #fbfaf7; }
   .nav-item { flex-direction: column; justify-content: center; text-align: center; gap: 3px; padding: 8px 2px; font-size: 11.5px; }
   .nav-item .nav-ico { font-size: 18px; width: auto; }
   .nav-label, .sidebar-foot { display: none; }
+  .kaki-halaman { display: block; }
   .content { padding: 20px 16px 40px; }
   h1 { font-size: 26px; }
   h2 { font-size: 21px; }
@@ -296,3 +297,9 @@ tbody tr:hover { background: #fbfaf7; }
 .tahapan-status { font-weight: 700; font-size: 15px; margin-top: 4px; }
 .tahapan-status.buka { color: #047857; }
 .tahapan-status.tutup { color: #b45309; }
+
+/* Kaki halaman: link Login Panitia untuk layar sempit (di layar lebar sudah ada di sidebar) */
+.kaki-halaman { display: none; margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+.kaki-halaman a { color: var(--muted); font-size: 12.5px; text-decoration: none; padding: 8px 12px; border-radius: 8px; }
+.kaki-halaman a:hover { background: #efece6; color: var(--navy); }
+@media (max-width: 860px) { .kaki-halaman { display: block; } }
