@@ -47,13 +47,21 @@
         <div id="daftar-form-wrap" class="panel-card">
           <h2>Formulir Pendaftaran</h2>
           <p class="muted">Pilih hingga 3 sekolah secara berurutan. Sistem akan memproses Pilihan 1 terlebih dahulu.</p>
+          <div id="daftar-tutup" class="alert alert-error" style="display:none">🔒 <strong>Pendaftaran sedang ditutup.</strong> Proses seleksi sedang berlangsung — pantau menu Pengumuman. Pendaftar yang sudah terdaftar tetap bisa login di Cek Status.</div>
           <div id="daftar-success" class="alert alert-success" style="display:none"></div>
           <form id="form-daftar">
             <label>Nama Lengkap<input required name="nama" placeholder="Sesuai akta kelahiran" /></label>
             <label>NIK<input required name="nik" placeholder="16 digit sesuai KK" /></label>
             <label>Email<input required type="email" name="email" placeholder="untuk menerima notifikasi status" /></label>
             <label>Tanggal Lahir<input required type="date" name="tanggalLahir" /></label>
+            <label>Alamat Rumah<textarea required name="alamat" rows="2" placeholder="Sesuai Kartu Keluarga: jalan, RT/RW, kelurahan, kecamatan"></textarea></label>
             <label>Buat Password<input required type="password" name="password" placeholder="Minimal 6 karakter, untuk cek status nanti" minlength="6" /></label>
+            <label>Nilai Rapor<input type="number" name="nilaiRapor" min="0" max="100" step="0.01" placeholder="Rata-rata rapor 0–100 — wajib jika memilih jalur Prestasi" /></label>
+            <p class="muted" style="margin:0;font-size:12.5px">📍 Saat mengirim, browser akan meminta izin lokasi. Lokasi dipakai untuk menghitung jarak rumah ke sekolah pada jalur Zonasi.</p>
+            <div class="jarak-box">
+              <button type="button" class="btn btn-outline" id="btn-cek-jarak">📍 Cek jarak saya ke sekolah</button>
+              <div id="jarak-info" class="muted" style="margin:8px 0 0;font-size:12.5px">Lihat sekolah mana yang masuk radius zonasi sebelum memilih.</div>
+            </div>
 
             <div class="pilihan-block" data-index="0">
               <p class="pilihan-title">Pilihan 1 (Utama)</p>

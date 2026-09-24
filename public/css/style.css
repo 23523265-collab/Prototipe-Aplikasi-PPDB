@@ -139,11 +139,12 @@ nav { display: flex; flex-direction: column; gap: 3px; flex: 1; }
 }
 form { display: flex; flex-direction: column; gap: 14px; max-width: 440px; }
 label { font-size: 13.5px; font-weight: 600; color: #374151; display: flex; flex-direction: column; gap: 6px; }
-input, select {
+input, select, textarea {
   font-family: inherit; font-size: 14px; padding: 10px 13px; border-radius: var(--radius-sm);
   border: 1px solid #d1d5db; background: #fff; transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-input:focus, select:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(201,138,44,0.15); }
+textarea { resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 3px rgba(201,138,44,0.15); }
 
 .alert { padding: 12px 14px; border-radius: var(--radius-sm); font-size: 14px; margin-bottom: 16px; border: 1px solid transparent; }
 .alert-success { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
@@ -181,8 +182,9 @@ tbody tr:hover { background: #fbfaf7; }
 .pilihan-block { border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; margin-bottom: 12px; background: #fbfaf7; transition: border-color 0.15s ease; }
 .pilihan-block:focus-within { border-color: var(--amber-light); }
 .pilihan-title { font-size: 13px; font-weight: 700; color: var(--amber-dark); margin: 0 0 8px; }
-.pilihan-row { display: flex; gap: 10px; }
-.pilihan-row select { flex: 1; }
+/* Sekolah & jalur ditumpuk atas-bawah: teks opsi (jarak, radius) panjang, jangan sampai melebar keluar kotak */
+.pilihan-row { display: flex; flex-direction: column; gap: 8px; }
+.pilihan-row select { width: 100%; min-width: 0; text-overflow: ellipsis; }
 .timeline { border-left: 2px solid var(--border); padding-left: 16px; margin-left: 4px; }
 .timeline-item { margin-bottom: 14px; font-size: 13.5px; }
 .timeline-item .t-title { font-weight: 600; color: #374151; }
@@ -242,3 +244,43 @@ tbody tr:hover { background: #fbfaf7; }
   .staff-topbar { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
   .staff-main { padding: 24px 16px 40px; }
 }
+
+/* ===================== MODAL LOKASI (PANITIA) ===================== */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-card {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 760px; max-height: 92vh; overflow-y: auto; padding: 22px 24px;
+}
+.lokasi-info { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 18px; margin: 14px 0; font-size: 13.5px; }
+.lokasi-info .li-label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+.lokasi-info .li-full { grid-column: 1 / -1; }
+.lokasi-peta { height: 380px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.btn-lokasi { background: #eef2ff; color: #3730a3; }
+@media (max-width: 640px) { .lokasi-info { grid-template-columns: 1fr; } }
+
+/* Kotak "Cek jarak saya ke sekolah" di form pendaftaran */
+.jarak-box { background: #f0f7ff; border: 1px solid #cfe2fb; border-radius: var(--radius-sm); padding: 12px 14px; }
+
+/* Tombol sedang memproses: langsung terlihat berbeda begitu diklik */
+.btn:disabled { opacity: 0.75; cursor: wait; transform: none; }
+.spinner {
+  display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px;
+  border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%;
+  animation: putar 0.7s linear infinite;
+}
+@keyframes putar { to { transform: rotate(360deg); } }
+
+/* Kotak Tahapan PPDB di panel panitia */
+.tahapan-box {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 20px; margin-bottom: 24px; box-shadow: var(--shadow-sm);
+}
+.tahapan-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.tahapan-status { font-weight: 700; font-size: 15px; margin-top: 4px; }
+.tahapan-status.buka { color: #047857; }
+.tahapan-status.tutup { color: #b45309; }

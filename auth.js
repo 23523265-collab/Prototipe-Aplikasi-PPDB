@@ -32,11 +32,20 @@ async function buatSesi(tipe, { pendaftarId, panitiaId }) {
   return token;
 }
 
+/**
+ * Kolom `timestamp` (tanpa zona waktu) di Supabase berisi waktu UTC, tapi dikirim tanpa akhiran "Z".
+ * new Date() di Node akan membacanya sebagai jam lokal (WIB, UTC+7) -- sesi 8 jam jadi habis dalam 1 jam.
+ */
+function waktuUtc(nilai) {
+  const s = String(nilai);
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + "Z");
+}
+
 async function ambilSesi(token) {
   if (!token) return null;
   const { data } = await supabase.from("sesi").select("*").eq("token", token).maybeSingle();
   if (!data) return null;
-  if (new Date(data.kadaluarsa_at) < new Date()) {
+  if (waktuUtc(data.kadaluarsa_at) < new Date()) {
     await supabase.from("sesi").delete().eq("token", token);
     return null;
   }
@@ -84,7 +93,63 @@ async function requirePanitiaLogin(req, res, next) {
   next();
 }
 
+/* ---------------------------------------------------------
+   Batas percobaan login (anti brute force)
+   Disimpan di tabel login_gagal (migration v6.4), bukan di memori,
+   supaya tetap berlaku di Vercel serverless.
+   --------------------------------------------------------- */
+const JENDELA_MENIT = 15;
+const MAKS_GAGAL_PER_AKUN = 5;
+const MAKS_GAGAL_PER_IP = 20;
+
+function kunciLogin(tipe, identitas, ip) {
+  return { akun: `${tipe}:${String(identitas).trim().toLowerCase()}`, ip: `ip:${ip || "tidak-diketahui"}` };
+}
+
+/** Mengembalikan jumlah menit yang harus ditunggu (0 = boleh mencoba login). */
+async function cekBatasLogin({ akun, ip }) {
+  const sejak = new Date(Date.now() - JENDELA_MENIT * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("login_gagal")
+    .select("kunci, waktu")
+    .in("kunci", [akun, ip])
+    .gte("waktu", sejak)
+    .order("waktu", { ascending: true });
+  if (error) {
+    // Tabel belum dibuat (migration v6.4 belum dijalankan): jangan kunci siapa pun
+    console.warn("[auth] Batas login tidak aktif:", error.message);
+    return 0;
+  }
+
+  const gagalAkun = data.filter((d) => d.kunci === akun);
+  const gagalIp = data.filter((d) => d.kunci === ip);
+  let terkunciSampai = 0;
+  if (gagalAkun.length >= MAKS_GAGAL_PER_AKUN) {
+    terkunciSampai = Math.max(terkunciSampai, waktuUtc(gagalAkun[gagalAkun.length - MAKS_GAGAL_PER_AKUN].waktu).getTime());
+  }
+  if (gagalIp.length >= MAKS_GAGAL_PER_IP) {
+    terkunciSampai = Math.max(terkunciSampai, waktuUtc(gagalIp[gagalIp.length - MAKS_GAGAL_PER_IP].waktu).getTime());
+  }
+  if (!terkunciSampai) return 0;
+  const sisaMs = terkunciSampai + JENDELA_MENIT * 60 * 1000 - Date.now();
+  return sisaMs > 0 ? Math.ceil(sisaMs / 60000) : 0;
+}
+
+async function catatLoginGagal({ akun, ip }) {
+  const { error } = await supabase.from("login_gagal").insert([{ kunci: akun }, { kunci: ip }]);
+  if (error) console.warn("[auth] Gagal mencatat login gagal:", error.message);
+}
+
+/** Login berhasil: hapus catatan gagal untuk akun itu (IP tetap tercatat). */
+async function resetLoginGagal({ akun }) {
+  await supabase.from("login_gagal").delete().eq("kunci", akun);
+}
+
 module.exports = {
+  kunciLogin,
+  cekBatasLogin,
+  catatLoginGagal,
+  resetLoginGagal,
   hashPassword,
   verifyPassword,
   buatSesi,

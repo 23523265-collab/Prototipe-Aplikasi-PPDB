@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panel Panitia — SiPPDB</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
@@ -37,6 +38,8 @@
 
     <!-- ===================== DASHBOARD ===================== -->
     <div id="panitia-view-wrap" class="staff-main" style="display:none">
+      <div id="tahapan-box" class="tahapan-box"></div>
+
       <h3 class="sub-heading" style="margin-top:0">Antrean Aktif di Sekolah Ini</h3>
       <div class="table-wrap">
         <table id="table-panitia">
@@ -52,6 +55,20 @@
     </div>
   </main>
 
+  <!-- ===================== MODAL VERIFIKASI LOKASI ===================== -->
+  <div id="modal-lokasi" class="modal-backdrop" style="display:none">
+    <div class="modal-card">
+      <div class="row-between">
+        <h2 id="lokasi-judul" style="font-size:20px;margin:0">Verifikasi Lokasi</h2>
+        <button class="btn btn-outline" style="padding:6px 12px" onclick="tutupLokasi()">✕ Tutup</button>
+      </div>
+      <div id="lokasi-info" class="lokasi-info"></div>
+      <div id="lokasi-peta" class="lokasi-peta"></div>
+      <p class="muted" style="margin:10px 0 0;font-size:12px">🔵 Titik GPS rumah (lingkaran tipis = akurasi) · 🟢 Hasil pencarian alamat · 🟠 Sekolah (lingkaran putus-putus = radius zonasi). Titik GPS dapat dipalsukan — cocokkan dengan alamat di Kartu Keluarga.</p>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="/js/panitia.js"></script>
 </body>
 </html>

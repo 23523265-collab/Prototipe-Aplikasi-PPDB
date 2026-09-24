@@ -4,6 +4,14 @@ let pendaftarList = [];
 let sesi = { pendaftar: null };
 let pendaftarBaruId = null; // dipakai sesaat setelah daftar, untuk upload berkas
 
+// Escape teks sebelum dimasukkan ke HTML (mencegah XSS dari data yang diisi pendaftar)
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Hanya izinkan link http(s), supaya URL "javascript:..." tidak bisa disisipkan
+const safeUrl = (u) => (/^https?:\/\//i.test(String(u ?? "")) ? esc(u) : "#");
+
+const formatWaktuWIB = (d) =>
+  new Date(d).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" }) + " WIB";
+
 const sekolahNama = (id) => sekolahList.find((s) => s.id === id)?.nama ?? "-";
 
 // ---------- Navigation ----------
@@ -19,6 +27,7 @@ function showView(view) {
   document.getElementById(`view-${view}`).classList.add("active");
   document.querySelectorAll(".nav-item[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (view === "beranda") renderBeranda();
+  if (view === "daftar") cekTahapanPendaftaran();
   if (view === "status") renderStatusView();
   if (view === "pengumuman") renderPengumuman();
 }
@@ -39,7 +48,7 @@ function pillHTML(status) {
     "Tidak Diterima Final": ["pill-red", "✕"],
   };
   const [cls, icon] = map[status] || ["pill-gray", "—"];
-  return `<span class="pill ${cls}">${icon} ${status}</span>`;
+  return `<span class="pill ${cls}">${icon} ${esc(status)}</span>`;
 }
 
 // ---------- Sesi login ----------
@@ -59,6 +68,13 @@ async function loadData() {
   renderBeranda();
 }
 
+// Form pendaftaran disembunyikan saat panitia menutup pendaftaran (tahapan seleksi)
+async function cekTahapanPendaftaran() {
+  const t = await fetch("/api/tahapan").then((r) => r.json()).catch(() => ({ dibuka: true }));
+  document.getElementById("daftar-tutup").style.display = t.dibuka ? "none" : "block";
+  document.getElementById("form-daftar").style.display = t.dibuka ? "" : "none";
+}
+
 function jalurOptionsForSekolah(sekolahId) {
   return jalurList.filter((j) => j.sekolah_id === Number(sekolahId));
 }
@@ -66,15 +82,83 @@ function jalurOptionsForSekolah(sekolahId) {
 function populateSekolahSelects() {
   document.querySelectorAll(".select-sekolah").forEach((sel) => {
     sel.innerHTML = `<option value="">-- Pilih Sekolah --</option>` +
-      sekolahList.map((s) => `<option value="${s.id}">${s.nama}</option>`).join("");
-    sel.addEventListener("change", () => {
-      const idx = sel.dataset.index;
-      const jalurSel = document.querySelector(`.select-jalur[data-index="${idx}"]`);
-      const opts = jalurOptionsForSekolah(sel.value);
-      jalurSel.innerHTML = opts.map((j) => `<option value="${j.id}">${j.nama} (kuota ${j.kuota}${j.syarat_nilai_minimum ? ", min. nilai " + j.syarat_nilai_minimum : ""})</option>`).join("");
-    });
+      sekolahList.map((s) => `<option value="${s.id}">${esc(s.nama)}${labelJarakSekolah(s)}</option>`).join("");
+    sel.onchange = () => isiJalur(sel);
   });
 }
+
+function isiJalur(sel) {
+  const idx = sel.dataset.index;
+  const jalurSel = document.querySelector(`.select-jalur[data-index="${idx}"]`);
+  const sekolah = sekolahList.find((x) => x.id === Number(sel.value));
+  const jarak = sekolah ? jarakKeSekolah(sekolah) : null;
+  const opts = jalurOptionsForSekolah(sel.value);
+  jalurSel.innerHTML = opts.map((j) => {
+    let info = "";
+    if (j.syarat_radius_km && jarak != null) info = jarak <= Number(j.syarat_radius_km) ? " — ✓ masuk radius" : " — ✕ di luar radius";
+    return `<option value="${j.id}">${esc(j.nama)} (kuota ${j.kuota}${j.syarat_nilai_minimum ? ", min. nilai " + j.syarat_nilai_minimum : ""}${j.syarat_radius_km ? ", radius " + j.syarat_radius_km + " km" : ""})${info}</option>`;
+  }).join("");
+}
+
+/* ---------- Cek jarak ke sekolah (sebelum mendaftar) ---------- */
+let lokasiTerakhir = null; // { latitude, longitude, akurasi, waktu }
+
+// Rumus Haversine -- sama dengan zonasi.js di server
+function hitungJarakKm(lat1, lng1, lat2, lng2) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(a));
+}
+
+function jarakKeSekolah(sekolah) {
+  if (!lokasiTerakhir || sekolah.latitude == null || sekolah.longitude == null) return null;
+  return hitungJarakKm(lokasiTerakhir.latitude, lokasiTerakhir.longitude, Number(sekolah.latitude), Number(sekolah.longitude));
+}
+
+function radiusZonasi(sekolahId) {
+  return jalurList.find((j) => j.sekolah_id === sekolahId && j.syarat_radius_km)?.syarat_radius_km ?? null;
+}
+
+function labelJarakSekolah(sekolah) {
+  const jarak = jarakKeSekolah(sekolah);
+  if (jarak == null) return "";
+  const radius = radiusZonasi(sekolah.id);
+  const tanda = radius == null ? "" : jarak <= Number(radius) ? " ✓" : " ✕";
+  return ` — ${jarak.toFixed(1)} km${tanda}`;
+}
+
+document.getElementById("btn-cek-jarak").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const info = document.getElementById("jarak-info");
+  btn.disabled = true;
+  btn.innerText = "Mengambil lokasi...";
+  const lokasi = await ambilLokasi(true);
+  btn.disabled = false;
+  btn.innerText = "📍 Perbarui lokasi";
+  if (!lokasi) {
+    info.innerHTML = '<span style="color:#b91c1c">Lokasi tidak tersedia. Izinkan akses lokasi di browser lalu coba lagi.</span>';
+    return;
+  }
+
+  // Simpan pilihan yang sudah dipilih, isi ulang dropdown dengan label jarak
+  const terpilih = [...document.querySelectorAll(".select-sekolah")].map((sel) => [sel.value, document.querySelector(`.select-jalur[data-index="${sel.dataset.index}"]`).value]);
+  populateSekolahSelects();
+  document.querySelectorAll(".select-sekolah").forEach((sel, i) => {
+    sel.value = terpilih[i][0];
+    if (sel.value) { isiJalur(sel); document.querySelector(`.select-jalur[data-index="${i}"]`).value = terpilih[i][1]; }
+  });
+
+  const urut = sekolahList
+    .map((s) => ({ s, jarak: jarakKeSekolah(s), radius: radiusZonasi(s.id) }))
+    .filter((x) => x.jarak != null)
+    .sort((a, b) => a.jarak - b.jarak);
+  const masuk = urut.filter((x) => x.radius != null && x.jarak <= Number(x.radius));
+  info.innerHTML = `Akurasi GPS ± ${Math.round(lokasi.akurasi)} m. ` +
+    (masuk.length
+      ? `<strong style="color:#047857">${masuk.length} sekolah masuk radius zonasi:</strong> ${masuk.map((x) => `${esc(x.s.nama)} (${x.jarak.toFixed(1)} km)`).join(", ")}.`
+      : '<strong style="color:#b91c1c">Tidak ada sekolah dalam radius zonasi dari lokasimu.</strong>') +
+    ` Terdekat berikutnya: ${urut.filter((x) => !masuk.includes(x)).slice(0, 2).map((x) => `${esc(x.s.nama)} (${x.jarak.toFixed(1)} km)`).join(", ") || "-"}. Tanda ✓/✕ di pilihan sekolah menunjukkan masuk/tidak radius zonasi.`;
+});
 
 // ---------- Beranda ----------
 function renderBeranda() {
@@ -92,9 +176,15 @@ function renderBeranda() {
 /* =========================================================
    PENDAFTARAN + UPLOAD BERKAS
    ========================================================= */
+let sedangMengirim = false; // cegah pendaftaran ganda akibat tombol terklik dua kali
+
 document.getElementById("form-daftar").addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (sedangMengirim) return;
   const form = e.target;
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const box = document.getElementById("daftar-success");
+
   const pilihan = [];
   for (let i = 0; i < 3; i++) {
     const sekolahId = form.querySelector(`.select-sekolah[data-index="${i}"]`).value;
@@ -105,69 +195,136 @@ document.getElementById("form-daftar").addEventListener("submit", async (e) => {
     alert("Isi minimal Pilihan 1.");
     return;
   }
-  const body = {
-    nama: form.nama.value,
-    nik: form.nik.value,
-    email: form.email.value,
-    tanggalLahir: form.tanggalLahir.value,
-    password: form.password.value,
-    pilihan,
-  };
-  const res = await fetch("/api/pendaftar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  const box = document.getElementById("daftar-success");
-  if (res.ok) {
+
+  // Kunci tombol SEKETIKA saat diklik, dan tunjukkan progres -- tombol baru aktif lagi kalau gagal
+  sedangMengirim = true;
+  submitBtn.disabled = true;
+  box.style.display = "none";
+  const setProgres = (teks) => { submitBtn.innerHTML = `<span class="spinner"></span>${teks}`; };
+
+  try {
+    setProgres("Mengambil lokasi…");
+    const lokasi = await ambilLokasi();
+
+    const pilihZonasi = pilihan.some((p) => jalurList.find((j) => j.id === p.jalurId)?.syarat_radius_km);
+    if (!lokasi && pilihZonasi) {
+      alert("Lokasi tidak tersedia (izin ditolak atau browser tidak mendukung). Pendaftaran tetap dikirim, tetapi skor zonasi tidak bisa dihitung — pilihan jalur Zonasi akan diberi skor 0 dengan catatan \"lokasi tidak tersedia\".");
+    }
+
+    setProgres("Menyimpan pendaftaran…");
+    const body = {
+      nama: form.nama.value,
+      nik: form.nik.value,
+      email: form.email.value,
+      tanggalLahir: form.tanggalLahir.value,
+      password: form.password.value,
+      nilaiRapor: form.nilaiRapor.value === "" ? null : Number(form.nilaiRapor.value),
+      alamat: form.alamat.value,
+      akurasiLokasi: lokasi ? lokasi.akurasi : null,
+      latitude: lokasi ? lokasi.latitude : null,
+      longitude: lokasi ? lokasi.longitude : null,
+      pilihan,
+    };
+    const res = await fetch("/api/pendaftar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Terjadi kesalahan, coba lagi.");
+
     pendaftarBaruId = data.id;
     document.getElementById("daftar-form-wrap").style.display = "none";
     document.getElementById("daftar-upload-wrap").style.display = "block";
     document.getElementById("upload-nomor").innerText = data.nomor;
-    renderUploadList();
-    await loadData();
-  } else {
+    renderUploadList("upload-list", "baru", pendaftarBaruId);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    loadData(); // perbarui statistik beranda di belakang layar, tidak perlu ditunggu
+  } catch (err) {
     box.className = "alert alert-error";
     box.style.display = "block";
-    box.innerText = data.error || "Terjadi kesalahan, coba lagi.";
+    box.innerText = err.message;
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+    sedangMengirim = false;
+    submitBtn.disabled = false;
+    submitBtn.innerText = "Kirim Pendaftaran";
   }
 });
 
-function renderUploadList() {
-  const jenisList = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
-  const container = document.getElementById("upload-list");
-  container.innerHTML = jenisList.map((jenis, i) => `
-    <div class="upload-item">
-      <div class="upload-info">
-        <strong>${jenis}</strong>
-        <div class="upload-status" id="upload-status-${i}">Belum diunggah</div>
-      </div>
-      <div>
-        <input type="file" id="upload-file-${i}" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="unggahBerkas(${i}, '${jenis}')" />
-        <button class="btn btn-outline" onclick="document.getElementById('upload-file-${i}').click()">Pilih File</button>
-      </div>
-    </div>
-  `).join("");
+// Minta koordinat GPS dari browser; null kalau ditolak, gagal, atau tidak didukung
+function ambilLokasi(paksaBaru = false) {
+  if (!paksaBaru && lokasiTerakhir && Date.now() - lokasiTerakhir.waktu < 10 * 60 * 1000) {
+    return Promise.resolve(lokasiTerakhir);
+  }
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        lokasiTerakhir = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, akurasi: pos.coords.accuracy, waktu: Date.now() };
+        resolve(lokasiTerakhir);
+      },
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
 }
 
-async function unggahBerkas(idx, jenis) {
-  const input = document.getElementById(`upload-file-${idx}`);
+const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
+
+/**
+ * Daftar unggah berkas. Dipakai sesaat setelah mendaftar dan di halaman Cek Status.
+ * prefix membedakan id elemen di dua tempat itu; onSelesai dipanggil setelah upload berhasil.
+ */
+const uploadCtx = {};
+function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terkunci = null, onSelesai = null } = {}) {
+  uploadCtx[prefix] = { pendaftarId, onSelesai };
+  const container = document.getElementById(containerId);
+  container.innerHTML = JENIS_DOKUMEN.map((jenis, i) => {
+    const ada = dokumen.find((d) => d.jenis === jenis);
+    const statusHTML = ada
+      ? `<span style="color:#047857">✓ ${ada.url ? `<a href="${safeUrl(ada.url)}" target="_blank" rel="noopener">${esc(ada.nama_file)}</a>` : esc(ada.nama_file)}</span>`
+      : "Belum diunggah";
+    return `
+    <div class="upload-item">
+      <div class="upload-info">
+        <strong>${esc(jenis)}</strong>
+        <div class="upload-status" id="${prefix}-status-${i}">${statusHTML}</div>
+      </div>
+      <div>${terkunci
+        ? `<span style="font-size:12px;color:var(--muted)">🔒 ${esc(terkunci)}</span>`
+        : `<input type="file" id="${prefix}-file-${i}" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="unggahBerkas('${prefix}', ${i})" />
+           <button class="btn btn-outline" onclick="document.getElementById('${prefix}-file-${i}').click()">${ada ? "Ganti" : "Pilih File"}</button>`}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function unggahBerkas(prefix, idx) {
+  const { pendaftarId, onSelesai } = uploadCtx[prefix];
+  const jenis = JENIS_DOKUMEN[idx];
+  const input = document.getElementById(`${prefix}-file-${idx}`);
   const file = input.files[0];
   if (!file) return;
-  const statusEl = document.getElementById(`upload-status-${idx}`);
+  const statusEl = document.getElementById(`${prefix}-status-${idx}`);
+  if (file.size > 5 * 1024 * 1024) {
+    statusEl.innerHTML = `<span style="color:#b91c1c">Ukuran file maksimal 5MB.</span>`;
+    input.value = "";
+    return;
+  }
   statusEl.innerText = "Mengunggah...";
 
   const formData = new FormData();
   formData.append("file", file);
   formData.append("jenis", jenis);
 
-  const res = await fetch(`/api/pendaftar/${pendaftarBaruId}/dokumen`, { method: "POST", body: formData });
-  const data = await res.json();
+  const res = await fetch(`/api/pendaftar/${pendaftarId}/dokumen`, { method: "POST", body: formData });
+  const data = await res.json().catch(() => ({}));
+  input.value = "";
   if (res.ok) {
-    statusEl.innerHTML = `<span style="color:#047857">✓ ${file.name}</span>`;
+    statusEl.innerHTML = `<span style="color:#047857">✓ ${esc(file.name)}</span>`;
+    if (onSelesai) onSelesai();
   } else {
-    statusEl.innerHTML = `<span style="color:#b91c1c">${data.error || "Gagal mengunggah"}</span>`;
+    statusEl.innerHTML = `<span style="color:#b91c1c">${esc(data.error || "Gagal mengunggah")}</span>`;
   }
 }
 
@@ -215,36 +372,44 @@ async function renderStatusView() {
   }
   const { pendaftar, pilihan, riwayat, notifikasi, dokumen } = await res.json();
 
+  let terkunci = null;
+  if (pendaftar.status_global !== "Aktif") terkunci = "Pendaftaran selesai";
+  else if (pendaftar.status_berkas === "Lengkap") terkunci = "Sudah diverifikasi";
+
   let statusBanner = "";
   if (pendaftar.status_global === "Diterima Final") {
-    statusBanner = `<div class="badge-final-accept">Diterima di ${sekolahNama(pendaftar.sekolah_aktif_id)}</div>`;
+    statusBanner = `<div class="badge-final-accept">Diterima di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}</div>`;
   } else if (pendaftar.status_global === "Tidak Diterima Final") {
     statusBanner = `<div class="badge-final-reject">Tidak diterima di seluruh pilihan sekolah</div>`;
+  } else if (pendaftar.status_berkas === "Kurang Lengkap") {
+    statusBanner = `<div class="alert alert-error" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">
+      <strong>⚠ Berkas Anda Kurang Lengkap</strong> di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}.
+      ${pendaftar.catatan_revisi ? `<br/>Catatan panitia: <em>${esc(pendaftar.catatan_revisi)}</em>` : ""}
+      ${pendaftar.batas_revisi_at ? `<br/>Unggah ulang berkas di bagian <strong>Berkas Pendaftaran</strong> di bawah paling lambat <strong>${esc(formatWaktuWIB(pendaftar.batas_revisi_at))}</strong>. Jika lewat batas waktu, pendaftaran otomatis dialihkan ke pilihan berikutnya.` : ""}
+    </div>`;
   } else {
-    statusBanner = `<div class="alert alert-success" style="background:#fffbeb;color:#b45309;border-color:#fde68a">Sedang diproses di Pilihan ${pendaftar.prioritas_aktif}: <strong>${sekolahNama(pendaftar.sekolah_aktif_id)}</strong> · Status berkas: ${pendaftar.status_berkas}</div>`;
+    statusBanner = `<div class="alert alert-success" style="background:#fffbeb;color:#b45309;border-color:#fde68a">Sedang diproses di Pilihan ${pendaftar.prioritas_aktif}: <strong>${esc(sekolahNama(pendaftar.sekolah_aktif_id))}</strong> · Status berkas: ${esc(pendaftar.status_berkas)}</div>`;
   }
 
   const pilihanRows = pilihan.map((p) => `
     <tr>
       <td>Pilihan ${p.urutan_prioritas}</td>
-      <td>${p.sekolah_nama}</td>
-      <td>${p.jalur_nama}</td>
+      <td>${esc(p.sekolah_nama)}</td>
+      <td>${esc(p.jalur_nama)}${p.jarak_km != null
+        ? `<br/><span style="font-size:11.5px;color:var(--muted)">📍 ${Number(p.jarak_km).toFixed(1)} km dari sekolah</span>`
+        : p.catatan_skor ? `<br/><span style="font-size:11.5px;color:#b45309">⚠ ${esc(p.catatan_skor)}</span>` : ""}</td>
       <td>${p.skor}</td>
-      <td>${pillHTML(p.status)}${p.alasan_penolakan ? `<br/><span style="font-size:11px;color:var(--muted)">${p.alasan_penolakan}</span>` : ""}</td>
+      <td>${pillHTML(p.status)}${p.alasan_penolakan ? `<br/><span style="font-size:11px;color:var(--muted)">${esc(p.alasan_penolakan)}</span>` : ""}</td>
     </tr>
   `).join("");
 
-  const dokumenRows = (dokumen || []).length
-    ? dokumen.map((d) => `<li class="timeline-item"><a href="${d.url}" target="_blank" rel="noopener">${d.jenis} — ${d.nama_file}</a></li>`).join("")
-    : `<li class="timeline-item" style="color:var(--muted)">Belum ada berkas diunggah.</li>`;
-
-  const notifItems = notifikasi.map((n) => `<li class="timeline-item"><div class="t-title">${n.isi_pesan}</div><div class="t-meta">${n.waktu}</div></li>`).join("");
+  const notifItems = notifikasi.map((n) => `<li class="timeline-item"><div class="t-title">${esc(n.isi_pesan)}</div><div class="t-meta">${esc(n.waktu)}</div></li>`).join("");
 
   container.innerHTML = `
     <div class="table-wrap" style="padding:18px;margin-bottom:16px">
       <div style="margin-bottom:14px">
-        <strong>${pendaftar.nama}</strong><br/>
-        <span style="color:var(--muted);font-size:13px">${pendaftar.nomor}</span>
+        <strong>${esc(pendaftar.nama)}</strong><br/>
+        <span style="color:var(--muted);font-size:13px">${esc(pendaftar.nomor)}</span>
       </div>
       ${statusBanner}
     </div>
@@ -254,11 +419,17 @@ async function renderStatusView() {
         <tbody>${pilihanRows}</tbody>
       </table>
     </div>
-    <h3 class="sub-heading" style="margin-top:0">Berkas Terunggah</h3>
-    <ul class="timeline">${dokumenRows}</ul>
+    <h3 class="sub-heading" style="margin-top:0">Berkas Pendaftaran</h3>
+    <p class="muted" style="margin:-4px 0 10px;font-size:12.5px">PDF/JPG/PNG, maks 5MB. Berkas dapat diganti selama belum diverifikasi Lengkap oleh panitia.</p>
+    <div id="status-upload-list"></div>
     <h3 class="sub-heading">Riwayat Notifikasi</h3>
     <ul class="timeline">${notifItems || '<li class="timeline-item">Belum ada notifikasi.</li>'}</ul>
   `;
+
+  renderUploadList("status-upload-list", "status", pendaftar.id, dokumen || [], {
+    terkunci,
+    onSelesai: () => renderStatusView(),
+  });
 }
 
 /* =========================================================
@@ -267,15 +438,16 @@ async function renderStatusView() {
 function renderPengumuman() {
   const container = document.getElementById("pengumuman-container");
   container.innerHTML = `
+    <p class="muted" style="font-size:12.5px">🔒 Nama disamarkan untuk melindungi data pribadi pendaftar. Cari hasilmu berdasarkan <strong>nomor pendaftaran</strong>, atau login di menu Cek Status untuk detail lengkap.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Nomor</th><th>Nama</th><th>Posisi Saat Ini</th><th>Status Akhir</th></tr></thead>
         <tbody>
           ${pendaftarList.map((p) => `
             <tr>
-              <td>${p.nomor}</td>
-              <td><strong>${p.nama}</strong></td>
-              <td>${p.sekolah_aktif_nama || "-"} ${p.status_global === "Aktif" ? `(Pilihan ${p.prioritas_aktif})` : ""}</td>
+              <td>${esc(p.nomor)}</td>
+              <td><strong>${esc(p.nama_samaran)}</strong></td>
+              <td>${esc(p.sekolah_aktif_nama || "-")} ${p.status_global === "Aktif" ? `(Pilihan ${p.prioritas_aktif})` : ""}</td>
               <td>${pillHTML(p.status_global)}</td>
             </tr>
           `).join("")}
@@ -286,3 +458,14 @@ function renderPengumuman() {
 }
 
 loadData();
+
+
+// Kalender tanggal lahir hanya menawarkan rentang usia yang valid (12–21 tahun per 1 Juli tahun ini)
+(function aturBatasTanggalLahir() {
+  const input = document.querySelector("input[name=tanggalLahir]");
+  if (!input) return;
+  const tahun = new Date().getFullYear();
+  input.min = `${tahun - 22}-07-02`; // usia maksimal 21 tahun per 1 Juli
+  input.max = `${tahun - 12}-07-01`; // usia minimal 12 tahun per 1 Juli
+  input.title = "Usia calon siswa SMA: 12–21 tahun per 1 Juli " + tahun;
+})();
