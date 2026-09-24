@@ -303,3 +303,27 @@ tbody tr:hover { background: #fbfaf7; }
 .kaki-halaman a { color: var(--muted); font-size: 12.5px; text-decoration: none; padding: 8px 12px; border-radius: 8px; }
 .kaki-halaman a:hover { background: #efece6; color: var(--navy); }
 @media (max-width: 860px) { .kaki-halaman { display: block; } }
+
+/* Tombol berbentuk tautan (mis. "Lupa password?") dan deretan tombol di header status */
+.link-btn { all: unset; cursor: pointer; color: var(--navy-light); font-size: 13px; font-weight: 600; margin-top: 12px; display: inline-block; }
+.link-btn:hover { text-decoration: underline; }
+.aksi-status { display: flex; gap: 8px; flex-wrap: wrap; }
+a.btn { text-decoration: none; display: inline-block; }
+
+/* Statistik per jalur (panel panitia & admin) */
+.statistik-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.statistik-kartu { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow-sm); }
+.statistik-judul { font-weight: 700; color: var(--navy); font-size: 15px; }
+.statistik-kuota { font-size: 13.5px; margin: 8px 0 6px; }
+.bar-kuota { height: 8px; background: #eef0f3; border-radius: 999px; overflow: hidden; }
+.bar-kuota > div { height: 100%; background: linear-gradient(90deg, var(--amber), var(--navy)); border-radius: 999px; }
+.statistik-rinci { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+.statistik-rinci strong { color: var(--ink); }
+
+/* Halaman Admin Dinas */
+.admin-topbar { background: linear-gradient(135deg, #3b2a14 0%, #1f160a 100%); }
+.input-mini { display: flex; gap: 6px; }
+.input-mini input { width: 72px; padding: 6px 8px; font-size: 13px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; max-width: 640px; margin-top: 14px; }
+.form-grid .penuh { grid-column: 1 / -1; }
+@media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }

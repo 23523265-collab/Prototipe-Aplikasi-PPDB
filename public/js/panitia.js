@@ -120,8 +120,13 @@ async function renderPanitiaView() {
       }).join("")
     : `<tr><td colspan="9" style="text-align:center;color:var(--muted)">Belum ada pendaftar aktif di sekolah ini.</td></tr>`;
 
-  const tahapan = await fetch("/api/tahapan").then((r) => r.json());
+  const [tahapan, statistik] = await Promise.all([
+    fetch("/api/tahapan").then((r) => r.json()),
+    fetch(`/api/sekolah/${sekolahId}/statistik`).then((r) => (r.ok ? r.json() : [])),
+  ]);
   renderTahapan(tahapan);
+  renderStatistik(statistik);
+  document.getElementById("btn-export").href = `/api/sekolah/${sekolahId}/export.csv`;
   const seleksiTerkunci = tahapan.aktif && tahapan.dibuka;
 
   const jalurSekolah = jalurList.filter((j) => j.sekolah_id === Number(sekolahId));
@@ -136,6 +141,29 @@ async function renderPanitiaView() {
   `).join("") + (seleksiTerkunci
     ? '<p class="muted" style="font-size:12.5px;margin-top:4px">🔒 Seleksi baru bisa dijalankan setelah pendaftaran ditutup (lihat kotak Tahapan PPDB di atas).</p>'
     : "");
+}
+
+/* =========================================================
+   STATISTIK PER JALUR
+   ========================================================= */
+function renderStatistik(daftar) {
+  const box = document.getElementById("statistik-container");
+  box.innerHTML = daftar.map((j) => {
+    const persen = j.kuota ? Math.min(100, Math.round((j.diterima / j.kuota) * 100)) : 0;
+    return `
+    <div class="statistik-kartu">
+      <div class="statistik-judul">${esc(j.nama)} <span class="muted" style="margin:0;font-size:12px">${j.syarat_radius_km ? `radius ${esc(j.syarat_radius_km)} km` : j.syarat_nilai_minimum ? `min. nilai ${esc(j.syarat_nilai_minimum)}` : ""}</span></div>
+      <div class="statistik-kuota"><strong>${j.diterima}</strong> / ${j.kuota} kursi terisi · sisa <strong>${j.sisa_kuota}</strong></div>
+      <div class="bar-kuota"><div style="width:${persen}%"></div></div>
+      <div class="statistik-rinci">
+        <span>👥 Peminat <strong>${j.peminat}</strong></span>
+        <span>⏱ Verifikasi <strong>${j.menunggu_verifikasi}</strong></span>
+        <span>📋 Siap seleksi <strong>${j.menunggu_seleksi}</strong></span>
+        <span>— Cadangan <strong>${j.cadangan}</strong></span>
+        <span>✕ Ditolak <strong>${j.ditolak}</strong></span>
+      </div>
+    </div>`;
+  }).join("") || '<p class="muted">Statistik belum tersedia.</p>';
 }
 
 /* =========================================================
@@ -154,43 +182,9 @@ function renderTahapan(t) {
       <div class="tahapan-status ${t.dibuka ? "buka" : "tutup"}">${t.dibuka ? "🟢 Pendaftaran DIBUKA — seleksi belum bisa dijalankan" : "🔒 Pendaftaran DITUTUP — seleksi dapat dijalankan"}</div>
       ${info}
     </div>
-    <button class="btn ${t.dibuka ? "btn-primary" : "btn-outline"}" onclick="ubahTahapan(${!t.dibuka}, this)">
-      ${t.dibuka ? "Tutup Pendaftaran" : "Buka Kembali Pendaftaran"}
-    </button>`;
+    <span class="muted" style="margin:0;font-size:12.5px">🏛 Buka/tutup pendaftaran diatur oleh <strong>Admin Dinas</strong>.</span>`;
 }
 
-async function ubahTahapan(dibuka, btn) {
-  const pesan = dibuka
-    ? "Buka kembali pendaftaran?\n\nPendaftar baru bisa mendaftar lagi, dan tombol seleksi di semua sekolah dikunci sampai pendaftaran ditutup kembali."
-    : "Tutup pendaftaran?\n\nPendaftar baru tidak bisa mendaftar, dan panitia semua sekolah bisa mulai menjalankan seleksi.";
-  if (!confirm(pesan)) return;
-
-  const teksAsli = btn ? btn.innerHTML : "";
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner" style="border-color:rgba(27,51,88,0.25);border-top-color:#1B3358"></span>Memproses…';
-  }
-  try {
-    const res = await fetch("/api/tahapan", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dibuka }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 401) throw new Error("Sesi login panitia sudah habis. Silakan login ulang.");
-    if (!res.ok) throw new Error(data.error || "Gagal mengubah tahapan.");
-    await renderPanitiaView();
-  } catch (err) {
-    // Termasuk gagal koneksi (server mati / internet putus) -- sebelumnya gagal diam-diam tanpa pesan
-    const pesanGagal = err instanceof TypeError ? "Tidak dapat terhubung ke server. Periksa koneksi internet (atau pastikan server lokal berjalan), lalu coba lagi." : err.message;
-    alert(pesanGagal);
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = teksAsli;
-    }
-    await renderPanitiaView().catch(() => {});
-  }
-}
 
 // Masa revisi berkas "Kurang Lengkap": batas waktu + catatan panitia
 function infoRevisi(a) {

@@ -6,6 +6,7 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 
 **Demo online:** https://prototipe-aplikasi-ppdb.vercel.app
 **Panel panitia:** https://prototipe-aplikasi-ppdb.vercel.app/panitia.html
+**Admin Dinas:** https://prototipe-aplikasi-ppdb.vercel.app/admin.html
 
 ---
 
@@ -17,6 +18,8 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 - Unggah berkas (Kartu Keluarga, Akta Kelahiran, Rapor) — bisa diganti selama belum diverifikasi.
 - **Cek Status**: posisi pendaftaran, jarak, skor, riwayat pengalihan, dan notifikasi.
 - **Notifikasi email** setiap ada perubahan status (verifikasi, pengalihan, diterima/ditolak, koreksi nilai).
+- **Cetak bukti pendaftaran** (siap cetak / simpan PDF lewat menu Print browser).
+- **Lupa password**: link buat password baru dikirim ke email, berlaku 30 menit dan sekali pakai.
 
 ### Panitia (halaman terpisah, wajib login)
 - Antrean pendaftar yang sedang aktif di sekolahnya, dengan berkas dan **peringatan otomatis**
@@ -24,8 +27,16 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 - **Peta lokasi rumah**: titik GPS, hasil pencarian alamat, sekolah, dan lingkaran radius zonasi.
 - Verifikasi berkas: **Lengkap**, **Kurang Lengkap** (pendaftar diberi masa revisi 2×24 jam), atau **Tolak**.
 - **Koreksi nilai rapor** setelah dicocokkan dengan berkas (nilai asli tetap tercatat).
-- **Tahapan PPDB**: buka/tutup pendaftaran. Seleksi hanya bisa dijalankan saat pendaftaran ditutup.
-- **Jalankan seleksi** per jalur dengan ringkasan hasil (diterima, tidak memenuhi syarat, tidak masuk kuota).
+- **Statistik per jalur**: peminat, sisa kuota, menunggu verifikasi/seleksi, ditolak.
+- **Unduh data pendaftar (Excel/CSV)** untuk sekolahnya sendiri.
+- **Jalankan seleksi** per jalur (hanya saat pendaftaran ditutup) dengan ringkasan hasil.
+
+### Admin Dinas (halaman terpisah, wajib login)
+- **Tahapan PPDB**: buka/tutup pendaftaran untuk semua sekolah.
+- Ringkasan seluruh wilayah: total pendaftar, diproses, diterima.
+- Ubah **kuota, radius zonasi, dan nilai minimum prestasi** per sekolah.
+- **Tambah sekolah baru** (lengkap dengan jalur Zonasi/Prestasi dan akun panitianya).
+- **Reset password akun panitia**.
 
 ### Aturan Seleksi
 | Jalur | Syarat | Urutan peringkat |
@@ -99,6 +110,7 @@ Untuk Vercel, isi variabel yang sama di **Settings → Environment Variables**.
 11. `migration-v6.5-revisi-berkas.sql` — masa revisi berkas
 12. `migration-v6.6-sekolah-asli.sql` — 15 SMA Negeri dengan koordinat asli + akun panitia
 13. `migration-v6.7-tahapan.sql` — buka/tutup pendaftaran
+14. `migration-v6.8-admin-reset.sql` — akun Admin Dinas & lupa password pendaftar
 
 Semua file migration aman dijalankan ulang.
 
@@ -117,6 +129,7 @@ Buka http://localhost:3000. Saat pertama jalan, server otomatis membuat bucket `
 
 | Peran | Username | Password |
 |---|---|---|
+| **Admin Dinas** | `admin_dinas` | `admin123` |
 | Panitia SMA Negeri 1 Yogyakarta | `panitia_sma1` | `panitia123` |
 | Panitia SMA Negeri 2 Yogyakarta | `panitia_sma2` | `panitia123` |
 | Panitia SMA Negeri 1 Ngaglik | `panitia_sma1ngaglik` | `panitia123` |
@@ -135,8 +148,7 @@ Nomor pendaftaran kembali mulai dari `PPDB-0001` dan pendaftaran dibuka kembali.
 
 ## Keterbatasan (Pengembangan Lanjutan)
 - **Satu NIK bisa mendaftar lebih dari sekali** — sengaja belum dibatasi selama tahap uji coba.
-- **Tidak ada akun admin dinas**: buka/tutup pendaftaran dilakukan oleh panitia sekolah mana pun,
-  dan kuota/radius/sekolah diubah lewat SQL.
+- **Password akun contoh** (`admin123`, `panitia123`) wajib diganti sebelum dipakai sungguhan.
 - **Titik GPS dapat dipalsukan**; pengecekan alamat hanya petunjuk, keputusan akhir tetap di panitia
   dengan mencocokkan Kartu Keluarga.
 - **Jarak zonasi = garis lurus (Haversine)**, bukan jarak tempuh jalan.

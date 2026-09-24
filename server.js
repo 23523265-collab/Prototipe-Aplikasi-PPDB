@@ -10,6 +10,8 @@ const storage = require("./storage");
 const validasi = require("./validasi");
 const zonasi = require("./zonasi");
 const { waitUntil } = require("@vercel/functions");
+const crypto = require("crypto");
+const email = require("./email");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,6 +42,9 @@ function validasiUmur(tanggalLahir) {
   if (usia > USIA_MAKS) return `Usia pendaftar ${usia} tahun (per 1 Juli ${acuan.getUTCFullYear()}). Usia maksimal calon siswa SMA adalah ${USIA_MAKS} tahun.`;
   return null;
 }
+
+// Escape teks sebelum dimasukkan ke HTML email
+const escHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
 
 /** "Ahmad Fadhil" -> "Ah*** Fa****": 2 huruf awal tiap kata tetap, sisanya disamarkan. */
 function samarkanNama(nama) {
@@ -72,6 +77,9 @@ app.get("/api/auth/me", async (req, res) => {
   if (sesi.tipe === "pendaftar") {
     const { data } = await supabase.from("pendaftar").select("id, nomor").eq("id", sesi.pendaftar_id).single();
     return res.json({ pendaftar: data || null, panitia: null });
+  } else if (sesi.tipe === "admin") {
+    const { data } = await supabase.from("akun_admin").select("id, nama, username").eq("id", sesi.admin_id).single();
+    return res.json({ pendaftar: null, panitia: null, admin: data || null });
   } else {
     const { data } = await supabase.from("akun_panitia").select("id, nama, sekolah_id").eq("id", sesi.panitia_id).single();
     return res.json({ pendaftar: null, panitia: data ? { id: data.id, nama: data.nama, sekolahId: data.sekolah_id } : null });
@@ -139,12 +147,13 @@ app.get("/api/tahapan", async (req, res) => {
   res.json(await statusTahapan());
 });
 
-app.patch("/api/tahapan", auth.requirePanitiaLogin, async (req, res) => {
+// Buka/tutup pendaftaran adalah wewenang Admin Dinas (berlaku untuk semua sekolah)
+app.patch("/api/tahapan", auth.requireAdminLogin, async (req, res) => {
   if (typeof req.body.dibuka !== "boolean") return res.status(400).json({ error: "Nilai 'dibuka' harus true/false." });
   const { error } = await supabase.from("pengaturan").upsert({
     kunci: "pendaftaran_dibuka",
     nilai: String(req.body.dibuka),
-    diubah_oleh: `${req.panitia.nama} (${req.panitia.username})`,
+    diubah_oleh: `${req.admin.nama} (${req.admin.username})`,
     diubah_at: new Date().toISOString(),
   });
   if (error) return res.status(500).json({ error: `Gagal mengubah tahapan (sudah jalankan migration v6.7?): ${error.message}` });
@@ -538,6 +547,281 @@ app.post("/api/jalur/:id/jalankan-seleksi", auth.requirePanitiaLogin, async (req
   } finally {
     jalurSedangDiproses.delete(jalurId);
   }
+});
+
+/* =========================================================
+   LUPA PASSWORD PENDAFTAR (migration v6.8)
+   ========================================================= */
+const MENIT_BERLAKU_RESET = 30;
+const hashToken = (t) => crypto.createHash("sha256").update(t).digest("hex");
+
+app.post("/api/auth/lupa-password", async (req, res) => {
+  const nomor = String(req.body.nomor || "").trim();
+  const emailInput = String(req.body.email || "").trim().toLowerCase();
+  if (!nomor || !emailInput) return res.status(400).json({ error: "Nomor pendaftaran dan email wajib diisi." });
+
+  // Pesan selalu sama, supaya orang lain tidak bisa menebak nomor/email mana yang terdaftar
+  const pesanUmum = "Jika nomor pendaftaran dan email cocok, link untuk membuat password baru sudah dikirim ke email tersebut (cek juga folder Spam). Link berlaku 30 menit.";
+
+  const kunci = auth.kunciLogin("reset", nomor, req.ip);
+  const tunggu = await auth.cekBatasLogin(kunci);
+  if (tunggu) return res.status(429).json({ error: `Terlalu banyak permintaan. Coba lagi dalam ${tunggu} menit.` });
+  await auth.catatLoginGagal(kunci); // setiap permintaan dihitung, supaya tidak bisa dipakai untuk spam email
+
+  const { data: pendaftar } = await supabase.from("pendaftar").select("id, nama, nomor, email").eq("nomor", nomor).maybeSingle();
+  if (!pendaftar || String(pendaftar.email || "").toLowerCase() !== emailInput) return res.json({ ok: true, pesan: pesanUmum });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const { error } = await supabase.from("reset_password").insert({
+    token_hash: hashToken(token),
+    pendaftar_id: pendaftar.id,
+    kadaluarsa_at: new Date(Date.now() + MENIT_BERLAKU_RESET * 60 * 1000).toISOString(),
+  });
+  if (error) return res.status(500).json({ error: `Gagal membuat link reset (sudah jalankan migration v6.8?): ${error.message}` });
+
+  const link = `${req.protocol}://${req.get("host")}/reset.html?token=${token}`;
+  const hasil = await email.kirimEmail(
+    pendaftar.email,
+    `Buat Password Baru — ${pendaftar.nomor} - SiPPDB`,
+    `Halo <strong>${escHtml(pendaftar.nama)}</strong>,<br><br>` +
+      `Kami menerima permintaan untuk membuat password baru akun pendaftaran <strong>${escHtml(pendaftar.nomor)}</strong>.<br><br>` +
+      `<a href="${link}" style="display:inline-block;background:#1B3358;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">Buat Password Baru</a><br><br>` +
+      `Link ini berlaku ${MENIT_BERLAKU_RESET} menit dan hanya bisa dipakai sekali. Jika Anda tidak merasa meminta, abaikan email ini — password Anda tidak berubah.`
+  );
+  if (!hasil.terkirim) console.error("[reset] Email reset gagal dikirim:", hasil.alasan);
+  res.json({ ok: true, pesan: pesanUmum });
+});
+
+app.post("/api/auth/reset-password", async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: "Data tidak lengkap." });
+  if (String(password).length < 6) return res.status(400).json({ error: "Password minimal 6 karakter." });
+
+  const { data: baris } = await supabase.from("reset_password").select("*").eq("token_hash", hashToken(String(token))).maybeSingle();
+  if (!baris || baris.dipakai_at || new Date(baris.kadaluarsa_at) < new Date()) {
+    return res.status(400).json({ error: "Link sudah tidak berlaku (kedaluwarsa atau sudah dipakai). Silakan minta link baru." });
+  }
+
+  await supabase.from("pendaftar").update({ password_hash: auth.hashPassword(password) }).eq("id", baris.pendaftar_id);
+  await supabase.from("reset_password").update({ dipakai_at: new Date().toISOString() }).eq("token_hash", baris.token_hash);
+  await auth.hapusSesiPendaftar(baris.pendaftar_id); // keluarkan sesi lama di perangkat lain
+
+  const { data: p } = await supabase.from("pendaftar").select("nomor").eq("id", baris.pendaftar_id).single();
+  await engine.tambahNotifikasi(baris.pendaftar_id, "Password akun pendaftaran Anda baru saja diganti. Jika bukan Anda yang menggantinya, segera hubungi panitia.");
+  res.json({ ok: true, nomor: p?.nomor });
+});
+
+/* =========================================================
+   STATISTIK & EXPORT (panel panitia)
+   ========================================================= */
+
+/** Ringkasan per jalur dari baris-baris pilihan */
+function hitungStatistikJalur(jalur, pilihanJalur) {
+  const hitung = (status) => pilihanJalur.filter((p) => p.status === status).length;
+  const diterima = hitung("Diterima");
+  return {
+    jalur_id: jalur.id,
+    nama: jalur.nama,
+    kuota: jalur.kuota,
+    syarat_radius_km: jalur.syarat_radius_km,
+    syarat_nilai_minimum: jalur.syarat_nilai_minimum,
+    peminat: pilihanJalur.length,
+    menunggu_verifikasi: hitung("Menunggu Verifikasi Berkas"),
+    menunggu_seleksi: hitung("Menunggu Seleksi"),
+    cadangan: hitung("Menunggu Giliran"),
+    diterima,
+    ditolak: hitung("Ditolak"),
+    sisa_kuota: Math.max(0, jalur.kuota - diterima),
+  };
+}
+
+app.get("/api/sekolah/:id/statistik", auth.requirePanitiaLogin, async (req, res) => {
+  const sekolahId = Number(req.params.id);
+  if (sekolahId !== req.panitia.sekolahId) return res.status(403).json({ error: "Hanya untuk sekolah Anda sendiri." });
+
+  const [{ data: jalurList }, { data: pilihan }] = await Promise.all([
+    supabase.from("jalur").select("*").eq("sekolah_id", sekolahId).order("id"),
+    supabase.from("pilihan").select("jalur_id, status").eq("sekolah_id", sekolahId),
+  ]);
+  res.json(jalurList.map((j) => hitungStatistikJalur(j, pilihan.filter((p) => p.jalur_id === j.id))));
+});
+
+// Excel berbahasa Indonesia memakai koma sebagai pemisah desimal (3.36 bisa terbaca sebagai tanggal)
+const desimalId = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
+
+/** CSV yang langsung rapi dibuka di Excel versi Indonesia (pemisah titik koma + BOM UTF-8) */
+function keCsv(baris) {
+  const sel = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return "﻿" + baris.map((r) => r.map(sel).join(";")).join("\r\n");
+}
+
+app.get("/api/sekolah/:id/export.csv", auth.requirePanitiaLogin, async (req, res) => {
+  const sekolahId = Number(req.params.id);
+  if (sekolahId !== req.panitia.sekolahId) return res.status(403).json({ error: "Hanya untuk sekolah Anda sendiri." });
+
+  const [{ data: sekolah }, { data: jalurList }, { data: pilihan }] = await Promise.all([
+    supabase.from("sekolah").select("nama").eq("id", sekolahId).single(),
+    supabase.from("jalur").select("id, nama").eq("sekolah_id", sekolahId),
+    supabase.from("pilihan").select("*").eq("sekolah_id", sekolahId).order("id"),
+  ]);
+  const ids = [...new Set(pilihan.map((p) => p.pendaftar_id))];
+  const { data: pendaftarList } = ids.length
+    ? await supabase.from("pendaftar").select("*").in("id", ids)
+    : { data: [] };
+
+  const header = [
+    "Nomor", "Nama", "NIK", "Tanggal Lahir", "Email", "Alamat", "Pilihan Ke-", "Jalur", "Jarak (km)", "Skor",
+    "Nilai Rapor", "Status di Sekolah Ini", "Alasan Penolakan", "Status Berkas", "Status Akhir", "Waktu Daftar",
+  ];
+  const baris = pilihan.map((pl) => {
+    const p = pendaftarList.find((x) => x.id === pl.pendaftar_id) || {};
+    return [
+      p.nomor, p.nama, p.nik, p.tanggal_lahir, p.email, p.alamat, pl.urutan_prioritas,
+      jalurList.find((j) => j.id === pl.jalur_id)?.nama, desimalId(pl.jarak_km), pl.skor, desimalId(p.nilai_rapor),
+      pl.status, pl.alasan_penolakan, p.status_berkas, p.status_global,
+      p.created_at ? String(p.created_at).slice(0, 19).replace("T", " ") : "",
+    ];
+  });
+
+  const namaFile = `pendaftar-${String(sekolah?.nama || "sekolah").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${namaFile}"`);
+  res.send(keCsv([header, ...baris]));
+});
+
+/* =========================================================
+   ADMIN DINAS (migration v6.8) -- halaman /admin.html
+   ========================================================= */
+
+app.post("/api/auth/admin/login", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: "Username dan password wajib diisi." });
+
+  const kunci = auth.kunciLogin("admin", username, req.ip);
+  const tunggu = await auth.cekBatasLogin(kunci);
+  if (tunggu) return res.status(429).json({ error: `Terlalu banyak percobaan login gagal. Coba lagi dalam ${tunggu} menit.` });
+
+  const { data: akun, error } = await supabase.from("akun_admin").select("*").eq("username", username).maybeSingle();
+  if (error) return res.status(500).json({ error: `Tabel admin belum ada (jalankan migration v6.8): ${error.message}` });
+  if (!akun || !auth.verifyPassword(password, akun.password_hash)) {
+    await auth.catatLoginGagal(kunci);
+    return res.status(401).json({ error: "Username atau password salah." });
+  }
+  await auth.resetLoginGagal(kunci);
+
+  const token = await auth.buatSesi("admin", { adminId: akun.id });
+  res.cookie("sid", token, auth.opsiCookie(req));
+  res.json({ ok: true, nama: akun.nama });
+});
+
+/** Ringkasan seluruh sekolah untuk dashboard admin */
+app.get("/api/admin/ringkasan", auth.requireAdminLogin, async (req, res) => {
+  const [{ data: sekolahList }, { data: jalurList }, { data: pilihan }, { data: panitia }, { data: pendaftar }] = await Promise.all([
+    supabase.from("sekolah").select("*").order("id"),
+    supabase.from("jalur").select("*").order("id"),
+    supabase.from("pilihan").select("jalur_id, status"),
+    supabase.from("akun_panitia").select("id, username, nama, sekolah_id").order("id"),
+    supabase.from("pendaftar").select("status_global"),
+  ]);
+  const hitungGlobal = (s) => pendaftar.filter((p) => p.status_global === s).length;
+
+  res.json({
+    total: {
+      pendaftar: pendaftar.length,
+      aktif: hitungGlobal("Aktif"),
+      diterima: hitungGlobal("Diterima Final"),
+      tidakDiterima: hitungGlobal("Tidak Diterima Final"),
+      sekolah: sekolahList.length,
+    },
+    tahapan: await statusTahapan(),
+    sekolah: sekolahList.map((s) => ({
+      ...s,
+      jalur: jalurList.filter((j) => j.sekolah_id === s.id).map((j) => hitungStatistikJalur(j, pilihan.filter((p) => p.jalur_id === j.id))),
+      panitia: panitia.filter((a) => a.sekolah_id === s.id),
+    })),
+  });
+});
+
+const angkaAtauNull = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+
+app.patch("/api/admin/jalur/:id", auth.requireAdminLogin, async (req, res) => {
+  const kuota = Number(req.body.kuota);
+  const radius = angkaAtauNull(req.body.syarat_radius_km);
+  const nilaiMin = angkaAtauNull(req.body.syarat_nilai_minimum);
+  if (!Number.isInteger(kuota) || kuota < 0 || kuota > 1000) return res.status(400).json({ error: "Kuota harus bilangan bulat 0–1000." });
+  if (radius !== null && (!Number.isFinite(radius) || radius <= 0 || radius > 50)) return res.status(400).json({ error: "Radius harus 0–50 km." });
+  if (nilaiMin !== null && (!Number.isFinite(nilaiMin) || nilaiMin < 0 || nilaiMin > 100)) return res.status(400).json({ error: "Nilai minimum harus 0–100." });
+
+  const { data: jalur } = await supabase.from("jalur").select("*").eq("id", Number(req.params.id)).single();
+  if (!jalur) return res.status(404).json({ error: "Jalur tidak ditemukan." });
+
+  const perubahan = { kuota };
+  // Jenis jalur tidak diubah: zonasi tetap pakai radius, prestasi tetap pakai nilai minimum
+  if (jalur.syarat_radius_km != null) perubahan.syarat_radius_km = radius ?? jalur.syarat_radius_km;
+  if (jalur.syarat_nilai_minimum != null) perubahan.syarat_nilai_minimum = nilaiMin ?? jalur.syarat_nilai_minimum;
+
+  const { error } = await supabase.from("jalur").update(perubahan).eq("id", jalur.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ ok: true });
+});
+
+app.post("/api/admin/sekolah", auth.requireAdminLogin, async (req, res) => {
+  const b = req.body;
+  const nama = String(b.nama || "").trim();
+  const lat = Number(b.latitude), lng = Number(b.longitude);
+  const radius = Number(b.radiusZonasi), kuotaZ = Number(b.kuotaZonasi), kuotaP = Number(b.kuotaPrestasi), nilaiMin = Number(b.nilaiMinimum);
+  const username = String(b.usernamePanitia || "").trim().toLowerCase();
+  const passwordPanitia = String(b.passwordPanitia || "");
+
+  if (!nama) return res.status(400).json({ error: "Nama sekolah wajib diisi." });
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return res.status(400).json({ error: "Koordinat sekolah tidak valid." });
+  if (!(radius > 0 && radius <= 50)) return res.status(400).json({ error: "Radius zonasi harus 0–50 km." });
+  if (![kuotaZ, kuotaP].every((k) => Number.isInteger(k) && k >= 0)) return res.status(400).json({ error: "Kuota harus bilangan bulat ≥ 0." });
+  if (!(nilaiMin >= 0 && nilaiMin <= 100)) return res.status(400).json({ error: "Nilai minimum prestasi harus 0–100." });
+  if (!/^[a-z0-9_]{4,40}$/.test(username)) return res.status(400).json({ error: "Username panitia 4–40 karakter: huruf kecil, angka, atau garis bawah." });
+  if (passwordPanitia.length < 6) return res.status(400).json({ error: "Password panitia minimal 6 karakter." });
+
+  const [{ data: adaSekolah }, { data: adaUser }] = await Promise.all([
+    supabase.from("sekolah").select("id").eq("nama", nama).maybeSingle(),
+    supabase.from("akun_panitia").select("id").eq("username", username).maybeSingle(),
+  ]);
+  if (adaSekolah) return res.status(409).json({ error: "Sekolah dengan nama itu sudah ada." });
+  if (adaUser) return res.status(409).json({ error: "Username panitia sudah dipakai." });
+
+  const { data: sekolah, error: e1 } = await supabase
+    .from("sekolah")
+    .insert({ nama, latitude: lat, longitude: lng, alamat: String(b.alamat || "").trim() || null })
+    .select()
+    .single();
+  if (e1) return res.status(500).json({ error: e1.message });
+
+  const { error: e2 } = await supabase.from("jalur").insert([
+    { sekolah_id: sekolah.id, nama: "Zonasi", kuota: kuotaZ, syarat_nilai_minimum: null, syarat_radius_km: radius },
+    { sekolah_id: sekolah.id, nama: "Prestasi", kuota: kuotaP, syarat_nilai_minimum: nilaiMin, syarat_radius_km: null },
+  ]);
+  const { error: e3 } = await supabase.from("akun_panitia").insert({
+    username, password_hash: auth.hashPassword(passwordPanitia), nama: `Panitia ${nama}`, sekolah_id: sekolah.id,
+  });
+  if (e2 || e3) return res.status(500).json({ error: (e2 || e3).message });
+  res.status(201).json({ ok: true, id: sekolah.id });
+});
+
+app.post("/api/admin/panitia/:id/reset-password", auth.requireAdminLogin, async (req, res) => {
+  const passwordBaru = String(req.body.passwordBaru || "");
+  if (passwordBaru.length < 6) return res.status(400).json({ error: "Password minimal 6 karakter." });
+  const panitiaId = Number(req.params.id);
+  const { data, error } = await supabase
+    .from("akun_panitia")
+    .update({ password_hash: auth.hashPassword(passwordBaru) })
+    .eq("id", panitiaId)
+    .select("username");
+  if (error) return res.status(500).json({ error: error.message });
+  if (!data.length) return res.status(404).json({ error: "Akun panitia tidak ditemukan." });
+  await supabase.from("sesi").delete().eq("tipe", "panitia").eq("panitia_id", panitiaId); // paksa login ulang
+  res.json({ ok: true, username: data[0].username });
 });
 
 storage.pastikanBucketAda();

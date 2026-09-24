@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dinas — SiPPDB</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="staff-topbar admin-topbar">
+    <div class="staff-brand">
+      <div class="brand-badge">🏛</div>
+      <p class="staff-brand-title">SiPPDB <span class="staff-badge">Admin Dinas</span></p>
+    </div>
+    <div class="staff-topbar-right">
+      <span id="admin-nama-label"></span>
+      <button class="btn btn-outline" id="btn-logout-admin" style="display:none">Keluar</button>
+      <a href="/" class="sidebar-foot-link" style="color:#c8d3e6">← Situs Pendaftar</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- ===================== LOGIN ===================== -->
+    <div id="admin-login-wrap" class="auth-shell">
+      <div class="auth-card">
+        <div class="auth-icon">🏛</div>
+        <h2>Login Admin Dinas</h2>
+        <p class="muted">Mengatur tahapan PPDB, kuota, radius zonasi, sekolah, dan akun panitia untuk seluruh wilayah.</p>
+        <div id="admin-login-error" class="alert alert-error" style="display:none"></div>
+        <form id="form-login-admin">
+          <label>Username<input required name="username" placeholder="admin_dinas" autocomplete="username" /></label>
+          <label>Password<input required type="password" name="password" autocomplete="current-password" /></label>
+          <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===================== DASHBOARD ===================== -->
+    <div id="admin-view-wrap" class="staff-main" style="display:none">
+      <div id="admin-tahapan" class="tahapan-box"></div>
+
+      <div class="stat-grid" id="admin-total" style="margin:0 0 28px"></div>
+
+      <div class="row-between" style="margin-bottom:10px">
+        <h3 class="sub-heading" style="margin:0">Sekolah, Kuota &amp; Radius Zonasi</h3>
+      </div>
+      <p class="muted" style="font-size:12.5px;margin-top:0">Ubah angka lalu klik <strong>Simpan</strong> pada baris sekolah. Kuota tidak memengaruhi pendaftar yang sudah diterima.</p>
+      <div class="table-wrap">
+        <table id="tabel-sekolah">
+          <thead>
+            <tr>
+              <th>Sekolah</th>
+              <th>Zonasi<br/><span style="font-weight:400;text-transform:none">kuota · radius (km)</span></th>
+              <th>Prestasi<br/><span style="font-weight:400;text-transform:none">kuota · nilai min.</span></th>
+              <th>Terisi</th>
+              <th>Akun Panitia</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <details class="panel-card" style="margin-top:28px" id="tambah-sekolah">
+        <summary class="sub-heading" style="margin:0;cursor:pointer">➕ Tambah Sekolah Baru</summary>
+        <div id="tambah-info" class="alert" style="display:none;margin-top:14px"></div>
+        <form id="form-tambah-sekolah" class="form-grid">
+          <label class="penuh">Nama Sekolah<input required name="nama" placeholder="SMA Negeri 11 Yogyakarta" /></label>
+          <label class="penuh">Alamat<input name="alamat" placeholder="Jl. AM Sangaji, Jetis, Kota Yogyakarta" /></label>
+          <label>Latitude<input required name="latitude" type="number" step="any" placeholder="-7.7801" /></label>
+          <label>Longitude<input required name="longitude" type="number" step="any" placeholder="110.3676" /></label>
+          <p class="muted penuh" style="margin:-4px 0 0;font-size:12px">Tips: di Google Maps, klik kanan titik sekolah → klik angka koordinat untuk menyalin, lalu tempel ke Latitude & Longitude.</p>
+          <label>Radius Zonasi (km)<input required name="radiusZonasi" type="number" step="0.1" min="0.1" value="3" /></label>
+          <label>Kuota Zonasi<input required name="kuotaZonasi" type="number" min="0" value="3" /></label>
+          <label>Kuota Prestasi<input required name="kuotaPrestasi" type="number" min="0" value="2" /></label>
+          <label>Nilai Minimum Prestasi<input required name="nilaiMinimum" type="number" min="0" max="100" value="75" /></label>
+          <label>Username Panitia<input required name="usernamePanitia" placeholder="panitia_sma11" pattern="[a-z0-9_]{4,40}" /></label>
+          <label>Password Panitia<input required name="passwordPanitia" type="text" minlength="6" value="panitia123" /></label>
+          <button type="submit" class="btn btn-primary penuh">Tambah Sekolah</button>
+        </form>
+      </details>
+    </div>
+  </main>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

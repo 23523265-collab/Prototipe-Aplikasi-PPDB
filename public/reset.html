@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buat Password Baru — SiPPDB</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="auth-shell" style="min-height:100vh">
+    <div class="auth-card">
+      <div class="auth-icon">🔑</div>
+      <h2>Buat Password Baru</h2>
+      <p class="muted">Masukkan password baru untuk akun pendaftaran Anda.</p>
+      <div id="reset-info" class="alert" style="display:none"></div>
+      <form id="form-reset">
+        <label>Password Baru<input required type="password" name="password" minlength="6" autocomplete="new-password" placeholder="Minimal 6 karakter" /></label>
+        <label>Ulangi Password Baru<input required type="password" name="ulang" minlength="6" autocomplete="new-password" /></label>
+        <button type="submit" class="btn btn-primary" style="width:100%">Simpan Password</button>
+      </form>
+      <p style="margin:16px 0 0;text-align:center"><a href="/" class="link-btn">← Kembali ke SiPPDB</a></p>
+    </div>
+  </div>
+
+  <script>
+    const token = new URLSearchParams(location.search).get("token");
+    const form = document.getElementById("form-reset");
+    const info = document.getElementById("reset-info");
+    const tampil = (jenis, teks) => { info.className = `alert alert-${jenis}`; info.innerText = teks; info.style.display = "block"; };
+
+    if (!token) {
+      form.style.display = "none";
+      tampil("error", "Link tidak lengkap. Buka kembali link dari email, atau minta link baru lewat menu Cek Status → Lupa password.");
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (form.password.value !== form.ulang.value) return tampil("error", "Kedua password tidak sama.");
+      const btn = form.querySelector("button");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Menyimpan…';
+      try {
+        const res = await fetch("/api/auth/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, password: form.password.value }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Gagal menyimpan password.");
+        form.style.display = "none";
+        tampil("success", `Password berhasil diganti. Silakan login di menu Cek Status dengan nomor ${data.nomor || "pendaftaran"} dan password baru Anda.`);
+      } catch (err) {
+        tampil("error", err instanceof TypeError ? "Tidak dapat terhubung ke server. Periksa koneksi internet." : err.message);
+        btn.disabled = false;
+        btn.innerText = "Simpan Password";
+      }
+    });
+  </script>
+</body>
+</html>

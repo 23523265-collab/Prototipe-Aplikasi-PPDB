@@ -93,7 +93,10 @@
           <h2>Unggah Berkas</h2>
           <p class="muted">Nomor pendaftaran: <strong id="upload-nomor"></strong>. Unggah dokumen di bawah ini (PDF/JPG/PNG, maks 5MB).</p>
           <div id="upload-list"></div>
-          <button class="btn btn-outline" style="margin-top:12px" data-goto="status">Selesai, lihat status</button>
+          <div class="cta-row" style="margin-top:12px">
+            <button class="btn btn-outline" data-goto="status">Selesai, lihat status</button>
+            <a class="btn btn-outline" href="/bukti.html" target="_blank" rel="noopener">🖨 Cetak Bukti Pendaftaran</a>
+          </div>
         </div>
       </section>
 
@@ -108,12 +111,27 @@
             <label>Password<input required type="password" name="password" /></label>
             <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
           </form>
+          <button type="button" class="link-btn" id="btn-lupa-password">Lupa password?</button>
+
+          <div id="lupa-wrap" style="display:none;margin-top:18px;max-width:360px">
+            <h3 class="sub-heading" style="margin-top:0">Buat Password Baru</h3>
+            <p class="muted" style="font-size:13px">Masukkan nomor pendaftaran dan email yang dipakai saat mendaftar. Link untuk membuat password baru akan dikirim ke email tersebut.</p>
+            <div id="lupa-info" class="alert" style="display:none"></div>
+            <form id="form-lupa-password">
+              <label>Nomor Pendaftaran<input required name="nomor" placeholder="PPDB-0001" /></label>
+              <label>Email<input required type="email" name="email" placeholder="email saat mendaftar" /></label>
+              <button type="submit" class="btn btn-primary" style="width:100%">Kirim Link</button>
+            </form>
+          </div>
         </div>
 
         <div id="status-view-wrap" style="display:none">
           <div class="row-between">
             <h2>Status Pendaftaran</h2>
-            <button class="btn btn-outline" id="btn-logout-pendaftar">Keluar</button>
+            <div class="aksi-status">
+              <a class="btn btn-outline" href="/bukti.html" target="_blank" rel="noopener">🖨 Cetak Bukti</a>
+              <button class="btn btn-outline" id="btn-logout-pendaftar">Keluar</button>
+            </div>
           </div>
           <div id="status-result"></div>
         </div>

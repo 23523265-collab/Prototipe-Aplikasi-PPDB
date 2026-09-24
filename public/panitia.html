@@ -33,12 +33,19 @@
           <label>Password<input required type="password" name="password" autocomplete="current-password" /></label>
           <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
         </form>
+        <p style="margin:16px 0 0;text-align:center"><a href="/admin.html" class="link-btn">🏛 Login Admin Dinas</a></p>
       </div>
     </div>
 
     <!-- ===================== DASHBOARD ===================== -->
     <div id="panitia-view-wrap" class="staff-main" style="display:none">
       <div id="tahapan-box" class="tahapan-box"></div>
+
+      <div class="row-between" style="margin-bottom:10px">
+        <h3 class="sub-heading" style="margin:0">Statistik Sekolah</h3>
+        <a class="btn btn-outline" id="btn-export" href="#" download>⬇ Unduh Data (Excel)</a>
+      </div>
+      <div id="statistik-container" class="statistik-grid"></div>
 
       <h3 class="sub-heading" style="margin-top:0">Antrean Aktif di Sekolah Ini</h3>
       <div class="table-wrap">

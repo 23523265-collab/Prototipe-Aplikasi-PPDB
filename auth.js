@@ -19,16 +19,19 @@ function verifyPassword(plain, hash) {
  * bisa dilayani instance server yang berbeda-beda -- data di memori
  * tidak bisa diandalkan untuk "mengingat" siapa yang sedang login.
  */
-async function buatSesi(tipe, { pendaftarId, panitiaId }) {
+async function buatSesi(tipe, { pendaftarId, panitiaId, adminId }) {
   const token = crypto.randomBytes(32).toString("hex");
   const kadaluarsa = new Date(Date.now() + SESSION_DURATION_MS).toISOString();
-  await supabase.from("sesi").insert({
+  const baris = {
     token,
     tipe,
     pendaftar_id: pendaftarId || null,
     panitia_id: panitiaId || null,
     kadaluarsa_at: kadaluarsa,
-  });
+  };
+  if (adminId) baris.admin_id = adminId; // kolom admin_id ada sejak migration v6.8
+  const { error } = await supabase.from("sesi").insert(baris);
+  if (error) throw new Error(`Gagal membuat sesi: ${error.message}`);
   return token;
 }
 
@@ -145,7 +148,26 @@ async function resetLoginGagal({ akun }) {
   await supabase.from("login_gagal").delete().eq("kunci", akun);
 }
 
+/** Middleware: hanya lanjut kalau Admin Dinas sudah login. Melekatkan req.admin = { id, nama, username } */
+async function requireAdminLogin(req, res, next) {
+  const sesi = await ambilSesi(req.cookies?.sid);
+  if (!sesi || sesi.tipe !== "admin") {
+    return res.status(401).json({ error: "Silakan login sebagai Admin Dinas terlebih dahulu." });
+  }
+  const { data: akun } = await supabase.from("akun_admin").select("id, nama, username").eq("id", sesi.admin_id).single();
+  if (!akun) return res.status(401).json({ error: "Sesi tidak valid." });
+  req.admin = akun;
+  next();
+}
+
+/** Setelah password diganti: keluarkan semua sesi pendaftar itu di perangkat lain */
+async function hapusSesiPendaftar(pendaftarId) {
+  await supabase.from("sesi").delete().eq("tipe", "pendaftar").eq("pendaftar_id", pendaftarId);
+}
+
 module.exports = {
+  requireAdminLogin,
+  hapusSesiPendaftar,
   kunciLogin,
   cekBatasLogin,
   catatLoginGagal,

@@ -389,6 +389,40 @@ document.getElementById("form-login-pendaftar").addEventListener("submit", async
   await renderStatusView();
 });
 
+/* ---------- Lupa password ---------- */
+document.getElementById("btn-lupa-password").addEventListener("click", () => {
+  const wrap = document.getElementById("lupa-wrap");
+  wrap.style.display = wrap.style.display === "none" ? "block" : "none";
+});
+
+document.getElementById("form-lupa-password").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const btn = form.querySelector("button[type=submit]");
+  const info = document.getElementById("lupa-info");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Mengirim…';
+  try {
+    const res = await fetch("/api/auth/lupa-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nomor: form.nomor.value, email: form.email.value }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Gagal mengirim link.");
+    info.className = "alert alert-success";
+    info.innerText = data.pesan;
+    form.reset();
+  } catch (err) {
+    info.className = "alert alert-error";
+    info.innerText = err instanceof TypeError ? "Tidak dapat terhubung ke server. Periksa koneksi internet." : err.message;
+  } finally {
+    info.style.display = "block";
+    btn.disabled = false;
+    btn.innerText = "Kirim Link";
+  }
+});
+
 document.getElementById("btn-logout-pendaftar").addEventListener("click", async () => {
   await fetch("/api/auth/logout", { method: "POST" });
   await muatSesi();
