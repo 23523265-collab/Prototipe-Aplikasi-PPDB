@@ -75,6 +75,16 @@ async function cekTahapanPendaftaran() {
   document.getElementById("form-daftar").style.display = t.dibuka ? "" : "none";
 }
 
+// Keterangan asal skor: di Zonasi skor hanya konversi jarak (100 − 10 × km), yang menentukan tetap jaraknya
+function asalSkor(p) {
+  const jalur = jalurList.find((j) => j.id === p.jalur_id);
+  if (jalur?.syarat_radius_km != null || p.jarak_km != null) {
+    return p.jarak_km != null ? `dari jarak ${Number(p.jarak_km).toFixed(1)} km` : "jarak tidak tersedia";
+  }
+  if (jalur?.syarat_nilai_minimum != null) return "nilai rapor";
+  return "";
+}
+
 function jalurOptionsForSekolah(sekolahId) {
   return jalurList.filter((j) => j.sekolah_id === Number(sekolahId));
 }
@@ -426,7 +436,7 @@ async function renderStatusView() {
       <td>${esc(p.jalur_nama)}${p.jarak_km != null
         ? `<br/><span style="font-size:11.5px;color:var(--muted)">📍 ${Number(p.jarak_km).toFixed(1)} km dari sekolah</span>`
         : p.catatan_skor ? `<br/><span style="font-size:11.5px;color:#b45309">⚠ ${esc(p.catatan_skor)}</span>` : ""}</td>
-      <td>${p.skor}</td>
+      <td>${p.skor}<br/><span style="font-size:11px;color:var(--muted)">${asalSkor(p)}</span></td>
       <td>${pillHTML(p.status)}${p.alasan_penolakan ? `<br/><span style="font-size:11px;color:var(--muted)">${esc(p.alasan_penolakan)}</span>` : ""}</td>
     </tr>
   `).join("");

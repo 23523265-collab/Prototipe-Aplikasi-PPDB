@@ -472,20 +472,22 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
     .order("id");
   if (error) return res.status(500).json({ error: error.message });
 
-  const { data: jalurList } = await supabase.from("jalur").select("*");
+  // Ambil pilihan, dokumen, dan jalur untuk SEMUA pendaftar sekaligus (bukan per pendaftar),
+  // supaya jumlah query tetap walau antrean panjang -- penting di Vercel yang tiap query-nya lewat jaringan.
+  const ids = pendaftarAktif.map((p) => p.id);
+  const [{ data: jalurList }, { data: semuaPilihan }, { data: semuaDokumen }] = await Promise.all([
+    supabase.from("jalur").select("*"),
+    ids.length ? supabase.from("pilihan").select("*").in("pendaftar_id", ids) : { data: [] },
+    ids.length ? supabase.from("dokumen").select("*").in("pendaftar_id", ids).order("id") : { data: [] },
+  ]);
+  const dokumenTertanda = await storage.tandatanganiDokumen(semuaDokumen || []);
   const namaJalur = (id) => jalurList.find((j) => j.id === id)?.nama || "-";
 
   const rows = [];
   for (const p of pendaftarAktif) {
-    const { data: pil } = await supabase
-      .from("pilihan")
-      .select("*")
-      .eq("pendaftar_id", p.id)
-      .eq("urutan_prioritas", p.prioritas_aktif)
-      .single();
+    const pil = semuaPilihan.find((x) => x.pendaftar_id === p.id && x.urutan_prioritas === p.prioritas_aktif);
     if (!pil) continue;
-
-    const { data: dokumen } = await supabase.from("dokumen").select("*").eq("pendaftar_id", p.id);
+    const dokumen = dokumenTertanda.filter((d) => d.pendaftar_id === p.id);
 
     rows.push({
       pendaftar_id: p.id, nomor: p.nomor, nama: p.nama, nik: p.nik,
@@ -496,7 +498,7 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
       status_pilihan: pil.status, jalur_nama: namaJalur(pil.jalur_id),
       jarak_km: pil.jarak_km, catatan_skor: pil.catatan_skor,
       syarat_radius_km: jalurList.find((j) => j.id === pil.jalur_id)?.syarat_radius_km ?? null,
-      dokumen: await storage.tandatanganiDokumen(dokumen || []),
+      dokumen,
       catatan_validasi_nik: p.catatan_validasi_nik,
       batas_revisi_at: p.batas_revisi_at, catatan_revisi: p.catatan_revisi,
       alamat: p.alamat, latitude: p.latitude, longitude: p.longitude, akurasi_lokasi_m: p.akurasi_lokasi_m,

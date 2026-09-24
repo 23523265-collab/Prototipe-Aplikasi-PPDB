@@ -102,7 +102,9 @@ async function renderPanitiaView() {
           <td><strong>${esc(a.nama)}</strong></td>
           <td>${a.prioritas_aktif}</td>
           <td>${esc(a.jalur_nama)}${infoJarak(a)}</td>
-          <td>${a.skor}${infoNilai(a)}</td>
+          <td>${a.skor}${a.syarat_radius_km != null
+            ? `<br/><span style="font-size:11px;color:var(--muted)" title="Zonasi diurutkan berdasarkan jarak terdekat; skor = 100 − 10 × km">dari jarak</span>`
+            : infoNilai(a)}</td>
           <td>${pillHTML(a.status_berkas)}${infoRevisi(a)}</td>
           <td>${(a.dokumen || []).length ? a.dokumen.map((d) => `<a href="${safeUrl(d.url)}" target="_blank" rel="noopener" style="font-size:12px">${esc(d.jenis)}</a>`).join("<br/>") : '<span style="font-size:12px;color:var(--muted)">Belum ada</span>'}
             <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="bukaLokasi(${a.pendaftar_id})">📍 Lokasi Rumah</button></td>
