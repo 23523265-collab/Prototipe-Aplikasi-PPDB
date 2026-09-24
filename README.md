@@ -131,7 +131,7 @@ Buka http://localhost:3000. Saat pertama jalan, server otomatis membuat bucket `
 |---|---|---|
 | **Admin Dinas** | `admin_dinas` | `admin123` |
 | Panitia SMA Negeri 1 Yogyakarta | `panitia_sma1` | `panitia123` |
-| Panitia SMA Negeri 2 Yogyakarta | `panitia_sma2` | `panitia123` |
+| Panitia SMA Negeri 2 / 5 / 8 Yogyakarta | `panitia_sekolah1` / `panitia_sekolah2` / `panitia_sekolah3` | `panitia123` |
 | Panitia SMA Negeri 1 Ngaglik | `panitia_sma1ngaglik` | `panitia123` |
 | Panitia SMA Negeri 2 Ngaglik | `panitia_sma2ngaglik` | `panitia123` |
 | Panitia sekolah lain | `panitia_sma3` … `panitia_sma10`, `panitia_sma1depok`, `panitia_sma1mlati`, `panitia_sma1kalasan` | `panitia123` |
