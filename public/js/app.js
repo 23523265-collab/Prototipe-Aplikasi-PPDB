@@ -136,7 +136,7 @@ document.getElementById("btn-cek-jarak").addEventListener("click", async (e) => 
   btn.disabled = false;
   btn.innerText = "📍 Perbarui lokasi";
   if (!lokasi) {
-    info.innerHTML = '<span style="color:#b91c1c">Lokasi tidak tersedia. Izinkan akses lokasi di browser lalu coba lagi.</span>';
+    info.innerHTML = `<span style="color:#b91c1c">${pesanGagalLokasi()}</span>`;
     return;
   }
 
@@ -257,16 +257,44 @@ function ambilLokasi(paksaBaru = false) {
     return Promise.resolve(lokasiTerakhir);
   }
   return new Promise((resolve) => {
-    if (!navigator.geolocation) return resolve(null);
+    if (!navigator.geolocation) {
+      galatLokasi = "tidak-didukung";
+      return resolve(null);
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        galatLokasi = null;
         lokasiTerakhir = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, akurasi: pos.coords.accuracy, waktu: Date.now() };
         resolve(lokasiTerakhir);
       },
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      (err) => {
+        galatLokasi = err.code === 1 ? "ditolak" : err.code === 3 ? "timeout" : "tidak-tersedia";
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   });
+}
+
+// Penyebab lokasi gagal terakhir, supaya pesan ke pengguna bisa menjelaskan cara memperbaikinya
+let galatLokasi = null;
+
+function pesanGagalLokasi() {
+  const iPhone = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const android = /Android/i.test(navigator.userAgent);
+  if (galatLokasi === "ditolak") {
+    if (iPhone) {
+      return "Akses lokasi ditolak. Di iPhone: buka <strong>Pengaturan → Privasi & Keamanan → Layanan Lokasi</strong> → pastikan <strong>aktif</strong>, lalu pilih <strong>Situs Web Safari</strong> (atau Chrome) → <strong>Saat Menggunakan App</strong>. " +
+        "Setelah itu ketuk ikon <strong>ᴀA</strong> di kolom alamat Safari → <strong>Pengaturan Situs Web → Lokasi → Izinkan</strong>, muat ulang halaman, dan coba lagi.";
+    }
+    if (android) {
+      return "Akses lokasi ditolak. Aktifkan <strong>Lokasi</strong> di panel notifikasi HP, lalu ketuk ikon <strong>🔒/⚙</strong> di kiri alamat situs → <strong>Izin → Lokasi → Izinkan</strong>, muat ulang halaman, dan coba lagi.";
+    }
+    return "Akses lokasi ditolak. Klik ikon <strong>🔒</strong> di kiri alamat situs → <strong>Location → Allow</strong>, muat ulang halaman, dan coba lagi.";
+  }
+  if (galatLokasi === "timeout") return "Lokasi terlalu lama didapat. Pastikan GPS/Lokasi aktif (lebih cepat di luar ruangan), lalu coba lagi.";
+  if (galatLokasi === "tidak-didukung") return "Browser ini tidak mendukung lokasi. Coba buka di Safari atau Chrome.";
+  return "Lokasi tidak dapat ditentukan. Pastikan GPS/Lokasi di HP aktif, lalu coba lagi.";
 }
 
 const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
