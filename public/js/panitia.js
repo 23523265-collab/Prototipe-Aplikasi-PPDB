@@ -152,27 +152,42 @@ function renderTahapan(t) {
       <div class="tahapan-status ${t.dibuka ? "buka" : "tutup"}">${t.dibuka ? "🟢 Pendaftaran DIBUKA — seleksi belum bisa dijalankan" : "🔒 Pendaftaran DITUTUP — seleksi dapat dijalankan"}</div>
       ${info}
     </div>
-    <button class="btn ${t.dibuka ? "btn-primary" : "btn-outline"}" onclick="ubahTahapan(${!t.dibuka})">
+    <button class="btn ${t.dibuka ? "btn-primary" : "btn-outline"}" onclick="ubahTahapan(${!t.dibuka}, this)">
       ${t.dibuka ? "Tutup Pendaftaran" : "Buka Kembali Pendaftaran"}
     </button>`;
 }
 
-async function ubahTahapan(dibuka) {
+async function ubahTahapan(dibuka, btn) {
   const pesan = dibuka
     ? "Buka kembali pendaftaran?\n\nPendaftar baru bisa mendaftar lagi, dan tombol seleksi di semua sekolah dikunci sampai pendaftaran ditutup kembali."
     : "Tutup pendaftaran?\n\nPendaftar baru tidak bisa mendaftar, dan panitia semua sekolah bisa mulai menjalankan seleksi.";
   if (!confirm(pesan)) return;
-  const res = await fetch("/api/tahapan", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dibuka }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    alert(data.error || "Gagal mengubah tahapan.");
-    return;
+
+  const teksAsli = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="border-color:rgba(27,51,88,0.25);border-top-color:#1B3358"></span>Memproses…';
   }
-  await renderPanitiaView();
+  try {
+    const res = await fetch("/api/tahapan", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dibuka }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error("Sesi login panitia sudah habis. Silakan login ulang.");
+    if (!res.ok) throw new Error(data.error || "Gagal mengubah tahapan.");
+    await renderPanitiaView();
+  } catch (err) {
+    // Termasuk gagal koneksi (server mati / internet putus) -- sebelumnya gagal diam-diam tanpa pesan
+    const pesanGagal = err instanceof TypeError ? "Tidak dapat terhubung ke server. Periksa koneksi internet (atau pastikan server lokal berjalan), lalu coba lagi." : err.message;
+    alert(pesanGagal);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = teksAsli;
+    }
+    await renderPanitiaView().catch(() => {});
+  }
 }
 
 // Masa revisi berkas "Kurang Lengkap": batas waktu + catatan panitia
