@@ -170,6 +170,7 @@ tbody tr:hover { background: #fbfaf7; }
 
 .action-btn { border: none; cursor: pointer; font-size: 12px; padding: 6px 10px; border-radius: 7px; margin-right: 4px; font-family: inherit; font-weight: 600; transition: filter 0.12s ease; }
 .action-btn:hover { filter: brightness(0.95); }
+.action-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
 .action-lengkap { background: #ecfdf5; color: #047857; }
 .action-kurang { background: #fff7ed; color: #c2410c; }
 .action-tolak { background: #fef2f2; color: #b91c1c; }

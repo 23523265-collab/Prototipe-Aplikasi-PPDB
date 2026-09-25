@@ -17,9 +17,45 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-// Penjaga sederhana supaya satu jalur tidak diproses dua kali secara bersamaan
-// (mitigasi race condition yang tercatat di PRD bagian 13 - Risiko dan Mitigasi)
+/* ---------------------------------------------------------
+   Pengaman seleksi ganda: satu jalur tidak boleh diseleksi dua kali bersamaan
+   (mitigasi race condition, PRD bagian 13 - Risiko dan Mitigasi).
+   Kunci disimpan di tabel kunci_seleksi (migration v6.9) supaya berlaku di semua instance Vercel.
+   Kalau tabel belum ada, kembali memakai penjaga di memori server.
+   --------------------------------------------------------- */
 const jalurSedangDiproses = new Set();
+const KUNCI_SELEKSI_KEDALUWARSA_MS = 5 * 60 * 1000; // kunci tertinggal (mis. proses mati di tengah jalan) dilepas setelah 5 menit
+
+/** Mengembalikan "db" / "memori" kalau kunci didapat, atau null kalau jalur sedang diseleksi. */
+async function ambilKunciSeleksi(jalurId, oleh) {
+  for (let percobaan = 0; percobaan < 2; percobaan++) {
+    const { error } = await supabase.from("kunci_seleksi").insert({ jalur_id: jalurId, oleh });
+    if (!error) return "db";
+    if (error.code !== "23505") {
+      console.warn("[seleksi] Kunci database tidak aktif (sudah jalankan migration v6.9?):", error.message);
+      if (jalurSedangDiproses.has(jalurId)) return null;
+      jalurSedangDiproses.add(jalurId);
+      return "memori";
+    }
+    // Sudah ada kunci: hapus hanya kalau kedaluwarsa, lalu coba sekali lagi
+    const batas = new Date(Date.now() - KUNCI_SELEKSI_KEDALUWARSA_MS).toISOString();
+    const { data: dihapus } = await supabase.from("kunci_seleksi").delete().eq("jalur_id", jalurId).lt("mulai_at", batas).select("jalur_id");
+    if (!dihapus?.length) return null;
+  }
+  return null;
+}
+
+async function lepasKunciSeleksi(jalurId, jenis) {
+  if (jenis === "memori") jalurSedangDiproses.delete(jalurId);
+  else await supabase.from("kunci_seleksi").delete().eq("jalur_id", jalurId);
+}
+
+// Batas pendaftaran baru per IP (anti spam/bot). Longgar karena satu IP bisa dipakai
+// banyak orang sekaligus (WiFi sekolah, lab komputer, hotspot bersama).
+const MAKS_DAFTAR_PER_IP = 20;
+const JENDELA_DAFTAR_MENIT = 60;
+const PESAN_NIK_TERDAFTAR = "NIK ini sudah terdaftar. Satu calon siswa hanya boleh mendaftar sekali (sudah mencakup 3 pilihan sekolah). "
+  + "Gunakan menu Cek Status dengan nomor pendaftaran Anda, atau hubungi panitia jika merasa tidak pernah mendaftar.";
 
 const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
 const TIPE_FILE_DIIZINKAN = ["application/pdf", "image/jpeg", "image/png"];
@@ -244,6 +280,21 @@ app.post("/api/pendaftar", async (req, res) => {
     return res.status(400).json({ error: "Pilihan sekolah tidak boleh duplikat." });
   }
 
+  // Satu NIK hanya boleh mendaftar sekali (sistem sudah memberi 3 pilihan sekolah + auto-transfer).
+  // Spasi dibuang supaya "3404 0112..." dan "34040112..." dianggap sama.
+  const nikBersih = String(nik).replace(/\s+/g, "");
+  const kunciDaftar = `daftar-ip:${req.ip || "tidak-diketahui"}`;
+  const [tunggu, { data: nikTerdaftar }] = await Promise.all([
+    auth.cekBatasAksi(kunciDaftar, MAKS_DAFTAR_PER_IP, JENDELA_DAFTAR_MENIT),
+    supabase.from("pendaftar").select("id").eq("nik", nikBersih).limit(1),
+  ]);
+  if (tunggu) {
+    return res.status(429).json({ error: `Terlalu banyak pendaftaran dari jaringan ini. Coba lagi dalam ${tunggu} menit.` });
+  }
+  if (nikTerdaftar?.length) {
+    return res.status(409).json({ error: PESAN_NIK_TERDAFTAR });
+  }
+
   const lokasiAda = typeof latitude === "number" && typeof longitude === "number"
     && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
   const nilai = nilaiRapor === null || nilaiRapor === undefined || nilaiRapor === "" ? null : Number(nilaiRapor);
@@ -286,7 +337,7 @@ app.post("/api/pendaftar", async (req, res) => {
 
 
   // FR-09: Pra-Verifikasi NIK -- hanya flag, tidak menolak pendaftaran
-  const catatanNik = validasi.validasiNIK(nik);
+  const catatanNik = validasi.validasiNIK(nikBersih);
 
   const alamatBersih = typeof alamat === "string" && alamat.trim() ? alamat.trim() : null;
 
@@ -294,7 +345,7 @@ app.post("/api/pendaftar", async (req, res) => {
     .from("pendaftar")
     .insert({
       // nomor tidak dikirim: diisi otomatis oleh sequence database (migration v6.3)
-      nama, nik, tanggal_lahir: tanggalLahir,
+      nama, nik: nikBersih, tanggal_lahir: tanggalLahir,
       email: emailPendaftar,
       password_hash: auth.hashPassword(password),
       status_berkas: "Menunggu Verifikasi", status_global: "Aktif",
@@ -309,7 +360,12 @@ app.post("/api/pendaftar", async (req, res) => {
     })
     .select()
     .single();
-  if (err1) return res.status(500).json({ error: err1.message });
+  if (err1) {
+    // Dua pendaftaran dengan NIK sama dikirim bersamaan: ditahan unique index (migration v6.9)
+    if (err1.code === "23505" && /nik/i.test(err1.message)) return res.status(409).json({ error: PESAN_NIK_TERDAFTAR });
+    return res.status(500).json({ error: err1.message });
+  }
+  await auth.catatAksi(kunciDaftar);
 
   const rows = pilihan.map((p, i) => ({
     pendaftar_id: pendaftarBaru.id,
@@ -412,6 +468,15 @@ app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res
   if (!pendaftar || pendaftar.sekolah_aktif_id !== req.panitia.sekolahId) {
     return res.status(403).json({ error: "Pendaftar ini tidak sedang aktif di sekolah Anda." });
   }
+  if (req.body.status === "Lengkap") {
+    const { data: dokumen } = await supabase.from("dokumen").select("jenis").eq("pendaftar_id", pendaftarId);
+    const belumAda = JENIS_DOKUMEN.filter((j) => !(dokumen || []).some((d) => d.jenis === j));
+    if (belumAda.length) {
+      return res.status(409).json({
+        error: `Belum bisa ditandai Lengkap: ${belumAda.join(", ")} belum diunggah. Gunakan tombol "Kurang" untuk meminta pendaftar melengkapi berkas.`,
+      });
+    }
+  }
   const catatan = typeof req.body.catatan === "string" ? req.body.catatan.trim().slice(0, 500) : null;
   await engine.verifikasiBerkas(pendaftarId, req.body.status, catatan || null);
   res.json({ ok: true });
@@ -508,6 +573,7 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
       jarak_km: pil.jarak_km, catatan_skor: pil.catatan_skor,
       syarat_radius_km: jalurList.find((j) => j.id === pil.jalur_id)?.syarat_radius_km ?? null,
       dokumen,
+      berkas_belum_ada: JENIS_DOKUMEN.filter((j) => !dokumen.some((d) => d.jenis === j)),
       catatan_validasi_nik: p.catatan_validasi_nik,
       batas_revisi_at: p.batas_revisi_at, catatan_revisi: p.catatan_revisi,
       alamat: p.alamat, latitude: p.latitude, longitude: p.longitude, akurasi_lokasi_m: p.akurasi_lokasi_m,
@@ -533,11 +599,11 @@ app.post("/api/jalur/:id/jalankan-seleksi", auth.requirePanitiaLogin, async (req
     });
   }
 
-  if (jalurSedangDiproses.has(jalurId)) {
+  const kunci = await ambilKunciSeleksi(jalurId, `${req.panitia.nama} (${req.panitia.username})`);
+  if (!kunci) {
     return res.status(409).json({ error: "Seleksi untuk jalur ini sedang diproses. Tunggu sebentar sebelum mencoba lagi." });
   }
 
-  jalurSedangDiproses.add(jalurId);
   try {
     await engine.prosesRevisiKedaluwarsa();
     const hasil = await engine.jalankanSeleksiJalur(jalurId);
@@ -545,7 +611,7 @@ app.post("/api/jalur/:id/jalankan-seleksi", auth.requirePanitiaLogin, async (req
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
-    jalurSedangDiproses.delete(jalurId);
+    await lepasKunciSeleksi(jalurId, kunci);
   }
 });
 

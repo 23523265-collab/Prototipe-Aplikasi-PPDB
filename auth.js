@@ -148,6 +148,32 @@ async function resetLoginGagal({ akun }) {
   await supabase.from("login_gagal").delete().eq("kunci", akun);
 }
 
+/**
+ * Batas umum untuk aksi selain login (mis. pendaftaran baru per IP), memakai tabel login_gagal yang sama.
+ * Mengembalikan jumlah menit yang harus ditunggu (0 = boleh).
+ */
+async function cekBatasAksi(kunci, maks, jendelaMenit) {
+  const sejak = new Date(Date.now() - jendelaMenit * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("login_gagal")
+    .select("waktu")
+    .eq("kunci", kunci)
+    .gte("waktu", sejak)
+    .order("waktu", { ascending: true });
+  if (error) {
+    console.warn("[auth] Batas aksi tidak aktif:", error.message);
+    return 0;
+  }
+  if (data.length < maks) return 0;
+  const sisaMs = waktuUtc(data[data.length - maks].waktu).getTime() + jendelaMenit * 60 * 1000 - Date.now();
+  return sisaMs > 0 ? Math.ceil(sisaMs / 60000) : 0;
+}
+
+async function catatAksi(kunci) {
+  const { error } = await supabase.from("login_gagal").insert({ kunci });
+  if (error) console.warn("[auth] Gagal mencatat aksi:", error.message);
+}
+
 /** Middleware: hanya lanjut kalau Admin Dinas sudah login. Melekatkan req.admin = { id, nama, username } */
 async function requireAdminLogin(req, res, next) {
   const sesi = await ambilSesi(req.cookies?.sid);
@@ -172,6 +198,8 @@ module.exports = {
   cekBatasLogin,
   catatLoginGagal,
   resetLoginGagal,
+  cekBatasAksi,
+  catatAksi,
   hashPassword,
   verifyPassword,
   buatSesi,

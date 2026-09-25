@@ -93,6 +93,7 @@ async function renderPanitiaView() {
         (a.dokumen || []).forEach((d) => {
           if (d.catatan_validasi) peringatan.push(`${d.jenis}: ${d.catatan_validasi}`);
         });
+        if ((a.berkas_belum_ada || []).length) peringatan.push(`Belum diunggah: ${a.berkas_belum_ada.join(", ")}`);
         const peringatanHTML = peringatan.length
           ? `<ul style="margin:0;padding-left:16px;font-size:11.5px;color:#b45309">${peringatan.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
           : '<span style="font-size:12px;color:#047857">✓ Tidak ada</span>';
@@ -110,7 +111,9 @@ async function renderPanitiaView() {
             <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="bukaLokasi(${a.pendaftar_id})">📍 Lokasi Rumah</button></td>
           <td>${peringatanHTML}</td>
           <td>
-            <button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>
+            ${(a.berkas_belum_ada || []).length
+              ? `<button class="action-btn action-lengkap" disabled title="Belum diunggah: ${esc(a.berkas_belum_ada.join(", "))}">Lengkap</button>`
+              : `<button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>`}
             <button class="action-btn action-kurang" onclick="tandaiKurang(${a.pendaftar_id})">Kurang</button>
             <button class="action-btn action-tolak" onclick="verifikasi(${a.pendaftar_id}, 'Ditolak')">Tolak</button>
             <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="koreksiNilai(${a.pendaftar_id})">✎ Nilai Rapor</button>

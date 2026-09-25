@@ -4,7 +4,7 @@
 -- ⚠ TIDAK BISA DIBATALKAN. Jalankan hanya sebelum demo/uji coba baru.
 --
 -- Yang DIHAPUS : pendaftar, pilihan, dokumen (catatan berkas), riwayat transfer,
---               notifikasi, sesi login pendaftar, catatan login gagal.
+--               notifikasi, sesi login pendaftar, catatan login gagal & batas pendaftaran per IP.
 -- Yang DIPERTAHANKAN: sekolah, jalur (kuota/radius), akun panitia.
 -- Nomor pendaftaran dimulai lagi dari PPDB-0001, pendaftaran dibuka kembali.
 --
@@ -21,6 +21,11 @@ delete from pilihan;
 delete from sesi where tipe = 'pendaftar';
 delete from login_gagal;
 delete from pendaftar;
+
+-- Kunci seleksi yang mungkin tertinggal (tabel ada sejak migration v6.9)
+do $$ begin
+  if to_regclass('public.kunci_seleksi') is not null then delete from kunci_seleksi; end if;
+end $$;
 
 -- Nomor pendaftaran berikutnya: PPDB-0001
 select setval('pendaftar_nomor_seq', 1, false);

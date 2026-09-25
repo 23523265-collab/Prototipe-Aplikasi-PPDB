@@ -25,7 +25,7 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 - Antrean pendaftar yang sedang aktif di sekolahnya, dengan berkas dan **peringatan otomatis**
   (NIK tidak wajar, berkas rusak/diganti ekstensi, alamat tidak cocok dengan titik GPS).
 - **Peta lokasi rumah**: titik GPS, hasil pencarian alamat, sekolah, dan lingkaran radius zonasi.
-- Verifikasi berkas: **Lengkap**, **Kurang Lengkap** (pendaftar diberi masa revisi 2×24 jam), atau **Tolak**.
+- Verifikasi berkas: **Lengkap** (hanya bisa jika KK, Akta, dan Rapor sudah diunggah), **Kurang Lengkap** (pendaftar diberi masa revisi 2×24 jam), atau **Tolak**.
 - **Koreksi nilai rapor** setelah dicocokkan dengan berkas (nilai asli tetap tercatat).
 - **Statistik per jalur**: peminat, sisa kuota, menunggu verifikasi/seleksi, ditolak.
 - **Unduh data pendaftar (Excel/CSV)** untuk sekolahnya sendiri.
@@ -54,6 +54,9 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 - Berkas disimpan di bucket **private**, dibuka lewat *signed URL* yang kedaluwarsa dalam 1 jam.
 - Semua data dari pengguna di-escape sebelum ditampilkan (mencegah XSS).
 - Batas percobaan login: 5× gagal per akun / 20× per IP dalam 15 menit.
+- **Satu NIK hanya bisa mendaftar sekali** (dicek di server + unique index database).
+- Batas pendaftaran baru: 20× per IP per jam (anti spam/bot; longgar karena WiFi sekolah dipakai bersama).
+- Pengaman seleksi ganda disimpan di database, sehingga satu jalur tidak bisa diseleksi bersamaan walau di Vercel.
 - Nama di halaman Pengumuman disamarkan (mis. `Ah*** Fa****`) karena pendaftar di bawah umur.
 - Validasi usia 12–21 tahun (per 1 Juli tahun berjalan).
 
@@ -111,6 +114,7 @@ Untuk Vercel, isi variabel yang sama di **Settings → Environment Variables**.
 12. `migration-v6.6-sekolah-asli.sql` — 15 SMA Negeri dengan koordinat asli + akun panitia
 13. `migration-v6.7-tahapan.sql` — buka/tutup pendaftaran
 14. `migration-v6.8-admin-reset.sql` — akun Admin Dinas & lupa password pendaftar
+15. `migration-v6.9-nik-seleksi.sql` — NIK unik & kunci seleksi
 
 Semua file migration aman dijalankan ulang.
 
@@ -147,14 +151,12 @@ Nomor pendaftaran kembali mulai dari `PPDB-0001` dan pendaftaran dibuka kembali.
 ---
 
 ## Keterbatasan (Pengembangan Lanjutan)
-- **Satu NIK bisa mendaftar lebih dari sekali** — sengaja belum dibatasi selama tahap uji coba.
 - **Password akun contoh** (`admin123`, `panitia123`) wajib diganti sebelum dipakai sungguhan.
 - **Titik GPS dapat dipalsukan**; pengecekan alamat hanya petunjuk, keputusan akhir tetap di panitia
   dengan mencocokkan Kartu Keluarga.
 - **Jarak zonasi = garis lurus (Haversine)**, bukan jarak tempuh jalan.
 - **Geocoding memakai Nominatim gratis** (maks. 1 permintaan/detik) — untuk skala nyata perlu layanan berbayar
   atau server sendiri.
-- **Pengaman seleksi ganda** (satu jalur tidak diseleksi bersamaan) disimpan di memori server,
-  sehingga di Vercel tidak berlaku lintas instance.
+- **Format NIK belum diwajibkan 16 digit** — NIK tidak wajar hanya ditandai sebagai peringatan untuk panitia.
 - **Tidak ada penjadwal otomatis (cron)**: masa revisi yang lewat diproses saat panitia/pendaftar membuka halaman.
 - **Email via Gmail** dibatasi ±500 email/hari; produksi sebaiknya memakai layanan email khusus.
