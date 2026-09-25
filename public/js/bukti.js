@@ -27,7 +27,7 @@ async function muat() {
 
     kertas.innerHTML = `
       <div class="kop">
-        <div class="brand-badge">🎓</div>
+        <div class="brand-badge">${ikon("toga")}</div>
         <div>
           <h1>SiPPDB — Penerimaan Peserta Didik Baru</h1>
           <p>Tahun Ajaran ${new Date().getFullYear()}/${new Date().getFullYear() + 1} · Kota Yogyakarta & Kabupaten Sleman</p>

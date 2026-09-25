@@ -6,7 +6,11 @@
    ========================================================= */
 const Dialog = (() => {
   const escD = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const IKON = { info: "ℹ", sukses: "✓", peringatan: "⚠", bahaya: "!" };
+  // Ikon SVG dari ikon.js bila dimuat; kalau tidak, pakai karakter biasa
+  const pakaiSvg = typeof ikon === "function";
+  const IKON = pakaiSvg
+    ? { info: ikon("info"), sukses: ikon("centang"), peringatan: ikon("peringatan"), bahaya: ikon("seru") }
+    : { info: "i", sukses: "✓", peringatan: "!", bahaya: "!" };
 
   /**
    * opsi: { judul, pesan (teks biasa, \n = baris baru), html (isi HTML yang sudah aman),

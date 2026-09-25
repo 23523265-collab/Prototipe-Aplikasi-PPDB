@@ -15,21 +15,21 @@ const sekolahNama = (id) => sekolahList.find((s) => s.id === id)?.nama ?? "-";
 
 function pillHTML(status) {
   const map = {
-    "Lengkap": ["pill-green", "✓"],
-    "Menunggu Verifikasi": ["pill-amber", "⏱"],
-    "Menunggu Verifikasi Berkas": ["pill-amber", "⏱"],
-    "Menunggu Seleksi": ["pill-amber", "⏱"],
-    "Menunggu Giliran": ["pill-gray", "—"],
-    "Kurang Lengkap": ["pill-orange", "⚠"],
-    "Ditolak": ["pill-red", "✕"],
-    "Diterima": ["pill-green", "✓"],
-    "Dibatalkan": ["pill-gray", "—"],
-    "Aktif": ["pill-amber", "⏱"],
-    "Diterima Final": ["pill-green", "✓"],
-    "Tidak Diterima Final": ["pill-red", "✕"],
+    "Lengkap": ["pill-green", "centang"],
+    "Menunggu Verifikasi": ["pill-amber", "jam"],
+    "Menunggu Verifikasi Berkas": ["pill-amber", "jam"],
+    "Menunggu Seleksi": ["pill-amber", "jam"],
+    "Menunggu Giliran": ["pill-gray", "strip"],
+    "Kurang Lengkap": ["pill-orange", "peringatan"],
+    "Ditolak": ["pill-red", "silang"],
+    "Diterima": ["pill-green", "centang"],
+    "Dibatalkan": ["pill-gray", "strip"],
+    "Aktif": ["pill-amber", "jam"],
+    "Diterima Final": ["pill-green", "centang"],
+    "Tidak Diterima Final": ["pill-red", "silang"],
   };
-  const [cls, icon] = map[status] || ["pill-gray", "—"];
-  return `<span class="pill ${cls}">${icon} ${esc(status)}</span>`;
+  const [cls, icon] = map[status] || ["pill-gray", "strip"];
+  return `<span class="pill ${cls}">${ikon(icon)} ${esc(status)}</span>`;
 }
 
 async function muatSesi() {
@@ -83,45 +83,8 @@ async function renderPanitiaView() {
 
   const sekolahId = sesi.panitia.sekolahId;
   const antrean = await fetch(`/api/sekolah/${sekolahId}/antrean`).then((r) => r.json());
-  antreanData = antrean;
-  const tbody = document.querySelector("#table-panitia tbody");
-  tbody.innerHTML = antrean.length
-    ? antrean.map((a) => {
-        const peringatan = [];
-        if (a.catatan_validasi_nik) peringatan.push(`NIK: ${a.catatan_validasi_nik}`);
-        if (a.catatan_validasi_alamat) peringatan.push(`Alamat: ${a.catatan_validasi_alamat}`);
-        (a.dokumen || []).forEach((d) => {
-          if (d.catatan_validasi) peringatan.push(`${d.jenis}: ${d.catatan_validasi}`);
-        });
-        if ((a.berkas_belum_ada || []).length) peringatan.push(`Belum diunggah: ${a.berkas_belum_ada.join(", ")}`);
-        const peringatanHTML = peringatan.length
-          ? `<ul style="margin:0;padding-left:16px;font-size:11.5px;color:#b45309">${peringatan.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
-          : '<span style="font-size:12px;color:#047857">✓ Tidak ada</span>';
-        return `
-        <tr>
-          <td>${esc(a.nomor)}</td>
-          <td><strong>${esc(a.nama)}</strong></td>
-          <td>${a.prioritas_aktif}</td>
-          <td>${esc(a.jalur_nama)}${infoJarak(a)}</td>
-          <td>${a.skor}${a.syarat_radius_km != null
-            ? `<br/><span style="font-size:11px;color:var(--muted)" title="Zonasi diurutkan berdasarkan jarak terdekat; skor = 100 − 10 × km">dari jarak</span>`
-            : infoNilai(a)}</td>
-          <td>${pillHTML(a.status_berkas)}${infoRevisi(a)}</td>
-          <td>${(a.dokumen || []).length ? a.dokumen.map((d) => `<a href="${safeUrl(d.url)}" target="_blank" rel="noopener" style="font-size:12px">${esc(d.jenis)}</a>`).join("<br/>") : '<span style="font-size:12px;color:var(--muted)">Belum ada</span>'}
-            <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="bukaLokasi(${a.pendaftar_id})">📍 Lokasi Rumah</button></td>
-          <td>${peringatanHTML}</td>
-          <td>
-            ${(a.berkas_belum_ada || []).length
-              ? `<button class="action-btn action-lengkap" disabled title="Belum diunggah: ${esc(a.berkas_belum_ada.join(", "))}">Lengkap</button>`
-              : `<button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>`}
-            <button class="action-btn action-kurang" onclick="tandaiKurang(${a.pendaftar_id})">Kurang</button>
-            <button class="action-btn action-tolak" onclick="tolakBerkas(${a.pendaftar_id})">Tolak</button>
-            <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="koreksiNilai(${a.pendaftar_id})">✎ Nilai Rapor</button>
-          </td>
-        </tr>
-      `;
-      }).join("")
-    : `<tr><td colspan="9" style="text-align:center;color:var(--muted)">Belum ada pendaftar aktif di sekolah ini.</td></tr>`;
+  antreanData = Array.isArray(antrean) ? antrean : [];
+  renderTabelAntrean();
 
   const [tahapan, statistik] = await Promise.all([
     fetch("/api/tahapan").then((r) => r.json()),
@@ -142,8 +105,83 @@ async function renderPanitiaView() {
         ${seleksiTerkunci ? 'disabled title="Tutup pendaftaran terlebih dahulu"' : ""}>Jalankan Seleksi</button>
     </div>
   `).join("") + (seleksiTerkunci
-    ? '<p class="muted" style="font-size:12.5px;margin-top:4px">🔒 Seleksi baru bisa dijalankan setelah pendaftaran ditutup (lihat kotak Tahapan PPDB di atas).</p>'
+    ? `<p class="muted" style="font-size:12.5px;margin-top:4px">${ikon("gembok")} Seleksi baru bisa dijalankan setelah pendaftaran ditutup (lihat kotak Tahapan PPDB di atas).</p>`
     : "");
+}
+
+/* =========================================================
+   ANTREAN: tab penyaring + pencarian (di browser, tanpa memuat ulang data)
+   ========================================================= */
+function daftarPeringatan(a) {
+  const peringatan = [];
+  if (a.catatan_validasi_nik) peringatan.push(`NIK: ${a.catatan_validasi_nik}`);
+  if (a.catatan_validasi_alamat) peringatan.push(`Alamat: ${a.catatan_validasi_alamat}`);
+  (a.dokumen || []).forEach((d) => {
+    if (d.catatan_validasi) peringatan.push(`${d.jenis}: ${d.catatan_validasi}`);
+  });
+  if ((a.berkas_belum_ada || []).length) peringatan.push(`Belum diunggah: ${a.berkas_belum_ada.join(", ")}`);
+  return peringatan;
+}
+
+const FILTER_ANTREAN = [
+  { kunci: "semua", label: "Semua", cocok: () => true },
+  { kunci: "verifikasi", label: "Perlu verifikasi", cocok: (a) => a.status_berkas === "Menunggu Verifikasi" },
+  { kunci: "kurang", label: "Kurang Lengkap", cocok: (a) => a.status_berkas === "Kurang Lengkap" },
+  { kunci: "lengkap", label: "Lengkap", cocok: (a) => a.status_berkas === "Lengkap" },
+  { kunci: "peringatan", label: "Ada peringatan", cocok: (a) => daftarPeringatan(a).length > 0 },
+];
+let filterAntrean = "semua";
+
+function pilihFilterAntrean(kunci) {
+  filterAntrean = kunci;
+  renderTabelAntrean();
+}
+document.getElementById("cari-antrean").addEventListener("input", () => renderTabelAntrean());
+
+function renderTabelAntrean() {
+  const antrean = antreanData;
+  document.getElementById("filter-antrean").innerHTML = FILTER_ANTREAN.map((f) => `
+    <button type="button" class="tab-item ${f.kunci === filterAntrean ? "aktif" : ""}" onclick="pilihFilterAntrean('${f.kunci}')">
+      ${f.label} <span class="tab-jumlah">${antrean.filter(f.cocok).length}</span>
+    </button>`).join("");
+
+  const kata = document.getElementById("cari-antrean").value.trim().toLowerCase();
+  const filter = FILTER_ANTREAN.find((f) => f.kunci === filterAntrean);
+  const tampil = antrean.filter((a) => filter.cocok(a) &&
+    (!kata || String(a.nama).toLowerCase().includes(kata) || String(a.nomor).toLowerCase().includes(kata)));
+
+  const tbody = document.querySelector("#table-panitia tbody");
+  tbody.innerHTML = tampil.length
+    ? tampil.map((a) => {
+        const peringatan = daftarPeringatan(a);
+        const peringatanHTML = peringatan.length
+          ? `<ul style="margin:0;padding-left:16px;font-size:11.5px;color:#b45309">${peringatan.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
+          : '<span style="font-size:12px;color:#047857">✓ Tidak ada</span>';
+        return `
+        <tr>
+          <td>${esc(a.nomor)}</td>
+          <td><strong>${esc(a.nama)}</strong></td>
+          <td>${a.prioritas_aktif}</td>
+          <td>${esc(a.jalur_nama)}${infoJarak(a)}</td>
+          <td>${a.skor}${a.syarat_radius_km != null
+            ? `<br/><span style="font-size:11px;color:var(--muted)" title="Zonasi diurutkan berdasarkan jarak terdekat; skor = 100 − 10 × km">dari jarak</span>`
+            : infoNilai(a)}</td>
+          <td>${pillHTML(a.status_berkas)}${infoRevisi(a)}</td>
+          <td>${(a.dokumen || []).length ? a.dokumen.map((d) => `<a href="${safeUrl(d.url)}" target="_blank" rel="noopener" style="font-size:12px">${esc(d.jenis)}</a>`).join("<br/>") : '<span style="font-size:12px;color:var(--muted)">Belum ada</span>'}
+            <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="bukaLokasi(${a.pendaftar_id})">${ikon("lokasi")} Lokasi Rumah</button></td>
+          <td>${peringatanHTML}</td>
+          <td>
+            ${(a.berkas_belum_ada || []).length
+              ? `<button class="action-btn action-lengkap" disabled title="Belum diunggah: ${esc(a.berkas_belum_ada.join(", "))}">Lengkap</button>`
+              : `<button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>`}
+            <button class="action-btn action-kurang" onclick="tandaiKurang(${a.pendaftar_id})">Kurang</button>
+            <button class="action-btn action-tolak" onclick="tolakBerkas(${a.pendaftar_id})">Tolak</button>
+            <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="koreksiNilai(${a.pendaftar_id})">${ikon("pensil")} Nilai Rapor</button>
+          </td>
+        </tr>
+      `;
+      }).join("")
+    : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:22px">${antrean.length ? "Tidak ada pendaftar yang cocok dengan penyaring/pencarian." : "Belum ada pendaftar aktif di sekolah ini."}</td></tr>`;
 }
 
 /* =========================================================
@@ -159,11 +197,11 @@ function renderStatistik(daftar) {
       <div class="statistik-kuota"><strong>${j.diterima}</strong> / ${j.kuota} kursi terisi · sisa <strong>${j.sisa_kuota}</strong></div>
       <div class="bar-kuota"><div style="width:${persen}%"></div></div>
       <div class="statistik-rinci">
-        <span>👥 Peminat <strong>${j.peminat}</strong></span>
-        <span>⏱ Verifikasi <strong>${j.menunggu_verifikasi}</strong></span>
-        <span>📋 Siap seleksi <strong>${j.menunggu_seleksi}</strong></span>
-        <span>— Cadangan <strong>${j.cadangan}</strong></span>
-        <span>✕ Ditolak <strong>${j.ditolak}</strong></span>
+        <span>${ikon("orang")} Peminat <strong>${j.peminat}</strong></span>
+        <span>${ikon("jam")} Verifikasi <strong>${j.menunggu_verifikasi}</strong></span>
+        <span>${ikon("daftarCek")} Siap seleksi <strong>${j.menunggu_seleksi}</strong></span>
+        <span>${ikon("strip")} Cadangan <strong>${j.cadangan}</strong></span>
+        <span>${ikon("silang")} Ditolak <strong>${j.ditolak}</strong></span>
       </div>
     </div>`;
   }).join("") || '<p class="muted">Statistik belum tersedia.</p>';
@@ -182,17 +220,17 @@ function renderTahapan(t) {
   box.innerHTML = `
     <div>
       <div class="tahapan-label">Tahapan PPDB <span class="muted" style="font-size:11.5px;margin:0">(berlaku untuk semua sekolah)</span></div>
-      <div class="tahapan-status ${t.dibuka ? "buka" : "tutup"}">${t.dibuka ? "🟢 Pendaftaran DIBUKA — seleksi belum bisa dijalankan" : "🔒 Pendaftaran DITUTUP — seleksi dapat dijalankan"}</div>
+      <div class="tahapan-status ${t.dibuka ? "buka" : "tutup"}">${t.dibuka ? ikon("gembokBuka") + " Pendaftaran DIBUKA — seleksi belum bisa dijalankan" : ikon("gembok") + " Pendaftaran DITUTUP — seleksi dapat dijalankan"}</div>
       ${info}
     </div>
-    <span class="muted" style="margin:0;font-size:12.5px">🏛 Buka/tutup pendaftaran diatur oleh <strong>Admin Dinas</strong>.</span>`;
+    <span class="muted" style="margin:0;font-size:12.5px">${ikon("dinas")} Buka/tutup pendaftaran diatur oleh <strong>Admin Dinas</strong>.</span>`;
 }
 
 
 // Masa revisi berkas "Kurang Lengkap": batas waktu + catatan panitia
 function infoRevisi(a) {
   if (a.status_berkas !== "Kurang Lengkap" || !a.batas_revisi_at) return "";
-  return `<br/><span style="font-size:11px;color:#c2410c">⏳ revisi s/d ${esc(formatWaktuWIB(a.batas_revisi_at))}</span>` +
+  return `<br/><span style="font-size:11px;color:#c2410c">${ikon("jam")} revisi s/d ${esc(formatWaktuWIB(a.batas_revisi_at))}</span>` +
     (a.catatan_revisi ? `<br/><span style="font-size:11px;color:var(--muted)">"${esc(a.catatan_revisi)}"</span>` : "");
 }
 
@@ -255,10 +293,10 @@ async function koreksiNilai(pendaftarId) {
 function infoJarak(a) {
   if (a.syarat_radius_km == null) return "";
   if (a.jarak_km == null) {
-    return `<br/><span style="font-size:11.5px;color:#b91c1c">⚠ ${esc(a.catatan_skor || "Lokasi tidak tersedia")}</span>`;
+    return `<br/><span style="font-size:11.5px;color:#b91c1c">${ikon("peringatan")} ${esc(a.catatan_skor || "Lokasi tidak tersedia")}</span>`;
   }
   const diLuar = Number(a.jarak_km) > Number(a.syarat_radius_km);
-  return `<br/><span style="font-size:11.5px;color:${diLuar ? "#b91c1c" : "#047857"}">📍 ${Number(a.jarak_km).toFixed(2)} km / radius ${a.syarat_radius_km} km${diLuar ? " — di luar radius" : ""}</span>`;
+  return `<br/><span style="font-size:11.5px;color:${diLuar ? "#b91c1c" : "#047857"}">${ikon("lokasi")} ${Number(a.jarak_km).toFixed(2)} km / radius ${a.syarat_radius_km} km${diLuar ? " — di luar radius" : ""}</span>`;
 }
 
 /* =========================================================
@@ -273,7 +311,7 @@ function bukaLokasi(pendaftarId) {
 
   const akurasi = a.akurasi_lokasi_m;
   const akurasiHTML = akurasi == null ? "-"
-    : `± ${akurasi} m${akurasi > 100 ? ' <span style="color:#b45309">⚠ kurang akurat</span>' : ""}`;
+    : `± ${akurasi} m${akurasi > 100 ? ' <span style="color:#b45309">' + ikon("peringatan") + ' kurang akurat</span>' : ""}`;
   const jarakHTML = a.jarak_km != null
     ? `${Number(a.jarak_km).toFixed(2)} km${a.syarat_radius_km != null ? ` (radius ${a.syarat_radius_km} km)` : ""}`
     : "-";
@@ -289,7 +327,7 @@ function bukaLokasi(pendaftarId) {
     <div><div class="li-label">Akurasi GPS</div>${akurasiHTML}</div>
     <div class="li-full"><div class="li-label">Cek otomatis alamat vs GPS</div>${
       a.catatan_validasi_alamat
-        ? `<span style="color:#b45309">⚠ ${esc(a.catatan_validasi_alamat)}</span>`
+        ? `<span style="color:#b45309">${ikon("peringatan")} ${esc(a.catatan_validasi_alamat)}</span>`
         : a.alamat_latitude != null
           ? `<span style="color:#047857">✓ Alamat cocok dengan titik GPS (ketepatan pencarian: level ${esc(a.alamat_presisi)})</span>`
           : '<span style="color:var(--muted)">Belum dicek</span>'

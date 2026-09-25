@@ -74,7 +74,7 @@ function renderTahapan(t) {
   box.innerHTML = `
     <div>
       <div class="tahapan-label">Tahapan PPDB <span class="muted" style="font-size:11.5px;margin:0">(berlaku untuk semua sekolah)</span></div>
-      <div class="tahapan-status ${t.dibuka ? "buka" : "tutup"}">${t.dibuka ? "🟢 Pendaftaran DIBUKA — seleksi belum bisa dijalankan" : "🔒 Pendaftaran DITUTUP — panitia dapat menjalankan seleksi"}</div>
+      <div class="tahapan-status ${t.dibuka ? "buka" : "tutup"}">${t.dibuka ? ikon("gembokBuka") + " Pendaftaran DIBUKA — seleksi belum bisa dijalankan" : ikon("gembok") + " Pendaftaran DITUTUP — panitia dapat menjalankan seleksi"}</div>
       ${t.diubahOleh ? `<div class="muted" style="margin:4px 0 0;font-size:12px">Terakhir diubah oleh ${esc(t.diubahOleh)} · ${esc(formatWaktuWIB(t.diubahAt))}</div>` : ""}
     </div>
     <button class="btn ${t.dibuka ? "btn-primary" : "btn-outline"}" onclick="ubahTahapan(${!t.dibuka}, this)">
@@ -109,10 +109,10 @@ async function ubahTahapan(dibuka, btn) {
    ========================================================= */
 function renderTotal(t) {
   document.getElementById("admin-total").innerHTML = `
-    <div class="stat-card"><span class="stat-ico">👥</span><div class="stat-num">${t.pendaftar}</div><div class="stat-label">Total pendaftar</div></div>
-    <div class="stat-card"><span class="stat-ico">⏱</span><div class="stat-num" style="color:var(--amber)">${t.aktif}</div><div class="stat-label">Masih diproses</div></div>
-    <div class="stat-card"><span class="stat-ico">✅</span><div class="stat-num" style="color:#047857">${t.diterima}</div><div class="stat-label">Diterima</div></div>
-    <div class="stat-card"><span class="stat-ico">🏫</span><div class="stat-num">${t.sekolah}</div><div class="stat-label">Sekolah</div></div>`;
+    <div class="stat-card"><span class="stat-ico">${ikon("orang")}</span><div class="stat-num">${t.pendaftar}</div><div class="stat-label">Total pendaftar</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("jam")}</span><div class="stat-num" style="color:var(--amber)">${t.aktif}</div><div class="stat-label">Masih diproses</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("diterima")}</span><div class="stat-num" style="color:#047857">${t.diterima}</div><div class="stat-label">Diterima</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("sekolah")}</span><div class="stat-num">${t.sekolah}</div><div class="stat-label">Sekolah</div></div>`;
 }
 
 function renderSekolah(daftar) {

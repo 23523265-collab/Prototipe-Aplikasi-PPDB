@@ -35,21 +35,21 @@ function showView(view) {
 
 function pillHTML(status) {
   const map = {
-    "Lengkap": ["pill-green", "✓"],
-    "Menunggu Verifikasi": ["pill-amber", "⏱"],
-    "Menunggu Verifikasi Berkas": ["pill-amber", "⏱"],
-    "Menunggu Seleksi": ["pill-amber", "⏱"],
-    "Menunggu Giliran": ["pill-gray", "—"],
-    "Kurang Lengkap": ["pill-orange", "⚠"],
-    "Ditolak": ["pill-red", "✕"],
-    "Diterima": ["pill-green", "✓"],
-    "Dibatalkan": ["pill-gray", "—"],
-    "Aktif": ["pill-amber", "⏱"],
-    "Diterima Final": ["pill-green", "✓"],
-    "Tidak Diterima Final": ["pill-red", "✕"],
+    "Lengkap": ["pill-green", "centang"],
+    "Menunggu Verifikasi": ["pill-amber", "jam"],
+    "Menunggu Verifikasi Berkas": ["pill-amber", "jam"],
+    "Menunggu Seleksi": ["pill-amber", "jam"],
+    "Menunggu Giliran": ["pill-gray", "strip"],
+    "Kurang Lengkap": ["pill-orange", "peringatan"],
+    "Ditolak": ["pill-red", "silang"],
+    "Diterima": ["pill-green", "centang"],
+    "Dibatalkan": ["pill-gray", "strip"],
+    "Aktif": ["pill-amber", "jam"],
+    "Diterima Final": ["pill-green", "centang"],
+    "Tidak Diterima Final": ["pill-red", "silang"],
   };
-  const [cls, icon] = map[status] || ["pill-gray", "—"];
-  return `<span class="pill ${cls}">${icon} ${esc(status)}</span>`;
+  const [cls, icon] = map[status] || ["pill-gray", "strip"];
+  return `<span class="pill ${cls}">${ikon(icon)} ${esc(status)}</span>`;
 }
 
 // ---------- Sesi login ----------
@@ -145,7 +145,7 @@ document.getElementById("btn-cek-jarak").addEventListener("click", async (e) => 
   btn.innerText = "Mengambil lokasi...";
   const lokasi = await ambilLokasi(true);
   btn.disabled = false;
-  btn.innerText = "📍 Perbarui lokasi";
+  btn.innerHTML = `${ikon("lokasi")} Perbarui lokasi`;
   if (!lokasi) {
     info.innerHTML = `<span style="color:#b91c1c">${pesanGagalLokasi()}</span>`;
     return;
@@ -177,11 +177,61 @@ function renderBeranda() {
   const totalDiterima = pendaftarList.filter((p) => p.status_global === "Diterima Final").length;
   const totalTidakDiterima = pendaftarList.filter((p) => p.status_global === "Tidak Diterima Final").length;
   document.getElementById("stat-grid").innerHTML = `
-    <div class="stat-card"><span class="stat-ico">👥</span><div class="stat-num">${pendaftarList.length}</div><div class="stat-label">Total pendaftar</div></div>
-    <div class="stat-card"><span class="stat-ico">⏱</span><div class="stat-num" style="color:var(--amber)">${totalAktif}</div><div class="stat-label">Masih diproses (aktif)</div></div>
-    <div class="stat-card"><span class="stat-ico">✅</span><div class="stat-num" style="color:#047857">${totalDiterima}</div><div class="stat-label">Diterima</div></div>
-    <div class="stat-card"><span class="stat-ico">✕</span><div class="stat-num" style="color:#b91c1c">${totalTidakDiterima}</div><div class="stat-label">Tidak diterima (habis pilihan)</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("orang")}</span><div class="stat-num">${pendaftarList.length}</div><div class="stat-label">Total pendaftar</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("jam")}</span><div class="stat-num" style="color:var(--amber)">${totalAktif}</div><div class="stat-label">Masih diproses (aktif)</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("diterima")}</span><div class="stat-num" style="color:#047857">${totalDiterima}</div><div class="stat-label">Diterima</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("ditolak")}</span><div class="stat-num" style="color:#b91c1c">${totalTidakDiterima}</div><div class="stat-label">Tidak diterima (habis pilihan)</div></div>
   `;
+  renderJalurBeranda();
+  renderTahapanBeranda(totalDiterima + totalTidakDiterima > 0);
+}
+
+/** Tahapan PPDB mengikuti status buka/tutup yang diatur Admin Dinas (tanpa tanggal karangan). */
+async function renderTahapanBeranda(adaHasil) {
+  const t = await fetch("/api/tahapan").then((r) => r.json()).catch(() => ({ dibuka: true }));
+  const tahap = [
+    { judul: "Pendaftaran & unggah berkas", ket: "Isi formulir, pilih hingga 3 sekolah, lalu unggah KK, akta kelahiran, dan rapor.",
+      status: t.dibuka ? "berjalan" : "selesai", label: t.dibuka ? "Dibuka sekarang" : "Ditutup" },
+    { judul: "Verifikasi berkas", ket: "Panitia sekolah memeriksa berkas. Jika kurang lengkap, pendaftar diberi waktu revisi 2×24 jam.",
+      status: t.dibuka ? "berjalan" : "selesai", label: t.dibuka ? "Berlangsung" : "Selesai" },
+    { judul: "Seleksi per jalur", ket: "Dijalankan setelah pendaftaran ditutup, supaya semua pendaftar dibandingkan secara adil.",
+      status: t.dibuka ? "" : adaHasil ? "selesai" : "berjalan", label: t.dibuka ? "Setelah pendaftaran ditutup" : adaHasil ? "Sudah berjalan" : "Berlangsung" },
+    { judul: "Pengumuman & auto-transfer", ket: "Hasil tampil di menu Pengumuman dan dikirim ke email. Yang tidak lolos otomatis dialihkan ke pilihan berikutnya.",
+      status: !t.dibuka && adaHasil ? "berjalan" : "", label: !t.dibuka && adaHasil ? "Hasil mulai diumumkan" : "Setelah seleksi" },
+  ];
+  document.getElementById("beranda-tahapan").innerHTML = tahap.map((x, i) => `
+    <li class="jadwal-item ${x.status}">
+      <span class="jadwal-no">${x.status === "selesai" ? ikon("centang") : i + 1}</span>
+      <div>
+        <div class="jadwal-atas"><strong>${x.judul}</strong><span class="jadwal-label">${x.label}</span></div>
+        <p>${x.ket}</p>
+      </div>
+    </li>`).join("");
+}
+
+function renderJalurBeranda() {
+  const unik = (arr) => [...new Set(arr.filter((x) => x != null).map(Number))].sort((a, b) => a - b);
+  const radius = unik(jalurList.map((j) => j.syarat_radius_km));
+  const nilaiMin = unik(jalurList.map((j) => j.syarat_nilai_minimum));
+  const teksRadius = radius.length ? radius.join(" atau ") + " km" : "-";
+  document.getElementById("beranda-jalur").innerHTML = `
+    <div class="jalur-info">
+      <div class="jalur-info-kepala"><span class="stat-ico">${ikon("lokasi")}</span><div><strong>Zonasi</strong><span>Berdasarkan jarak rumah</span></div></div>
+      <ul>
+        <li>Syarat: jarak rumah ke sekolah <strong>≤ radius zonasi</strong> (${teksRadius}; Kota Yogyakarta lebih kecil dari Sleman).</li>
+        <li>Jarak dihitung otomatis dari lokasi GPS saat mendaftar, dicocokkan panitia dengan alamat di KK.</li>
+        <li>Peringkat: <strong>jarak terdekat</strong> diterima lebih dulu.</li>
+      </ul>
+    </div>
+    <div class="jalur-info">
+      <div class="jalur-info-kepala"><span class="stat-ico">${ikon("piala")}</span><div><strong>Prestasi</strong><span>Berdasarkan nilai rapor</span></div></div>
+      <ul>
+        <li>Syarat: rata-rata nilai rapor <strong>≥ ${nilaiMin.length ? nilaiMin.join(" / ") : "-"}</strong>.</li>
+        <li>Nilai diisi saat mendaftar dan dicocokkan panitia dengan berkas rapor.</li>
+        <li>Peringkat: <strong>nilai tertinggi</strong> diterima lebih dulu.</li>
+      </ul>
+    </div>
+    <p class="muted" style="grid-column:1/-1;font-size:12.5px;margin:0">Jika jarak atau nilai sama, <strong>usia lebih tua</strong> didahulukan, lalu yang <strong>mendaftar lebih awal</strong>. Gunakan tombol <em>Cek jarak saya ke sekolah</em> di formulir untuk melihat sekolah mana yang masuk radius.</p>`;
 }
 
 /* =========================================================
@@ -487,7 +537,7 @@ function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terk
         <div class="upload-status" id="${prefix}-status-${i}">${statusHTML}</div>
       </div>
       <div>${terkunci
-        ? `<span style="font-size:12px;color:var(--muted)">🔒 ${esc(terkunci)}</span>`
+        ? `<span style="font-size:12px;color:var(--muted)">${ikon("gembok")} ${esc(terkunci)}</span>`
         : `<input type="file" id="${prefix}-file-${i}" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="unggahBerkas('${prefix}', ${i})" />
            <button class="btn btn-outline" onclick="document.getElementById('${prefix}-file-${i}').click()">${ada ? "Ganti" : "Pilih File"}</button>`}
       </div>
@@ -614,7 +664,7 @@ async function renderStatusView() {
     statusBanner = `<div class="badge-final-reject">Tidak diterima di seluruh pilihan sekolah</div>`;
   } else if (pendaftar.status_berkas === "Kurang Lengkap") {
     statusBanner = `<div class="alert alert-error" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">
-      <strong>⚠ Berkas Anda Kurang Lengkap</strong> di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}.
+      <strong>${ikon("peringatan")} Berkas Anda Kurang Lengkap</strong> di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}.
       ${pendaftar.catatan_revisi ? `<br/>Catatan panitia: <em>${esc(pendaftar.catatan_revisi)}</em>` : ""}
       ${pendaftar.batas_revisi_at ? `<br/>Unggah ulang berkas di bagian <strong>Berkas Pendaftaran</strong> di bawah paling lambat <strong>${esc(formatWaktuWIB(pendaftar.batas_revisi_at))}</strong>. Jika lewat batas waktu, pendaftaran otomatis dialihkan ke pilihan berikutnya.` : ""}
     </div>`;
@@ -634,8 +684,8 @@ async function renderStatusView() {
 
     const pengalihan = riwayat.find((r) => r.dari_sekolah_id === p.sekolah_id);
     const rinciJarak = p.jarak_km != null
-      ? `<span>📍 <strong>${Number(p.jarak_km).toFixed(1)} km</strong> dari rumah</span>`
-      : p.catatan_skor ? `<span style="color:#b45309">⚠ ${esc(p.catatan_skor)}</span>` : "";
+      ? `<span>${ikon("lokasi")} <strong>${Number(p.jarak_km).toFixed(1)} km</strong> dari rumah</span>`
+      : p.catatan_skor ? `<span style="color:#b45309">${ikon("peringatan")} ${esc(p.catatan_skor)}</span>` : "";
     return `
       <li class="pj-item ${kelas}">
         <div class="pj-garis"><div class="pj-bulat">${bulat}</div><div class="pj-batang"></div></div>
@@ -689,26 +739,58 @@ async function renderStatusView() {
 /* =========================================================
    PENGUMUMAN
    ========================================================= */
+const FILTER_PENGUMUMAN = [
+  { kunci: "semua", label: "Semua", cocok: () => true },
+  { kunci: "Aktif", label: "Masih diproses", cocok: (p) => p.status_global === "Aktif" },
+  { kunci: "Diterima Final", label: "Diterima", cocok: (p) => p.status_global === "Diterima Final" },
+  { kunci: "Tidak Diterima Final", label: "Tidak diterima", cocok: (p) => p.status_global === "Tidak Diterima Final" },
+];
+let filterPengumuman = "semua";
+
+function pilihFilterPengumuman(kunci) {
+  filterPengumuman = kunci;
+  renderPengumuman();
+}
+document.getElementById("cari-pengumuman").addEventListener("input", () => renderPengumuman());
+document.getElementById("filter-sekolah-pengumuman").addEventListener("change", () => renderPengumuman());
+
 function renderPengumuman() {
-  const container = document.getElementById("pengumuman-container");
-  container.innerHTML = `
-    <p class="muted" style="font-size:12.5px">🔒 Nama disamarkan untuk melindungi data pribadi pendaftar. Cari hasilmu berdasarkan <strong>nomor pendaftaran</strong>, atau login di menu Cek Status untuk detail lengkap.</p>
+  // Isi pilihan sekolah sekali (daftar sekolah sudah dimuat di loadData)
+  const selSekolah = document.getElementById("filter-sekolah-pengumuman");
+  if (selSekolah.options.length <= 1 && sekolahList.length) {
+    selSekolah.innerHTML += sekolahList.map((s) => `<option value="${esc(s.nama)}">${esc(s.nama)}</option>`).join("");
+  }
+
+  const kata = document.getElementById("cari-pengumuman").value.trim().toLowerCase();
+  const sekolah = selSekolah.value;
+  const dasar = pendaftarList.filter((p) => (!sekolah || p.sekolah_aktif_nama === sekolah) &&
+    (!kata || String(p.nomor).toLowerCase().includes(kata) || String(p.nama_samaran).toLowerCase().includes(kata)));
+
+  document.getElementById("filter-status-pengumuman").innerHTML = FILTER_PENGUMUMAN.map((f) => `
+    <button type="button" class="tab-item ${f.kunci === filterPengumuman ? "aktif" : ""}" onclick="pilihFilterPengumuman('${esc(f.kunci)}')">
+      ${f.label} <span class="tab-jumlah">${dasar.filter(f.cocok).length}</span>
+    </button>`).join("");
+
+  const filter = FILTER_PENGUMUMAN.find((f) => f.kunci === filterPengumuman);
+  const tampil = dasar.filter(filter.cocok);
+  const nomorSaya = sesi.pendaftar?.nomor;
+
+  document.getElementById("pengumuman-container").innerHTML = `
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Nomor</th><th>Nama</th><th>Posisi Saat Ini</th><th>Status Akhir</th></tr></thead>
+        <thead><tr><th>Nomor</th><th>Nama</th><th>Sekolah Saat Ini</th><th>Status Akhir</th></tr></thead>
         <tbody>
-          ${pendaftarList.map((p) => `
-            <tr>
-              <td>${esc(p.nomor)}</td>
+          ${tampil.length ? tampil.map((p) => `
+            <tr class="${p.nomor === nomorSaya ? "baris-saya" : ""}">
+              <td>${esc(p.nomor)}${p.nomor === nomorSaya ? ' <span class="tanda-saya">Anda</span>' : ""}</td>
               <td><strong>${esc(p.nama_samaran)}</strong></td>
-              <td>${esc(p.sekolah_aktif_nama || "-")} ${p.status_global === "Aktif" ? `(Pilihan ${p.prioritas_aktif})` : ""}</td>
+              <td>${esc(p.sekolah_aktif_nama || "-")} ${p.status_global === "Aktif" ? `<span class="muted" style="font-size:12px;margin:0">(Pilihan ${p.prioritas_aktif})</span>` : ""}</td>
               <td>${pillHTML(p.status_global)}</td>
-            </tr>
-          `).join("")}
+            </tr>`).join("")
+          : `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:22px">${pendaftarList.length ? "Tidak ada pendaftar yang cocok dengan pencarian." : "Belum ada pendaftar."}</td></tr>`}
         </tbody>
       </table>
-    </div>
-  `;
+    </div>`;
 }
 
 loadData();

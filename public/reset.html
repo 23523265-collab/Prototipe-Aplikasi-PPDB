@@ -9,7 +9,7 @@
 <body>
   <div class="auth-shell" style="min-height:100vh">
     <div class="auth-card">
-      <div class="auth-icon">🔑</div>
+      <div class="auth-icon"><i data-ikon="kunci"></i></div>
       <h2>Buat Password Baru</h2>
       <p class="muted">Masukkan password baru untuk akun pendaftaran Anda.</p>
       <div id="reset-info" class="alert" style="display:none"></div>
@@ -22,6 +22,7 @@
     </div>
   </div>
 
+  <script src="/js/ikon.js"></script>
   <script>
     const token = new URLSearchParams(location.search).get("token");
     const form = document.getElementById("form-reset");

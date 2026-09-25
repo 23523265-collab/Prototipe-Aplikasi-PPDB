@@ -10,8 +10,8 @@
 <body>
   <header class="staff-topbar">
     <div class="staff-brand">
-      <div class="brand-badge">🎓</div>
-      <p class="staff-brand-title">SiPPDB <span class="staff-badge">🔒 Staf Panitia</span></p>
+      <div class="brand-badge"><i data-ikon="toga"></i></div>
+      <p class="staff-brand-title">SiPPDB <span class="staff-badge"><i data-ikon="gembok"></i> Staf Panitia</span></p>
     </div>
     <div class="staff-topbar-right">
       <span id="panitia-nama-label"></span>
@@ -24,7 +24,7 @@
     <!-- ===================== LOGIN ===================== -->
     <div id="panitia-login-wrap" class="auth-shell">
       <div class="auth-card">
-        <div class="auth-icon">🔑</div>
+        <div class="auth-icon"><i data-ikon="kunci"></i></div>
         <h2>Login Panitia</h2>
         <p class="muted">Masuk dengan akun panitia sekolah Anda. Halaman ini khusus staf dan tidak ditautkan dari situs pendaftar.</p>
         <div id="panitia-login-error" class="alert alert-error" style="display:none"></div>
@@ -33,7 +33,7 @@
           <label>Password<input required type="password" name="password" autocomplete="current-password" /></label>
           <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
         </form>
-        <p style="margin:16px 0 0;text-align:center"><a href="/admin.html" class="link-btn">🏛 Login Admin Dinas</a></p>
+        <p style="margin:16px 0 0;text-align:center"><a href="/admin.html" class="link-btn"><i data-ikon="dinas"></i> Login Admin Dinas</a></p>
       </div>
     </div>
 
@@ -43,11 +43,15 @@
 
       <div class="row-between" style="margin-bottom:10px">
         <h3 class="sub-heading" style="margin:0">Statistik Sekolah</h3>
-        <a class="btn btn-outline" id="btn-export" href="#" download>⬇ Unduh Data (Excel)</a>
+        <a class="btn btn-outline" id="btn-export" href="#" download><i data-ikon="unduh"></i> Unduh Data (Excel)</a>
       </div>
       <div id="statistik-container" class="statistik-grid"></div>
 
       <h3 class="sub-heading" style="margin-top:0">Antrean Aktif di Sekolah Ini</h3>
+      <div class="antrean-alat">
+        <div class="tab-filter" id="filter-antrean"></div>
+        <label class="cari-kotak"><i data-ikon="cari"></i><input type="search" id="cari-antrean" placeholder="Cari nama atau nomor…" aria-label="Cari pendaftar" /></label>
+      </div>
       <div class="table-wrap">
         <table id="table-panitia">
           <thead>
@@ -71,11 +75,12 @@
       </div>
       <div id="lokasi-info" class="lokasi-info"></div>
       <div id="lokasi-peta" class="lokasi-peta"></div>
-      <p class="muted" style="margin:10px 0 0;font-size:12px">🔵 Titik GPS rumah (lingkaran tipis = akurasi) · 🟢 Hasil pencarian alamat · 🟠 Sekolah (lingkaran putus-putus = radius zonasi). Titik GPS dapat dipalsukan — cocokkan dengan alamat di Kartu Keluarga.</p>
+      <p class="muted" style="margin:10px 0 0;font-size:12px"><span class="titik-peta" style="background:#3b82f6"></span> Titik GPS rumah (lingkaran tipis = akurasi) · <span class="titik-peta" style="background:#10b981"></span> Hasil pencarian alamat · <span class="titik-peta" style="background:#C98A2C"></span> Sekolah (lingkaran putus-putus = radius zonasi). Titik GPS dapat dipalsukan — cocokkan dengan alamat di Kartu Keluarga.</p>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="/js/ikon.js"></script>
   <script src="/js/dialog.js"></script>
   <script src="/js/panitia.js"></script>
 </body>

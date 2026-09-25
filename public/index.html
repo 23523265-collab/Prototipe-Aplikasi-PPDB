@@ -10,28 +10,28 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-badge">🎓</div>
+        <div class="brand-badge"><i data-ikon="toga"></i></div>
         <div>
           <p class="brand-title">SiPPDB</p>
           <p class="brand-sub">Multi-Sekolah · Auto-Transfer</p>
         </div>
       </div>
       <nav>
-        <button class="nav-item active" data-view="beranda"><span class="nav-ico">🏠</span>Beranda</button>
-        <button class="nav-item" data-view="daftar"><span class="nav-ico">📝</span>Pendaftaran</button>
-        <button class="nav-item" data-view="status"><span class="nav-ico">🔎</span>Cek Status</button>
+        <button class="nav-item active" data-view="beranda"><span class="nav-ico"><i data-ikon="rumah"></i></span>Beranda</button>
+        <button class="nav-item" data-view="daftar"><span class="nav-ico"><i data-ikon="formulir"></i></span>Pendaftaran</button>
+        <button class="nav-item" data-view="status"><span class="nav-ico"><i data-ikon="cari"></i></span>Cek Status</button>
         <p class="nav-label">Umum</p>
-        <button class="nav-item" data-view="pengumuman"><span class="nav-ico">📢</span>Pengumuman</button>
+        <button class="nav-item" data-view="pengumuman"><span class="nav-ico"><i data-ikon="pengumuman"></i></span>Pengumuman</button>
       </nav>
       <div class="sidebar-foot">
-        <a class="sidebar-foot-link" href="/panitia.html">🔒 Login Panitia</a>
+        <a class="sidebar-foot-link" href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
       </div>
     </aside>
 
     <main class="content">
       <section id="view-beranda" class="view active">
         <div class="hero-wrap">
-          <p class="eyebrow">✨ Penerimaan Peserta Didik Baru 2026/2027 · Lintas Sekolah</p>
+          <p class="eyebrow"><i data-ikon="kilau"></i> Penerimaan Peserta Didik Baru 2026/2027 · Lintas Sekolah</p>
           <h1>Daftar sekali, pilih hingga 3 sekolah.<br />Sisanya biar sistem yang urus.</h1>
           <p class="lead">Kalau tidak diterima di Pilihan 1, sistem otomatis mengalihkan pendaftaranmu ke Pilihan 2 — tanpa perlu daftar ulang dari awal.</p>
           <div class="cta-row">
@@ -40,6 +40,20 @@
           </div>
           <div class="stat-grid" id="stat-grid"></div>
         </div>
+
+        <h3 class="sub-heading" style="margin-top:8px"><i data-ikon="kalender"></i> Tahapan PPDB</h3>
+        <ol class="jadwal" id="beranda-tahapan"></ol>
+
+        <h3 class="sub-heading"><i data-ikon="daftarCek"></i> Jalur Pendaftaran</h3>
+        <div class="jalur-info-grid" id="beranda-jalur"></div>
+
+        <h3 class="sub-heading"><i data-ikon="alih"></i> Bagaimana auto-transfer bekerja?</h3>
+        <div class="cara-kerja">
+          <div><span class="ck-no">1</span><strong>Pilih hingga 3 sekolah</strong><p>Urutkan dari yang paling diinginkan. Setiap pilihan bisa memakai jalur berbeda.</p></div>
+          <div><span class="ck-no">2</span><strong>Diproses satu per satu</strong><p>Panitia Pilihan 1 memverifikasi berkas dan menjalankan seleksi lebih dulu.</p></div>
+          <div><span class="ck-no">3</span><strong>Dialihkan otomatis</strong><p>Tidak lolos di Pilihan 1? Pendaftaran langsung pindah ke Pilihan 2 — tanpa daftar ulang.</p></div>
+          <div><span class="ck-no">4</span><strong>Pantau & dapat email</strong><p>Setiap perubahan status dikirim ke email dan tampil di menu Cek Status.</p></div>
+        </div>
       </section>
 
       <!-- ===================== PENDAFTARAN ===================== -->
@@ -47,7 +61,7 @@
         <div id="daftar-form-wrap" class="panel-card">
           <h2>Formulir Pendaftaran</h2>
           <p class="muted">Pilih hingga 3 sekolah secara berurutan. Sistem akan memproses Pilihan 1 terlebih dahulu.</p>
-          <div id="daftar-tutup" class="alert alert-error" style="display:none">🔒 <strong>Pendaftaran sedang ditutup.</strong> Proses seleksi sedang berlangsung — pantau menu Pengumuman. Pendaftar yang sudah terdaftar tetap bisa login di Cek Status.</div>
+          <div id="daftar-tutup" class="alert alert-error" style="display:none"><i data-ikon="gembok"></i> <strong>Pendaftaran sedang ditutup.</strong> Proses seleksi sedang berlangsung — pantau menu Pengumuman. Pendaftar yang sudah terdaftar tetap bisa login di Cek Status.</div>
           <div id="daftar-success" class="alert alert-success" style="display:none"></div>
           <!-- Formulir dibagi 4 langkah; semua isian tetap satu <form> sehingga dikirim sekaligus di langkah terakhir -->
           <form id="form-daftar" novalidate>
@@ -69,7 +83,7 @@
               <p class="langkah-judul">Alamat &amp; Lokasi Rumah</p>
               <label>Alamat Rumah<textarea required name="alamat" rows="3" placeholder="Sesuai Kartu Keluarga: jalan, RT/RW, kelurahan, kecamatan"></textarea></label>
               <div class="jarak-box">
-                <button type="button" class="btn btn-outline" id="btn-cek-jarak">📍 Cek jarak saya ke sekolah</button>
+                <button type="button" class="btn btn-outline" id="btn-cek-jarak"><i data-ikon="lokasi"></i> Cek jarak saya ke sekolah</button>
                 <div id="jarak-info" class="muted" style="margin:8px 0 0;font-size:12.5px">Lakukan dari rumah. Lokasi dipakai untuk menghitung jarak rumah ke sekolah pada jalur Zonasi, dan menandai sekolah mana yang masuk radius.</div>
               </div>
             </fieldset>
@@ -118,7 +132,7 @@
         </div>
 
         <div id="daftar-upload-wrap" class="panel-card" style="display:none">
-          <h2>Pendaftaran Berhasil 🎉</h2>
+          <h2>Pendaftaran Berhasil</h2>
           <div class="nomor-kartu">
             <div class="nk-ikon">✓</div>
             <div>
@@ -132,7 +146,7 @@
           <div id="upload-list"></div>
           <div class="cta-row" style="margin-top:12px">
             <button class="btn btn-primary" id="btn-selesai-unggah">Selesai, lihat status</button>
-            <a class="btn btn-outline" href="/bukti.html" target="_blank" rel="noopener">🖨 Cetak Bukti Pendaftaran</a>
+            <a class="btn btn-outline" href="/bukti.html" target="_blank" rel="noopener"><i data-ikon="cetak"></i> Cetak Bukti Pendaftaran</a>
           </div>
         </div>
       </section>
@@ -166,7 +180,7 @@
           <div class="row-between">
             <h2>Status Pendaftaran</h2>
             <div class="aksi-status">
-              <a class="btn btn-outline" href="/bukti.html" target="_blank" rel="noopener">🖨 Cetak Bukti</a>
+              <a class="btn btn-outline" href="/bukti.html" target="_blank" rel="noopener"><i data-ikon="cetak"></i> Cetak Bukti</a>
               <button class="btn btn-outline" id="btn-logout-pendaftar">Keluar</button>
             </div>
           </div>
@@ -176,16 +190,23 @@
 
       <section id="view-pengumuman" class="view">
         <h2>Pengumuman &amp; Rekap Semua Pendaftar</h2>
+        <p class="muted" style="font-size:12.5px"><i data-ikon="perisai"></i> Nama disamarkan untuk melindungi data pribadi pendaftar. Cari hasilmu berdasarkan <strong>nomor pendaftaran</strong>, atau login di menu Cek Status untuk detail lengkap.</p>
+        <div class="pengumuman-alat">
+          <label class="cari-kotak"><i data-ikon="cari"></i><input type="search" id="cari-pengumuman" placeholder="Cari nomor, mis. PPDB-0012" aria-label="Cari nomor pendaftaran" /></label>
+          <select id="filter-sekolah-pengumuman" aria-label="Saring per sekolah"><option value="">Semua sekolah</option></select>
+        </div>
+        <div class="tab-filter" id="filter-status-pengumuman" style="margin-bottom:12px"></div>
         <div id="pengumuman-container"></div>
       </section>
 
       <!-- Layar sempit (HP): link panitia di sidebar tersembunyi, jadi ditaruh di kaki halaman -->
       <footer class="kaki-halaman">
-        <a href="/panitia.html">🔒 Login Panitia</a>
+        <a href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
       </footer>
     </main>
   </div>
 
+  <script src="/js/ikon.js"></script>
   <script src="/js/dialog.js"></script>
   <script src="/js/app.js"></script>
 </body>
