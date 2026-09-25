@@ -634,6 +634,7 @@ document.getElementById("form-lupa-password").addEventListener("submit", async (
 
 document.getElementById("btn-logout-pendaftar").addEventListener("click", async () => {
   await fetch("/api/auth/logout", { method: "POST" });
+  document.getElementById("status-result").innerHTML = ""; // jangan sisakan data pendaftar sebelumnya
   await muatSesi();
   renderStatusView();
 });
@@ -646,6 +647,10 @@ async function renderStatusView() {
   if (!loggedIn) return;
 
   const container = document.getElementById("status-result");
+  // Kerangka abu-abu selama data dimuat pertama kali (di Vercel bisa 1–2 detik)
+  if (!container.innerHTML.trim()) {
+    container.innerHTML = ["96px", "92px", "260px"].map((h) => `<div class="kerangka" style="height:${h};margin-bottom:16px"></div>`).join("");
+  }
   const res = await fetch(`/api/pendaftar/nomor/${sesi.pendaftar.nomor}`);
   if (!res.ok) {
     container.innerHTML = `<p style="color:#b91c1c;font-size:14px">Gagal memuat data.</p>`;

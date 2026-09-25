@@ -21,7 +21,8 @@
 
   <main>
     <!-- ===================== LOGIN ===================== -->
-    <div id="admin-login-wrap" class="auth-shell">
+    <div id="memuat-halaman" class="memuat-halaman"><span class="spinner spinner-gelap"></span>Memuat…</div>
+    <div id="admin-login-wrap" class="auth-shell" style="display:none">
       <div class="auth-card">
         <div class="auth-icon"><i data-ikon="dinas"></i></div>
         <h2>Login Admin Dinas</h2>
@@ -37,9 +38,9 @@
 
     <!-- ===================== DASHBOARD ===================== -->
     <div id="admin-view-wrap" class="staff-main" style="display:none">
-      <div id="admin-tahapan" class="tahapan-box"></div>
+      <div id="admin-tahapan" class="tahapan-box"><div class="kerangka" style="height:44px;width:100%"></div></div>
 
-      <div class="stat-grid" id="admin-total" style="margin:0 0 28px"></div>
+      <div class="stat-grid" id="admin-total" style="margin:0 0 28px"><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div></div>
 
       <div class="row-between" style="margin-bottom:10px">
         <h3 class="sub-heading" style="margin:0">Sekolah, Kuota &amp; Radius Zonasi</h3>
@@ -57,7 +58,7 @@
               <th></th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr></tbody>
         </table>
       </div>
 

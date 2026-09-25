@@ -45,6 +45,7 @@ document.getElementById("btn-logout-admin").addEventListener("click", async () =
 async function render() {
   const sesi = await fetch("/api/auth/me").then((r) => r.json());
   const masuk = !!sesi.admin;
+  document.getElementById("memuat-halaman").style.display = "none";
   document.getElementById("admin-login-wrap").style.display = masuk ? "none" : "flex";
   document.getElementById("admin-view-wrap").style.display = masuk ? "block" : "none";
   document.getElementById("btn-logout-admin").style.display = masuk ? "inline-block" : "none";

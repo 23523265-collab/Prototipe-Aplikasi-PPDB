@@ -22,7 +22,9 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 - **Lupa password**: link buat password baru dikirim ke email, berlaku 30 menit dan sekali pakai.
 
 ### Panitia (halaman terpisah, wajib login)
-- Antrean pendaftar yang sedang aktif di sekolahnya, dengan berkas dan **peringatan otomatis**
+- Antrean pendaftar yang sedang aktif di sekolahnya, dengan **tab penyaring & pencarian**. Klik satu baris untuk membuka
+  **panel detail** (berkas, peringatan otomatis, lokasi, nilai, dan tombol verifikasi).
+- **Peringatan otomatis**
   (NIK tidak wajar, berkas rusak/diganti ekstensi, alamat tidak cocok dengan titik GPS).
 - **Peta lokasi rumah**: titik GPS, hasil pencarian alamat, sekolah, dan lingkaran radius zonasi.
 - Verifikasi berkas: **Lengkap** (hanya bisa jika KK, Akta, dan Rapor sudah diunggah), **Kurang Lengkap** (pendaftar diberi masa revisi 2×24 jam), atau **Tolak**.
@@ -75,6 +77,7 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 |---|---|
 | `server.js` | Semua endpoint API |
 | `engine.js` | Verifikasi berkas, seleksi, auto-transfer, masa revisi, notifikasi |
+| `aturan.js` | Aturan murni yang diuji otomatis: syarat & peringkat seleksi, sisa kuota, batas usia, penyamaran nama |
 | `zonasi.js` | Rumus Haversine dan konversi jarak → skor |
 | `validasi.js` | Pra-verifikasi otomatis: NIK, berkas, alamat vs GPS |
 | `auth.js` | Login, sesi (disimpan di database), batas percobaan login |
@@ -82,6 +85,9 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 | `email.js` | Pengiriman email notifikasi |
 | `public/index.html`, `public/js/app.js` | Situs pendaftar |
 | `public/panitia.html`, `public/js/panitia.js` | Panel panitia |
+| `public/admin.html`, `public/js/admin.js` | Panel Admin Dinas |
+| `public/js/dialog.js`, `public/js/ikon.js` | Dialog/toast & ikon SVG yang dipakai semua halaman |
+| `test/` | Unit test (`npm test`) |
 
 ---
 
@@ -126,6 +132,16 @@ npm start
 Buka http://localhost:3000. Saat pertama jalan, server otomatis membuat bucket `berkas-pendaftar` (private).
 
 > Fitur lokasi GPS butuh `localhost` atau HTTPS. Untuk mencoba dari HP, pakai alamat Vercel.
+
+---
+
+## Pengujian Otomatis
+```
+npm test
+```
+Menjalankan 27 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor zonasi,
+syarat radius/nilai minimum, urutan peringkat dan penentu seri (usia lebih tua, lalu daftar lebih awal),
+sisa kuota, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi berkas yang diganti ekstensinya.
 
 ---
 

@@ -22,7 +22,8 @@
 
   <main>
     <!-- ===================== LOGIN ===================== -->
-    <div id="panitia-login-wrap" class="auth-shell">
+    <div id="memuat-halaman" class="memuat-halaman"><span class="spinner spinner-gelap"></span>Memuat…</div>
+    <div id="panitia-login-wrap" class="auth-shell" style="display:none">
       <div class="auth-card">
         <div class="auth-icon"><i data-ikon="kunci"></i></div>
         <h2>Login Panitia</h2>
@@ -45,7 +46,9 @@
         <h3 class="sub-heading" style="margin:0">Statistik Sekolah</h3>
         <a class="btn btn-outline" id="btn-export" href="#" download><i data-ikon="unduh"></i> Unduh Data (Excel)</a>
       </div>
-      <div id="statistik-container" class="statistik-grid"></div>
+      <div id="statistik-container" class="statistik-grid">
+        <div class="kerangka" style="height:128px"></div><div class="kerangka" style="height:128px"></div>
+      </div>
 
       <h3 class="sub-heading" style="margin-top:0">Antrean Aktif di Sekolah Ini</h3>
       <div class="antrean-alat">
@@ -55,9 +58,12 @@
       <div class="table-wrap">
         <table id="table-panitia">
           <thead>
-            <tr><th>Nomor</th><th>Nama</th><th>Pilihan Ke-</th><th>Jalur</th><th>Skor</th><th>Berkas</th><th>Dokumen</th><th>Peringatan Otomatis</th><th>Aksi</th></tr>
+            <tr><th>Pendaftar</th><th>Jalur</th><th>Skor</th><th>Berkas</th><th>Peringatan</th><th></th></tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+            <tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:44px"></div></td></tr>
+            <tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:44px"></div></td></tr>
+          </tbody>
         </table>
       </div>
 
@@ -65,6 +71,20 @@
       <div id="jalur-seleksi-container"></div>
     </div>
   </main>
+
+  <!-- ===================== PANEL DETAIL PENDAFTAR (klik baris antrean) ===================== -->
+  <div id="laci-latar" class="laci-latar" onclick="tutupDetail()"></div>
+  <aside id="laci-detail" class="laci" role="dialog" aria-modal="true" aria-labelledby="laci-judul" aria-hidden="true">
+    <div class="laci-kepala">
+      <div>
+        <div class="laci-sub" id="laci-sub"></div>
+        <h2 id="laci-judul"></h2>
+      </div>
+      <button type="button" class="laci-tutup" onclick="tutupDetail()" aria-label="Tutup panel"><i data-ikon="silang"></i></button>
+    </div>
+    <div class="laci-isi" id="laci-isi"></div>
+    <div class="laci-kaki" id="laci-kaki"></div>
+  </aside>
 
   <!-- ===================== MODAL VERIFIKASI LOKASI ===================== -->
   <div id="modal-lokasi" class="modal-backdrop" style="display:none">

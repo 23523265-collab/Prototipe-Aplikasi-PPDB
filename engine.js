@@ -1,4 +1,5 @@
 const supabase = require("./supabase");
+const aturan = require("./aturan");
 const email = require("./email");
 
 // Escape nama pendaftar sebelum dimasukkan ke HTML email
@@ -215,66 +216,27 @@ async function jalankanSeleksiJalur(jalurId) {
     return p && p.status_global === "Aktif" && p.prioritas_aktif === k.urutan_prioritas;
   });
 
-  const isZonasi = jalur.syarat_radius_km != null;
-  const radius = Number(jalur.syarat_radius_km);
-
-  // 1) Pisahkan kandidat yang tidak memenuhi syarat dasar jalur
-  const memenuhiSyarat = [];
-  const tidakMemenuhi = [];
-  for (const k of kandidat) {
-    if (isZonasi) {
-      if (k.jarak_km == null) {
-        tidakMemenuhi.push({ k, alasan: `Jarak tidak dapat dihitung (${k.catatan_skor || "lokasi tidak tersedia"})` });
-      } else if (Number(k.jarak_km) > radius) {
-        tidakMemenuhi.push({ k, alasan: `Di luar radius zonasi: jarak ${Number(k.jarak_km).toFixed(2)} km melebihi batas ${radius} km` });
-      } else {
-        memenuhiSyarat.push(k);
-      }
-    } else if (jalur.syarat_nilai_minimum != null && k.skor < jalur.syarat_nilai_minimum) {
-      tidakMemenuhi.push({ k, alasan: `Nilai rapor ${k.skor} di bawah syarat minimum ${jalur.syarat_nilai_minimum}` });
-    } else {
-      memenuhiSyarat.push(k);
-    }
-  }
-
-  // 2) Urutkan: zonasi berdasarkan jarak terdekat, jalur lain berdasarkan skor tertinggi
-  // Bila jarak (zonasi) atau skor (jalur lain) sama: usia lebih tua didahulukan, lalu yang mendaftar lebih awal
-  const infoPendaftar = (k) => pendaftarTerkait.find((x) => x.id === k.pendaftar_id) || {};
-  const penentuSeri = (a, b) => {
-    const pa = infoPendaftar(a), pb = infoPendaftar(b);
-    return String(pa.tanggal_lahir).localeCompare(String(pb.tanggal_lahir))
-      || String(pa.created_at).localeCompare(String(pb.created_at));
-  };
-  memenuhiSyarat.sort(isZonasi
-    ? (a, b) => Number(a.jarak_km) - Number(b.jarak_km) || penentuSeri(a, b)
-    : (a, b) => b.skor - a.skor || penentuSeri(a, b));
-
-  // 3) Terima sejumlah kuota teratas, sisanya ditolak karena kuota
-  // Kuota dikurangi yang sudah diterima di seleksi sebelumnya, supaya seleksi berulang tidak melebihi kuota
+  // 1–2) Syarat dasar jalur + peringkat (jarak/skor, lalu usia, lalu waktu daftar) -- lihat aturan.js
+  // 3) Kuota dikurangi yang sudah diterima di seleksi sebelumnya, supaya seleksi berulang tidak melebihi kuota
   const { count: sudahDiterima } = await supabase
     .from("pilihan")
     .select("id", { count: "exact", head: true })
     .eq("jalur_id", jalurId)
     .eq("status", "Diterima");
-  const sisaKuota = Math.max(0, jalur.kuota - (sudahDiterima || 0));
+  const sisaKuota = aturan.hitungSisaKuota(jalur.kuota, sudahDiterima);
+  const hasil = aturan.tentukanHasilSeleksi(
+    kandidat, jalur, (id) => pendaftarTerkait.find((x) => x.id === id), sisaKuota
+  );
 
-  const diterima = Math.min(sisaKuota, memenuhiSyarat.length);
-  for (let idx = 0; idx < memenuhiSyarat.length; idx++) {
-    if (idx < sisaKuota) {
-      await terimaFinal(memenuhiSyarat[idx].pendaftar_id);
-    } else {
-      await tolakDanAlihkan(memenuhiSyarat[idx].pendaftar_id, "Tidak masuk kuota");
-    }
-  }
-  for (const { k, alasan } of tidakMemenuhi) {
-    await tolakDanAlihkan(k.pendaftar_id, alasan);
-  }
+  for (const k of hasil.diterima) await terimaFinal(k.pendaftar_id);
+  for (const k of hasil.ditolakKuota) await tolakDanAlihkan(k.pendaftar_id, "Tidak masuk kuota");
+  for (const { k, alasan } of hasil.tidakMemenuhi) await tolakDanAlihkan(k.pendaftar_id, alasan);
 
   return {
     jumlahDiproses: kandidat.length,
-    diterima,
-    ditolakKuota: memenuhiSyarat.length - diterima,
-    ditolakSyarat: tidakMemenuhi.length,
+    diterima: hasil.diterima.length,
+    ditolakKuota: hasil.ditolakKuota.length,
+    ditolakSyarat: hasil.tidakMemenuhi.length,
     sisaKuotaSebelum: sisaKuota,
     kuota: jalur.kuota,
   };

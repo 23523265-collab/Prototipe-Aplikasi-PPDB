@@ -9,6 +9,7 @@ const auth = require("./auth");
 const storage = require("./storage");
 const validasi = require("./validasi");
 const zonasi = require("./zonasi");
+const aturan = require("./aturan");
 const { waitUntil } = require("@vercel/functions");
 const crypto = require("crypto");
 const email = require("./email");
@@ -60,37 +61,11 @@ const PESAN_NIK_TERDAFTAR = "NIK ini sudah terdaftar. Satu calon siswa hanya bol
 const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
 const TIPE_FILE_DIIZINKAN = ["application/pdf", "image/jpeg", "image/png"];
 
-/**
- * Batas usia calon siswa SMA dihitung pada 1 Juli tahun ajaran berjalan
- * (acuan aturan SPMB: usia paling tinggi 21 tahun). Batas bawah 12 tahun untuk menangkap salah ketik.
- * Mengembalikan pesan error, atau null kalau valid.
- */
-const USIA_MIN = 12;
-const USIA_MAKS = 21;
-function validasiUmur(tanggalLahir) {
-  const lahir = new Date(`${tanggalLahir}T00:00:00Z`);
-  if (Number.isNaN(lahir.getTime())) return "Tanggal lahir tidak valid.";
-  if (lahir > new Date()) return "Tanggal lahir tidak boleh di masa depan.";
-  const acuan = new Date(Date.UTC(new Date().getUTCFullYear(), 6, 1)); // 1 Juli tahun ini
-  let usia = acuan.getUTCFullYear() - lahir.getUTCFullYear();
-  if (acuan < new Date(Date.UTC(acuan.getUTCFullYear(), lahir.getUTCMonth(), lahir.getUTCDate()))) usia--;
-  if (usia < USIA_MIN) return `Usia pendaftar ${usia} tahun (per 1 Juli ${acuan.getUTCFullYear()}). Usia minimal ${USIA_MIN} tahun -- periksa kembali tanggal lahir.`;
-  if (usia > USIA_MAKS) return `Usia pendaftar ${usia} tahun (per 1 Juli ${acuan.getUTCFullYear()}). Usia maksimal calon siswa SMA adalah ${USIA_MAKS} tahun.`;
-  return null;
-}
+// Aturan usia (12–21 tahun per 1 Juli) dan penyamaran nama ada di aturan.js supaya bisa diuji otomatis
+const { validasiUmur, samarkanNama } = aturan;
 
 // Escape teks sebelum dimasukkan ke HTML email
 const escHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
-
-/** "Ahmad Fadhil" -> "Ah*** Fa****": 2 huruf awal tiap kata tetap, sisanya disamarkan. */
-function samarkanNama(nama) {
-  return String(nama || "")
-    .trim()
-    .split(/\s+/)
-    .filter((kata) => /[\p{L}\p{N}]/u.test(kata)) // lewati "kata" berupa tanda baca saja, mis. "-"
-    .map((kata) => (kata.length <= 2 ? kata[0] + "*" : kata.slice(0, 2) + "*".repeat(Math.min(kata.length - 2, 5))))
-    .join(" ");
-}
 
 // Di balik proxy (mis. Vercel), IP asli pengunjung ada di header X-Forwarded-For
 app.set("trust proxy", 1);

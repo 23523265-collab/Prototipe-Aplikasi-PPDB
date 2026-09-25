@@ -73,6 +73,7 @@ document.getElementById("btn-logout-panitia").addEventListener("click", async ()
 async function renderPanitiaView() {
   await muatSesi();
   const loggedIn = !!sesi.panitia;
+  document.getElementById("memuat-halaman").style.display = "none";
   document.getElementById("panitia-login-wrap").style.display = loggedIn ? "none" : "flex";
   document.getElementById("panitia-view-wrap").style.display = loggedIn ? "block" : "none";
   document.getElementById("btn-logout-panitia").style.display = loggedIn ? "inline-block" : "none";
@@ -150,38 +151,107 @@ function renderTabelAntrean() {
   const tampil = antrean.filter((a) => filter.cocok(a) &&
     (!kata || String(a.nama).toLowerCase().includes(kata) || String(a.nomor).toLowerCase().includes(kata)));
 
+  // Tabel ringkas: detail (dokumen, lokasi, peringatan, aksi) ada di panel samping saat baris diklik
   const tbody = document.querySelector("#table-panitia tbody");
   tbody.innerHTML = tampil.length
     ? tampil.map((a) => {
-        const peringatan = daftarPeringatan(a);
-        const peringatanHTML = peringatan.length
-          ? `<ul style="margin:0;padding-left:16px;font-size:11.5px;color:#b45309">${peringatan.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`
-          : '<span style="font-size:12px;color:#047857">✓ Tidak ada</span>';
+        const jumlahPeringatan = daftarPeringatan(a).length;
+        const jumlahDokumen = (a.dokumen || []).length;
         return `
-        <tr>
-          <td>${esc(a.nomor)}</td>
-          <td><strong>${esc(a.nama)}</strong></td>
-          <td>${a.prioritas_aktif}</td>
-          <td>${esc(a.jalur_nama)}${infoJarak(a)}</td>
-          <td>${a.skor}${a.syarat_radius_km != null
-            ? `<br/><span style="font-size:11px;color:var(--muted)" title="Zonasi diurutkan berdasarkan jarak terdekat; skor = 100 − 10 × km">dari jarak</span>`
-            : infoNilai(a)}</td>
-          <td>${pillHTML(a.status_berkas)}${infoRevisi(a)}</td>
-          <td>${(a.dokumen || []).length ? a.dokumen.map((d) => `<a href="${safeUrl(d.url)}" target="_blank" rel="noopener" style="font-size:12px">${esc(d.jenis)}</a>`).join("<br/>") : '<span style="font-size:12px;color:var(--muted)">Belum ada</span>'}
-            <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="bukaLokasi(${a.pendaftar_id})">${ikon("lokasi")} Lokasi Rumah</button></td>
-          <td>${peringatanHTML}</td>
-          <td>
-            ${(a.berkas_belum_ada || []).length
-              ? `<button class="action-btn action-lengkap" disabled title="Belum diunggah: ${esc(a.berkas_belum_ada.join(", "))}">Lengkap</button>`
-              : `<button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>`}
-            <button class="action-btn action-kurang" onclick="tandaiKurang(${a.pendaftar_id})">Kurang</button>
-            <button class="action-btn action-tolak" onclick="tolakBerkas(${a.pendaftar_id})">Tolak</button>
-            <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="koreksiNilai(${a.pendaftar_id})">${ikon("pensil")} Nilai Rapor</button>
-          </td>
-        </tr>
-      `;
+        <tr class="baris-klik ${a.pendaftar_id === detailId ? "terpilih" : ""}" tabindex="0" onclick="bukaDetail(${a.pendaftar_id})"
+            onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); bukaDetail(${a.pendaftar_id}); }">
+          <td data-label="Pendaftar"><strong>${esc(a.nama)}</strong><div class="sel-sub">${esc(a.nomor)} · Pilihan ${a.prioritas_aktif}</div></td>
+          <td data-label="Jalur">${esc(a.jalur_nama)}${infoJarak(a)}</td>
+          <td data-label="Skor"><strong>${a.skor}</strong><div class="sel-sub">${a.syarat_radius_km != null ? "dari jarak" : a.nilai_rapor != null ? `rapor ${esc(a.nilai_rapor)}` : ""}</div></td>
+          <td data-label="Berkas">${pillHTML(a.status_berkas)}<div class="sel-sub">${jumlahDokumen}/3 dokumen</div>${infoRevisi(a)}</td>
+          <td data-label="Peringatan">${jumlahPeringatan
+            ? `<span class="lencana lencana-peringatan">${ikon("peringatan")} ${jumlahPeringatan} peringatan</span>`
+            : `<span class="lencana lencana-aman">${ikon("centang")} Aman</span>`}</td>
+          <td class="sel-aksi"><span class="tombol-periksa">Periksa ${ikon("panahKanan")}</span></td>
+        </tr>`;
       }).join("")
-    : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:22px">${antrean.length ? "Tidak ada pendaftar yang cocok dengan penyaring/pencarian." : "Belum ada pendaftar aktif di sekolah ini."}</td></tr>`;
+    : `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:22px">${antrean.length ? "Tidak ada pendaftar yang cocok dengan penyaring/pencarian." : "Belum ada pendaftar aktif di sekolah ini."}</td></tr>`;
+
+  // Panel detail yang sedang terbuka ikut diperbarui (atau ditutup kalau pendaftar sudah keluar dari antrean)
+  if (detailId != null) {
+    if (antreanData.some((a) => a.pendaftar_id === detailId)) renderDetail();
+    else tutupDetail();
+  }
+}
+
+/* =========================================================
+   PANEL DETAIL PENDAFTAR
+   ========================================================= */
+let detailId = null;
+const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
+
+function bukaDetail(pendaftarId) {
+  detailId = pendaftarId;
+  renderDetail();
+  document.body.classList.add("laci-terbuka");
+  document.getElementById("laci-detail").setAttribute("aria-hidden", "false");
+  document.querySelectorAll("#table-panitia tr.baris-klik").forEach((tr) => tr.classList.remove("terpilih"));
+  document.querySelector(`#table-panitia tr[onclick="bukaDetail(${pendaftarId})"]`)?.classList.add("terpilih");
+  setTimeout(() => document.querySelector(".laci-tutup").focus(), 50);
+}
+
+function tutupDetail() {
+  if (detailId == null) return;
+  const baris = document.querySelector(`#table-panitia tr[onclick="bukaDetail(${detailId})"]`);
+  detailId = null;
+  document.body.classList.remove("laci-terbuka");
+  document.getElementById("laci-detail").setAttribute("aria-hidden", "true");
+  document.querySelectorAll("#table-panitia tr.terpilih").forEach((tr) => tr.classList.remove("terpilih"));
+  baris?.focus();
+}
+
+function renderDetail() {
+  const a = antreanData.find((x) => x.pendaftar_id === detailId);
+  if (!a) return;
+  const peringatan = daftarPeringatan(a);
+  const belumAda = a.berkas_belum_ada || [];
+  const zonasi = a.syarat_radius_km != null;
+
+  document.getElementById("laci-sub").innerText = `${a.nomor} · Pilihan ${a.prioritas_aktif} · ${a.jalur_nama}`;
+  document.getElementById("laci-judul").innerText = a.nama;
+
+  const dokumenHTML = JENIS_DOKUMEN.map((jenis) => {
+    const d = (a.dokumen || []).find((x) => x.jenis === jenis);
+    return d
+      ? `<a class="berkas-chip" href="${safeUrl(d.url)}" target="_blank" rel="noopener">${ikon("berkas")}<span><strong>${esc(jenis)}</strong><small>${esc(d.nama_file || "Buka berkas")}</small></span>${ikon("panahKanan")}</a>`
+      : `<div class="berkas-chip kosong">${ikon("berkas")}<span><strong>${esc(jenis)}</strong><small>Belum diunggah</small></span></div>`;
+  }).join("");
+
+  document.getElementById("laci-isi").innerHTML = `
+    <div class="laci-status">${pillHTML(a.status_berkas)}${infoRevisi(a)}</div>
+
+    <dl class="laci-data">
+      <div><dt>NIK</dt><dd>${esc(a.nik)}</dd></div>
+      <div><dt>Skor</dt><dd>${a.skor} <small>${zonasi ? "(dari jarak)" : "(nilai rapor)"}</small></dd></div>
+      ${zonasi ? `<div><dt>Jarak ke sekolah</dt><dd>${a.jarak_km != null ? `${Number(a.jarak_km).toFixed(2)} km` : "-"} <small>/ radius ${esc(a.syarat_radius_km)} km</small></dd></div>` : ""}
+      <div><dt>Nilai rapor</dt><dd>${a.nilai_rapor ?? "-"}${a.nilai_rapor_dikoreksi_oleh ? ` <small>(dikoreksi dari ${esc(a.nilai_rapor_awal ?? "-")})</small>` : ""}
+        <button type="button" class="link-btn" style="margin:0 0 0 6px" onclick="koreksiNilai(${a.pendaftar_id})">${ikon("pensil")} Koreksi</button></dd></div>
+    </dl>
+
+    <h4 class="laci-bagian">Berkas</h4>
+    <div class="berkas-daftar">${dokumenHTML}</div>
+
+    <h4 class="laci-bagian">Peringatan otomatis</h4>
+    ${peringatan.length
+      ? `<ul class="laci-peringatan">${peringatan.map((x) => `<li>${ikon("peringatan")}<span>${esc(x)}</span></li>`).join("")}</ul>`
+      : `<p class="laci-aman">${ikon("perisai")} Tidak ada peringatan. NIK, berkas, dan alamat lolos pemeriksaan otomatis.</p>`}
+
+    <h4 class="laci-bagian">Alamat &amp; lokasi rumah</h4>
+    <p class="laci-alamat">${esc(a.alamat) || '<span class="muted" style="margin:0">Alamat tidak diisi</span>'}</p>
+    <button type="button" class="btn btn-outline" style="width:100%" onclick="bukaLokasi(${a.pendaftar_id})">${ikon("lokasi")} Lihat di peta & cocokkan dengan KK</button>`;
+
+  document.getElementById("laci-kaki").innerHTML = `
+    ${belumAda.length ? `<p class="laci-catatan">${ikon("info")} Tombol Lengkap aktif setelah ${esc(belumAda.join(", "))} diunggah.</p>` : ""}
+    <div class="laci-tombol">
+      <button type="button" class="btn btn-sukses" ${belumAda.length ? "disabled" : ""} onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">${ikon("centang")} Lengkap</button>
+      <button type="button" class="btn btn-peringatan" onclick="tandaiKurang(${a.pendaftar_id})">${ikon("peringatan")} Kurang</button>
+      <button type="button" class="btn btn-bahaya-garis" onclick="tolakBerkas(${a.pendaftar_id})">${ikon("silang")} Tolak</button>
+    </div>`;
 }
 
 /* =========================================================
@@ -392,7 +462,12 @@ function tutupLokasi() {
 document.getElementById("modal-lokasi").addEventListener("click", (e) => {
   if (e.target.id === "modal-lokasi") tutupLokasi();
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") tutupLokasi(); });
+// Esc: tutup peta dulu (kalau terbuka), baru panel detail
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (document.getElementById("modal-lokasi").style.display === "flex") tutupLokasi();
+  else tutupDetail();
+});
 
 const PESAN_VERIFIKASI = {
   "Lengkap": "ditandai Lengkap — siap diseleksi",
@@ -413,6 +488,7 @@ async function verifikasi(pendaftarId, status, catatan = null) {
     await Dialog.galat(data.error || "Gagal memverifikasi.");
     return;
   }
+  tutupDetail(); // pendaftar ini selesai diperiksa -- kembali ke daftar antrean
   await renderPanitiaView();
   Dialog.toast(`${a ? a.nama : "Berkas"} ${PESAN_VERIFIKASI[status]}.`, status === "Lengkap" ? "sukses" : "peringatan");
 }

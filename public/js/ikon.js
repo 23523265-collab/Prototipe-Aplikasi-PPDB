@@ -39,6 +39,7 @@ const IKON_PATH = {
   unggah: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
   seru: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  panahKanan: '<path d="m9 18 6-6-6-6"/>',
   panahKiri: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
 };
 
