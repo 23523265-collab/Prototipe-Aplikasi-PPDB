@@ -49,52 +49,89 @@
           <p class="muted">Pilih hingga 3 sekolah secara berurutan. Sistem akan memproses Pilihan 1 terlebih dahulu.</p>
           <div id="daftar-tutup" class="alert alert-error" style="display:none">🔒 <strong>Pendaftaran sedang ditutup.</strong> Proses seleksi sedang berlangsung — pantau menu Pengumuman. Pendaftar yang sudah terdaftar tetap bisa login di Cek Status.</div>
           <div id="daftar-success" class="alert alert-success" style="display:none"></div>
-          <form id="form-daftar">
-            <label>Nama Lengkap<input required name="nama" placeholder="Sesuai akta kelahiran" /></label>
-            <label>NIK<input required name="nik" placeholder="16 digit sesuai KK" /></label>
-            <label>Email<input required type="email" name="email" placeholder="untuk menerima notifikasi status" /></label>
-            <label>Tanggal Lahir<input required type="date" name="tanggalLahir" /></label>
-            <label>Alamat Rumah<textarea required name="alamat" rows="2" placeholder="Sesuai Kartu Keluarga: jalan, RT/RW, kelurahan, kecamatan"></textarea></label>
-            <label>Buat Password<input required type="password" name="password" placeholder="Minimal 6 karakter, untuk cek status nanti" minlength="6" /></label>
-            <label>Nilai Rapor<input type="number" name="nilaiRapor" min="0" max="100" step="0.01" placeholder="Rata-rata rapor 0–100 — wajib jika memilih jalur Prestasi" /></label>
-            <p class="muted" style="margin:0;font-size:12.5px">📍 Saat mengirim, browser akan meminta izin lokasi. Lokasi dipakai untuk menghitung jarak rumah ke sekolah pada jalur Zonasi.</p>
-            <div class="jarak-box">
-              <button type="button" class="btn btn-outline" id="btn-cek-jarak">📍 Cek jarak saya ke sekolah</button>
-              <div id="jarak-info" class="muted" style="margin:8px 0 0;font-size:12.5px">Lihat sekolah mana yang masuk radius zonasi sebelum memilih.</div>
-            </div>
+          <!-- Formulir dibagi 4 langkah; semua isian tetap satu <form> sehingga dikirim sekaligus di langkah terakhir -->
+          <form id="form-daftar" novalidate>
+            <ol class="stepper" id="stepper">
+              <li data-langkah="0"><span><span class="no">1</span><span class="label">Data Diri</span></span></li>
+              <li data-langkah="1"><span><span class="no">2</span><span class="label">Alamat &amp; Lokasi</span></span></li>
+              <li data-langkah="2"><span><span class="no">3</span><span class="label">Pilihan Sekolah</span></span></li>
+              <li data-langkah="3"><span><span class="no">4</span><span class="label">Akun &amp; Kirim</span></span></li>
+            </ol>
 
-            <div class="pilihan-block" data-index="0">
-              <p class="pilihan-title">Pilihan 1 (Utama)</p>
-              <div class="pilihan-row">
-                <select class="select-sekolah" data-index="0"></select>
-                <select class="select-jalur" data-index="0"></select>
-              </div>
-            </div>
-            <div class="pilihan-block" data-index="1">
-              <p class="pilihan-title">Pilihan 2 (Cadangan)</p>
-              <div class="pilihan-row">
-                <select class="select-sekolah" data-index="1"></select>
-                <select class="select-jalur" data-index="1"></select>
-              </div>
-            </div>
-            <div class="pilihan-block" data-index="2">
-              <p class="pilihan-title">Pilihan 3 (Cadangan)</p>
-              <div class="pilihan-row">
-                <select class="select-sekolah" data-index="2"></select>
-                <select class="select-jalur" data-index="2"></select>
-              </div>
-            </div>
+            <fieldset class="langkah" data-langkah="0">
+              <p class="langkah-judul">Data Diri Calon Siswa</p>
+              <label>Nama Lengkap<input required name="nama" placeholder="Sesuai akta kelahiran" autocomplete="name" /></label>
+              <label>NIK<input required name="nik" placeholder="16 digit sesuai KK" inputmode="numeric" /></label>
+              <label>Tanggal Lahir<input required type="date" name="tanggalLahir" /></label>
+            </fieldset>
 
-            <button type="submit" class="btn btn-primary" style="width:100%">Kirim Pendaftaran</button>
+            <fieldset class="langkah" data-langkah="1">
+              <p class="langkah-judul">Alamat &amp; Lokasi Rumah</p>
+              <label>Alamat Rumah<textarea required name="alamat" rows="3" placeholder="Sesuai Kartu Keluarga: jalan, RT/RW, kelurahan, kecamatan"></textarea></label>
+              <div class="jarak-box">
+                <button type="button" class="btn btn-outline" id="btn-cek-jarak">📍 Cek jarak saya ke sekolah</button>
+                <div id="jarak-info" class="muted" style="margin:8px 0 0;font-size:12.5px">Lakukan dari rumah. Lokasi dipakai untuk menghitung jarak rumah ke sekolah pada jalur Zonasi, dan menandai sekolah mana yang masuk radius.</div>
+              </div>
+            </fieldset>
+
+            <fieldset class="langkah" data-langkah="2">
+              <p class="langkah-judul">Pilihan Sekolah</p>
+              <p class="muted" style="margin:0;font-size:12.5px">Urutkan dari yang paling diinginkan. Jika tidak diterima di Pilihan 1, pendaftaran otomatis dialihkan ke Pilihan 2, lalu Pilihan 3.</p>
+              <label>Nilai Rapor<input type="number" name="nilaiRapor" min="0" max="100" step="0.01" placeholder="Rata-rata rapor 0–100 — wajib jika memilih jalur Prestasi" /></label>
+
+              <div class="pilihan-block" data-index="0">
+                <p class="pilihan-title">Pilihan 1 (Utama)</p>
+                <div class="pilihan-row">
+                  <select class="select-sekolah" data-index="0"></select>
+                  <select class="select-jalur" data-index="0"></select>
+                </div>
+              </div>
+              <div class="pilihan-block" data-index="1">
+                <p class="pilihan-title">Pilihan 2 (Cadangan)</p>
+                <div class="pilihan-row">
+                  <select class="select-sekolah" data-index="1"></select>
+                  <select class="select-jalur" data-index="1"></select>
+                </div>
+              </div>
+              <div class="pilihan-block" data-index="2">
+                <p class="pilihan-title">Pilihan 3 (Cadangan)</p>
+                <div class="pilihan-row">
+                  <select class="select-sekolah" data-index="2"></select>
+                  <select class="select-jalur" data-index="2"></select>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="langkah" data-langkah="3">
+              <p class="langkah-judul">Akun &amp; Periksa Kembali</p>
+              <label>Email<input required type="email" name="email" placeholder="untuk menerima notifikasi status" autocomplete="email" /></label>
+              <label>Buat Password<input required type="password" name="password" placeholder="Minimal 6 karakter, untuk cek status nanti" minlength="6" autocomplete="new-password" /></label>
+              <label>Ulangi Password<input required type="password" name="password2" minlength="6" autocomplete="new-password" /></label>
+              <div class="ringkasan" id="ringkasan-daftar"></div>
+            </fieldset>
+
+            <div class="langkah-aksi">
+              <button type="button" class="btn btn-outline" id="btn-langkah-kembali">← Kembali</button>
+              <button type="submit" class="btn btn-primary" id="btn-langkah-lanjut">Lanjut →</button>
+            </div>
           </form>
         </div>
 
         <div id="daftar-upload-wrap" class="panel-card" style="display:none">
-          <h2>Unggah Berkas</h2>
-          <p class="muted">Nomor pendaftaran: <strong id="upload-nomor"></strong>. Unggah dokumen di bawah ini (PDF/JPG/PNG, maks 5MB).</p>
+          <h2>Pendaftaran Berhasil 🎉</h2>
+          <div class="nomor-kartu">
+            <div class="nk-ikon">✓</div>
+            <div>
+              <div class="nk-label">Nomor pendaftaran — simpan untuk login di Cek Status</div>
+              <div class="nk-nomor" id="upload-nomor"></div>
+            </div>
+          </div>
+          <div id="progres-baru"></div>
+          <h3 class="sub-heading" style="margin-top:6px">Langkah berikutnya: unggah berkas</h3>
+          <p class="muted" style="font-size:13px">Berkas diperiksa panitia sebelum seleksi. PDF/JPG/PNG, maks 5MB. Bisa juga dilanjutkan nanti dari menu Cek Status.</p>
           <div id="upload-list"></div>
           <div class="cta-row" style="margin-top:12px">
-            <button class="btn btn-outline" data-goto="status">Selesai, lihat status</button>
+            <button class="btn btn-primary" id="btn-selesai-unggah">Selesai, lihat status</button>
             <a class="btn btn-outline" href="/bukti.html" target="_blank" rel="noopener">🖨 Cetak Bukti Pendaftaran</a>
           </div>
         </div>
@@ -149,6 +186,7 @@
     </main>
   </div>
 
+  <script src="/js/dialog.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

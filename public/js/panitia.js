@@ -115,7 +115,7 @@ async function renderPanitiaView() {
               ? `<button class="action-btn action-lengkap" disabled title="Belum diunggah: ${esc(a.berkas_belum_ada.join(", "))}">Lengkap</button>`
               : `<button class="action-btn action-lengkap" onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">Lengkap</button>`}
             <button class="action-btn action-kurang" onclick="tandaiKurang(${a.pendaftar_id})">Kurang</button>
-            <button class="action-btn action-tolak" onclick="verifikasi(${a.pendaftar_id}, 'Ditolak')">Tolak</button>
+            <button class="action-btn action-tolak" onclick="tolakBerkas(${a.pendaftar_id})">Tolak</button>
             <br/><button class="action-btn btn-lokasi" style="margin-top:6px" onclick="koreksiNilai(${a.pendaftar_id})">✎ Nilai Rapor</button>
           </td>
         </tr>
@@ -198,14 +198,23 @@ function infoRevisi(a) {
 
 async function tandaiKurang(pendaftarId) {
   const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
-  const catatan = prompt(
-    `Tandai berkas ${a ? a.nama : ""} sebagai Kurang Lengkap.
-
-Pendaftar diberi waktu 2×24 jam untuk mengunggah ulang. Tulis apa yang perlu diperbaiki (akan dikirim ke pendaftar):`,
-    ""
+  const belum = a?.berkas_belum_ada?.length ? `Belum diunggah: ${a.berkas_belum_ada.join(", ")}. ` : "";
+  const catatan = await Dialog.isian(
+    `Pendaftar diberi waktu 2×24 jam untuk mengunggah ulang. Tulis apa yang perlu diperbaiki — catatan ini dikirim ke pendaftar.`,
+    { multiline: true, nilai: belum, placeholder: "Contoh: Foto KK buram, mohon unggah ulang yang jelas.", wajib: true },
+    { judul: `Kurang Lengkap — ${a ? a.nama : ""}`, jenis: "peringatan", tombolOk: "Kirim ke pendaftar" }
   );
   if (catatan === null) return;
   await verifikasi(pendaftarId, "Kurang Lengkap", catatan);
+}
+
+async function tolakBerkas(pendaftarId) {
+  const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
+  const ya = await Dialog.konfirmasi(
+    `Berkas ${a ? `${a.nama} (${a.nomor})` : ""} ditolak di sekolah ini, dan pendaftaran otomatis dialihkan ke pilihan berikutnya. Tindakan ini tidak bisa dibatalkan.\n\nJika berkas hanya perlu diperbaiki, gunakan "Kurang" agar pendaftar diberi waktu revisi.`,
+    { judul: "Tolak berkas?", jenis: "bahaya", bahaya: true, tombolOk: "Ya, tolak" }
+  );
+  if (ya) await verifikasi(pendaftarId, "Ditolak");
 }
 
 // Nilai rapor isian pendaftar, dan tanda bila sudah dikoreksi panitia
@@ -220,14 +229,12 @@ function infoNilai(a) {
 async function koreksiNilai(pendaftarId) {
   const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
   if (!a) return;
-  const input = prompt(
-    `Koreksi nilai rapor untuk ${a.nama} (${a.nomor}).
-
-Nilai saat ini: ${a.nilai_rapor ?? "belum diisi"}${a.nilai_rapor_awal != null && a.nilai_rapor_dikoreksi_oleh ? ` (isian awal pendaftar: ${a.nilai_rapor_awal})` : ""}
-Cocokkan dengan berkas rapor, lalu masukkan nilai yang benar (0–100):`,
-    a.nilai_rapor ?? ""
+  const input = await Dialog.isian(
+    `Nilai saat ini: ${a.nilai_rapor ?? "belum diisi"}${a.nilai_rapor_awal != null && a.nilai_rapor_dikoreksi_oleh ? ` (isian awal pendaftar: ${a.nilai_rapor_awal})` : ""}\nCocokkan dengan berkas rapor, lalu masukkan nilai yang benar (0–100). Pendaftar akan diberi notifikasi.`,
+    { tipe: "number", nilai: a.nilai_rapor ?? "", min: 0, max: 100, step: 0.01, wajib: true },
+    { judul: `Koreksi Nilai — ${a.nama} (${a.nomor})` }
   );
-  if (input === null || input.trim() === "") return;
+  if (input === null) return;
 
   const res = await fetch(`/api/pendaftar/${pendaftarId}/nilai-rapor`, {
     method: "PATCH",
@@ -237,11 +244,11 @@ Cocokkan dengan berkas rapor, lalu masukkan nilai yang benar (0–100):`,
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     await renderPanitiaView();
-    await alertSetelahRender(data.error || "Gagal mengoreksi nilai.");
+    await Dialog.galat(data.error || "Gagal mengoreksi nilai.");
     return;
   }
   await renderPanitiaView();
-  await alertSetelahRender(`Nilai rapor diperbarui. ${data.pilihanDiperbarui} pilihan jalur Prestasi ikut diperbarui skornya, dan pendaftar sudah diberi notifikasi.`);
+  Dialog.toast(`Nilai rapor ${a.nama} diperbarui (${data.pilihanDiperbarui} pilihan Prestasi ikut diperbarui). Pendaftar sudah diberi notifikasi.`);
 }
 
 // Jarak rumah–sekolah untuk jalur zonasi, merah bila di luar radius
@@ -349,12 +356,14 @@ document.getElementById("modal-lokasi").addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") tutupLokasi(); });
 
-// alert() menahan browser menggambar ulang layar -- tunggu tabel terbaru tampil dulu, baru munculkan pesan
-function alertSetelahRender(pesan) {
-  return new Promise((resolve) => requestAnimationFrame(() => setTimeout(() => { alert(pesan); resolve(); }, 0)));
-}
+const PESAN_VERIFIKASI = {
+  "Lengkap": "ditandai Lengkap — siap diseleksi",
+  "Kurang Lengkap": "ditandai Kurang Lengkap — pendaftar diberi waktu revisi 2×24 jam",
+  "Ditolak": "ditolak dan dialihkan ke pilihan berikutnya",
+};
 
 async function verifikasi(pendaftarId, status, catatan = null) {
+  const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
   const res = await fetch(`/api/pendaftar/${pendaftarId}/berkas`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -363,13 +372,19 @@ async function verifikasi(pendaftarId, status, catatan = null) {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     await renderPanitiaView(); // data di layar mungkin sudah berubah (mis. pendaftar sudah dialihkan)
-    await alertSetelahRender(data.error || "Gagal memverifikasi.");
+    await Dialog.galat(data.error || "Gagal memverifikasi.");
     return;
   }
   await renderPanitiaView();
+  Dialog.toast(`${a ? a.nama : "Berkas"} ${PESAN_VERIFIKASI[status]}.`, status === "Lengkap" ? "sukses" : "peringatan");
 }
 
 async function jalankanSeleksi(jalurId, btn) {
+  const ya = await Dialog.konfirmasi(
+    "Semua pendaftar di jalur ini yang berkasnya sudah Lengkap akan diperingkat dan diputuskan (diterima / dialihkan ke pilihan berikutnya). Hasil seleksi tidak bisa dibatalkan.",
+    { judul: "Jalankan seleksi?", tombolOk: "Jalankan seleksi" }
+  );
+  if (!ya) return;
   if (btn) {
     btn.disabled = true;
     btn.dataset.originalText = btn.innerText;
@@ -379,14 +394,26 @@ async function jalankanSeleksi(jalurId, btn) {
     const res = await fetch(`/api/jalur/${jalurId}/jalankan-seleksi`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.error || "Seleksi gagal dijalankan.");
+      await Dialog.galat(data.error || "Seleksi gagal dijalankan.", { judul: "Seleksi belum bisa dijalankan" });
       return;
     }
     await renderPanitiaView();
     if (data.jumlahDiproses === 0) {
-      await alertSetelahRender("Tidak ada kandidat yang siap diseleksi di jalur ini.\n\nSeleksi hanya memproses pendaftar yang berkasnya sudah diverifikasi \"Lengkap\". Verifikasi berkas di tabel antrean terlebih dahulu.");
+      await Dialog.info("Seleksi hanya memproses pendaftar yang berkasnya sudah diverifikasi \"Lengkap\". Verifikasi berkas di tabel antrean terlebih dahulu.", { judul: "Belum ada kandidat siap diseleksi", jenis: "peringatan" });
     } else {
-      await alertSetelahRender(`Seleksi selesai — ${data.jumlahDiproses} kandidat diproses (sisa kuota sebelum seleksi: ${data.sisaKuotaSebelum} dari ${data.kuota}):\n\n✓ Diterima: ${data.diterima}\n✕ Tidak memenuhi syarat (radius/nilai/lokasi): ${data.ditolakSyarat}\n✕ Tidak masuk kuota: ${data.ditolakKuota}\n\nPendaftar yang ditolak otomatis dialihkan ke pilihan berikutnya.`);
+      const n = (x) => Number(x) || 0;
+      await Dialog.buka({
+        judul: "Seleksi selesai",
+        jenis: "sukses",
+        html: `
+          <p>${n(data.jumlahDiproses)} kandidat diproses. Sisa kuota sebelum seleksi: <strong>${n(data.sisaKuotaSebelum)}</strong> dari ${n(data.kuota)} kursi.</p>
+          <div class="dlg-angka">
+            <div><strong style="color:#047857">${n(data.diterima)}</strong><span>Diterima</span></div>
+            <div><strong style="color:#b91c1c">${n(data.ditolakSyarat)}</strong><span>Tidak memenuhi syarat</span></div>
+            <div><strong style="color:#b45309">${n(data.ditolakKuota)}</strong><span>Tidak masuk kuota</span></div>
+          </div>
+          <p class="muted" style="font-size:12.5px;margin:0">Pendaftar yang ditolak otomatis dialihkan ke pilihan sekolah berikutnya.</p>`,
+      });
     }
   } finally {
     if (btn) {

@@ -328,3 +328,150 @@ a.btn { text-decoration: none; display: inline-block; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; max-width: 640px; margin-top: 14px; }
 .form-grid .penuh { grid-column: 1 / -1; }
 @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+
+/* ===================== DIALOG & TOAST (pengganti alert/confirm/prompt) ===================== */
+body.dlg-terbuka { overflow: hidden; }
+.dlg-latar {
+  position: fixed; inset: 0; z-index: 2000; padding: 16px;
+  background: rgba(15, 23, 42, 0.5); display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.16s ease;
+}
+.dlg-latar.tampil { opacity: 1; }
+.dlg-kotak {
+  background: #fff; border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; padding: 22px 24px 20px;
+  transform: translateY(8px) scale(0.98); transition: transform 0.16s ease;
+  position: relative;
+}
+.dlg-latar.tampil .dlg-kotak { transform: none; }
+.dlg-kotak::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; border-radius: var(--radius) var(--radius) 0 0; background: var(--navy); }
+.dlg-sukses::before { background: #059669; }
+.dlg-peringatan::before { background: var(--amber); }
+.dlg-bahaya::before { background: #dc2626; }
+.dlg-kepala { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.dlg-kepala h3 { font-family: 'Source Serif 4', serif; color: var(--navy); font-size: 18px; }
+.dlg-ikon {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; background: #e8edf5; color: var(--navy);
+}
+.dlg-sukses .dlg-ikon, .toast-sukses .dlg-ikon { background: #d1fae5; color: #047857; }
+.dlg-peringatan .dlg-ikon, .toast-peringatan .dlg-ikon { background: #fef3c7; color: #b45309; }
+.dlg-bahaya .dlg-ikon, .toast-bahaya .dlg-ikon { background: #fee2e2; color: #b91c1c; }
+.dlg-isi { font-size: 14px; color: #374151; line-height: 1.6; }
+.dlg-isi p { margin: 0 0 8px; white-space: pre-line; }
+.dlg-label { margin-top: 12px; }
+.dlg-input { width: 100%; }
+.dlg-galat { color: #b91c1c; font-size: 12.5px; min-height: 4px; margin-top: 4px; }
+.dlg-aksi { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.btn-bahaya { background: #dc2626; color: #fff; box-shadow: 0 4px 14px -4px rgba(220,38,38,0.5); }
+.btn-bahaya:hover { background: #b91c1c; }
+.dlg-angka { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 10px; }
+.dlg-angka div { background: #f9fafb; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 8px; text-align: center; }
+.dlg-angka strong { display: block; font-family: 'Source Serif 4', serif; font-size: 24px; color: var(--navy); }
+.dlg-angka span { font-size: 11.5px; color: var(--muted); line-height: 1.3; display: block; }
+
+.toast-wadah { position: fixed; right: 18px; bottom: 18px; z-index: 2100; display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 36px); }
+.toast {
+  display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-md); padding: 11px 14px; font-size: 13.5px; max-width: 380px;
+  opacity: 0; transform: translateY(8px); transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast.tampil { opacity: 1; transform: none; }
+@media (max-width: 640px) { .toast-wadah { left: 16px; right: 16px; bottom: 16px; } .toast { max-width: none; } }
+
+/* ===================== FORMULIR BERTAHAP (stepper) ===================== */
+.stepper { list-style: none; display: flex; gap: 6px; margin: 18px 0 22px; padding: 0; }
+.stepper li {
+  flex: 1; display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; font-weight: 600; color: #9aa3af;
+  cursor: default; min-width: 0;
+}
+.stepper li::before { content: ""; height: 4px; border-radius: 999px; background: #e7e5e0; transition: background 0.2s ease; }
+.stepper li .no {
+  display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
+  background: #eceae5; color: #6b7280; font-size: 11px; margin-right: 6px;
+}
+.stepper li.aktif { color: var(--navy); }
+.stepper li.aktif::before { background: var(--amber); }
+.stepper li.aktif .no { background: var(--amber); color: #fff; }
+.stepper li.selesai { color: #047857; cursor: pointer; }
+.stepper li.selesai::before { background: var(--navy); }
+.stepper li.selesai .no { background: #d1fae5; color: #047857; }
+.langkah { display: none; flex-direction: column; gap: 14px; border: none; padding: 0; margin: 0; min-width: 0; }
+.langkah.aktif { display: flex; animation: fadeIn 0.2s ease; }
+.langkah-judul { font-family: 'Source Serif 4', serif; color: var(--navy); font-size: 17px; margin: 0; }
+.langkah .pilihan-block { margin-bottom: 0; }
+.langkah-aksi { display: flex; gap: 10px; margin-top: 6px; }
+.langkah-aksi .btn { flex: 1; }
+.ringkasan { background: #fbfaf7; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; }
+.ringkasan dl { display: grid; grid-template-columns: 110px 1fr; gap: 5px 10px; margin: 0; }
+.ringkasan dt { color: var(--muted); }
+.ringkasan dd { margin: 0; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .stepper li .label { display: none; }
+  .stepper li.aktif .label { display: inline; }
+  .stepper li.aktif { flex: 2.5; }
+  /* Judul "Status Pendaftaran" di atas, tombol Cetak/Keluar sebaris di bawahnya */
+  #status-view-wrap > .row-between { flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 14px; }
+  #status-view-wrap > .row-between h2 { margin: 0; }
+  #status-view-wrap .aksi-status .btn { flex: 1; text-align: center; padding: 9px 12px; }
+}
+
+/* ===================== PELACAK PROGRES PENDAFTARAN ===================== */
+.progres { display: flex; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 16px 12px; margin-bottom: 16px; }
+.progres-item { flex: 1; text-align: center; position: relative; padding: 0 4px; min-width: 0; }
+.progres-item::after { content: ""; position: absolute; top: 15px; left: calc(50% + 20px); right: calc(-50% + 20px); height: 2px; background: #e5e7eb; }
+.progres-item:last-child::after { display: none; }
+.progres-item.selesai::after { background: var(--navy); }
+.progres-bulat {
+  width: 32px; height: 32px; border-radius: 50%; margin: 0 auto 7px; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; background: #f3f4f6; color: #9ca3af; border: 2px solid #e5e7eb; position: relative; z-index: 1;
+}
+.progres-item.selesai .progres-bulat { background: var(--navy); border-color: var(--navy); color: #fff; }
+.progres-item.berjalan .progres-bulat { background: #fff; border-color: var(--amber); color: var(--amber-dark); box-shadow: 0 0 0 4px rgba(201,138,44,0.15); }
+.progres-item.masalah .progres-bulat { background: #fff7ed; border-color: #ea580c; color: #c2410c; }
+.progres-item.gagal .progres-bulat { background: #fef2f2; border-color: #dc2626; color: #b91c1c; }
+.progres-label { font-size: 12px; font-weight: 600; color: #374151; line-height: 1.3; }
+.progres-ket { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+.progres-item.berjalan .progres-ket { color: var(--amber-dark); font-weight: 600; }
+.progres-item.masalah .progres-ket { color: #c2410c; font-weight: 600; }
+@media (max-width: 640px) {
+  .progres { padding: 14px 4px; }
+  .progres-bulat { width: 28px; height: 28px; font-size: 12px; }
+  .progres-item::after { top: 13px; left: calc(50% + 17px); right: calc(-50% + 17px); }
+  .progres-label { font-size: 10.5px; }
+  .progres-ket { font-size: 10px; }
+}
+
+/* Kartu nomor pendaftaran setelah berhasil daftar */
+.nomor-kartu { display: flex; align-items: center; gap: 14px; background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; border-radius: var(--radius); padding: 16px 18px; margin: 14px 0 18px; }
+.nomor-kartu .nk-label { font-size: 12px; color: #c8d3e6; }
+.nomor-kartu .nk-nomor { font-family: 'Source Serif 4', serif; font-size: 26px; letter-spacing: 0.02em; }
+.nomor-kartu .nk-ikon { width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.14); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+
+/* ===================== PERJALANAN PILIHAN (timeline status) ===================== */
+.perjalanan { list-style: none; margin: 0 0 16px; padding: 0; }
+.pj-item { display: grid; grid-template-columns: 36px 1fr; gap: 0 14px; }
+.pj-garis { display: flex; flex-direction: column; align-items: center; }
+.pj-bulat {
+  width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-weight: 700; font-size: 14px; background: #f3f4f6; color: #9ca3af; border: 2px solid #e5e7eb;
+}
+.pj-batang { flex: 1; width: 2px; background: #e5e7eb; min-height: 14px; }
+.pj-item:last-child .pj-batang { display: none; }
+.pj-isi { min-width: 0; }
+.pj-kartu { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 16px; margin-bottom: 8px; box-shadow: var(--shadow-sm); }
+.pj-atas { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap; }
+.pj-sekolah { font-weight: 700; color: var(--navy); font-size: 14.5px; }
+.pj-urutan { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.pj-rinci { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.pj-rinci strong { color: var(--ink); font-weight: 600; }
+.pj-alasan { font-size: 12px; color: #b91c1c; margin-top: 6px; }
+.pj-alih { font-size: 11.5px; color: var(--amber-dark); font-weight: 600; margin: 0 0 10px 2px; }
+.pj-item.aktif .pj-bulat { background: #fff; border-color: var(--amber); color: var(--amber-dark); box-shadow: 0 0 0 4px rgba(201,138,44,0.15); }
+.pj-item.aktif .pj-kartu { border-color: var(--amber-light); box-shadow: var(--shadow-md); }
+.pj-item.diterima .pj-bulat { background: #059669; border-color: #059669; color: #fff; }
+.pj-item.diterima .pj-kartu { border-color: #a7f3d0; background: #f6fefb; }
+.pj-item.ditolak .pj-bulat { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+.pj-item.ditolak .pj-batang { background: repeating-linear-gradient(180deg, var(--amber) 0 4px, transparent 4px 8px); }
+.pj-item.menunggu .pj-kartu, .pj-item.batal .pj-kartu { opacity: 0.65; box-shadow: none; }

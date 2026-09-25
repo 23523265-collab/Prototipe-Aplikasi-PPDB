@@ -54,7 +54,7 @@ async function render() {
   try {
     ringkasan = await api("/api/admin/ringkasan");
   } catch (err) {
-    alert(pesanKoneksi(err));
+    Dialog.galat(pesanKoneksi(err));
     return;
   }
   renderTahapan(ringkasan.tahapan);
@@ -83,18 +83,22 @@ function renderTahapan(t) {
 }
 
 async function ubahTahapan(dibuka, btn) {
-  const pesan = dibuka
-    ? "Buka kembali pendaftaran?\n\nPendaftar baru bisa mendaftar lagi, dan tombol seleksi di semua sekolah dikunci sampai pendaftaran ditutup kembali."
-    : "Tutup pendaftaran?\n\nPendaftar baru tidak bisa mendaftar, dan panitia semua sekolah bisa mulai menjalankan seleksi.";
-  if (!confirm(pesan)) return;
+  const ya = await Dialog.konfirmasi(
+    dibuka
+      ? "Pendaftar baru bisa mendaftar lagi, dan tombol seleksi di semua sekolah dikunci sampai pendaftaran ditutup kembali."
+      : "Pendaftar baru tidak bisa mendaftar, dan panitia semua sekolah bisa mulai menjalankan seleksi.",
+    { judul: dibuka ? "Buka kembali pendaftaran?" : "Tutup pendaftaran?", jenis: "peringatan", tombolOk: dibuka ? "Ya, buka" : "Ya, tutup" }
+  );
+  if (!ya) return;
   const teksAsli = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner" style="border-color:rgba(27,51,88,0.25);border-top-color:#1B3358"></span>Memproses…';
   try {
     await api("/api/tahapan", { method: "PATCH", body: JSON.stringify({ dibuka }) });
     await render();
+    Dialog.toast(dibuka ? "Pendaftaran dibuka kembali." : "Pendaftaran ditutup. Panitia dapat menjalankan seleksi.");
   } catch (err) {
-    alert(pesanKoneksi(err));
+    Dialog.galat(pesanKoneksi(err));
     btn.disabled = false;
     btn.innerHTML = teksAsli;
   }
@@ -154,21 +158,26 @@ async function simpanSekolah(sekolahId, btn) {
       await api(`/api/admin/jalur/${jalurId}`, { method: "PATCH", body: JSON.stringify(nilai) });
     }
     await render();
+    Dialog.toast("Perubahan kuota dan syarat tersimpan.");
   } catch (err) {
-    alert(pesanKoneksi(err));
+    Dialog.galat(pesanKoneksi(err));
     btn.disabled = false;
     btn.innerText = "Simpan";
   }
 }
 
 async function resetPasswordPanitia(panitiaId, username) {
-  const baru = prompt(`Password baru untuk ${username} (minimal 6 karakter).\nPanitia akan diminta login ulang.`, "");
+  const baru = await Dialog.isian(
+    "Minimal 6 karakter. Panitia akan diminta login ulang dengan password baru.",
+    { tipe: "text", placeholder: "Password baru", wajib: true },
+    { judul: `Reset password ${username}`, tombolOk: "Ganti password" }
+  );
   if (baru === null) return;
   try {
     await api(`/api/admin/panitia/${panitiaId}/reset-password`, { method: "POST", body: JSON.stringify({ passwordBaru: baru }) });
-    alert(`Password ${username} berhasil diganti.`);
+    Dialog.toast(`Password ${username} berhasil diganti.`);
   } catch (err) {
-    alert(pesanKoneksi(err));
+    Dialog.galat(pesanKoneksi(err));
   }
 }
 

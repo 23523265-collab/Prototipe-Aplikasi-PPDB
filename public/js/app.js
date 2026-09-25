@@ -9,8 +9,9 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 // Hanya izinkan link http(s), supaya URL "javascript:..." tidak bisa disisipkan
 const safeUrl = (u) => (/^https?:\/\//i.test(String(u ?? "")) ? esc(u) : "#");
 
+// Kolom timestamp tanpa zona waktu dari database berisi UTC tapi tanpa akhiran "Z" -- tambahkan supaya tidak dibaca sebagai jam lokal
 const formatWaktuWIB = (d) =>
-  new Date(d).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" }) + " WIB";
+  new Date(typeof d === "string" && !/[zZ]|[+-]\d\d:?\d\d$/.test(d) ? d + "Z" : d).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" }) + " WIB";
 
 const sekolahNama = (id) => sekolahList.find((s) => s.id === id)?.nama ?? "-";
 
@@ -188,23 +189,115 @@ function renderBeranda() {
    ========================================================= */
 let sedangMengirim = false; // cegah pendaftaran ganda akibat tombol terklik dua kali
 
-document.getElementById("form-daftar").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (sedangMengirim) return;
-  const form = e.target;
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const box = document.getElementById("daftar-success");
+/* ---------- Formulir bertahap: Data Diri → Alamat & Lokasi → Pilihan Sekolah → Akun & Kirim ---------- */
+const formDaftar = document.getElementById("form-daftar");
+const JUMLAH_LANGKAH = 4;
+let langkahAktif = 0;
 
+function pilihanTerisi() {
   const pilihan = [];
   for (let i = 0; i < 3; i++) {
-    const sekolahId = form.querySelector(`.select-sekolah[data-index="${i}"]`).value;
-    const jalurId = form.querySelector(`.select-jalur[data-index="${i}"]`).value;
+    const sekolahId = formDaftar.querySelector(`.select-sekolah[data-index="${i}"]`).value;
+    const jalurId = formDaftar.querySelector(`.select-jalur[data-index="${i}"]`).value;
     if (sekolahId && jalurId) pilihan.push({ sekolahId: Number(sekolahId), jalurId: Number(jalurId) });
   }
-  if (pilihan.length === 0) {
-    alert("Isi minimal Pilihan 1.");
+  return pilihan;
+}
+
+function tampilkanLangkah(n) {
+  langkahAktif = n;
+  formDaftar.querySelectorAll(".langkah").forEach((f) => f.classList.toggle("aktif", Number(f.dataset.langkah) === n));
+  document.querySelectorAll("#stepper li").forEach((li) => {
+    const i = Number(li.dataset.langkah);
+    li.classList.toggle("aktif", i === n);
+    li.classList.toggle("selesai", i < n);
+  });
+  document.getElementById("btn-langkah-kembali").style.display = n === 0 ? "none" : "";
+  const lanjut = document.getElementById("btn-langkah-lanjut");
+  if (!sedangMengirim) lanjut.innerText = n === JUMLAH_LANGKAH - 1 ? "Kirim Pendaftaran" : "Lanjut →";
+  if (n === JUMLAH_LANGKAH - 1) renderRingkasan();
+}
+
+/** Periksa isian di satu langkah; tampilkan pesan di isian pertama yang salah. */
+function periksaLangkah(n) {
+  const fieldset = formDaftar.querySelector(`.langkah[data-langkah="${n}"]`);
+  const salah = [...fieldset.querySelectorAll("input, textarea, select")].find((el) => !el.checkValidity());
+  if (salah) {
+    tampilkanLangkah(n);
+    salah.reportValidity();
+    return false;
+  }
+  if (n === 2) {
+    const pilihan = pilihanTerisi();
+    if (!pilihan.length) {
+      Dialog.info("Pilih minimal satu sekolah dan jalurnya di Pilihan 1.", { judul: "Pilihan sekolah kosong", jenis: "peringatan" });
+      return false;
+    }
+    const pakaiPrestasi = pilihan.some((p) => jalurList.find((j) => j.id === p.jalurId)?.syarat_nilai_minimum != null);
+    if (pakaiPrestasi && formDaftar.nilaiRapor.value === "") {
+      formDaftar.nilaiRapor.setCustomValidity("Nilai rapor wajib diisi karena memilih jalur Prestasi.");
+      formDaftar.nilaiRapor.reportValidity();
+      formDaftar.nilaiRapor.addEventListener("input", () => formDaftar.nilaiRapor.setCustomValidity(""), { once: true });
+      return false;
+    }
+  }
+  if (n === 3 && formDaftar.password.value !== formDaftar.password2.value) {
+    formDaftar.password2.setCustomValidity("Password tidak sama dengan isian sebelumnya.");
+    formDaftar.password2.reportValidity();
+    formDaftar.password2.addEventListener("input", () => formDaftar.password2.setCustomValidity(""), { once: true });
+    return false;
+  }
+  return true;
+}
+
+function renderRingkasan() {
+  const f = formDaftar;
+  const tgl = f.tanggalLahir.value ? new Date(f.tanggalLahir.value + "T00:00:00").toLocaleDateString("id-ID", { dateStyle: "long" }) : "-";
+  const pilihanHTML = pilihanTerisi().map((p, i) => {
+    const jalur = jalurList.find((j) => j.id === p.jalurId);
+    return `${i + 1}. ${esc(sekolahNama(p.sekolahId))} — ${esc(jalur?.nama || "")}`;
+  }).join("<br/>");
+  document.getElementById("ringkasan-daftar").innerHTML = `
+    <dl>
+      <dt>Nama</dt><dd>${esc(f.nama.value)}</dd>
+      <dt>NIK</dt><dd>${esc(f.nik.value)}</dd>
+      <dt>Tanggal lahir</dt><dd>${esc(tgl)}</dd>
+      <dt>Alamat</dt><dd>${esc(f.alamat.value)}</dd>
+      <dt>Lokasi GPS</dt><dd>${lokasiTerakhir ? `✓ sudah diambil (± ${Math.round(lokasiTerakhir.akurasi)} m)` : "akan diminta saat mengirim"}</dd>
+      ${f.nilaiRapor.value !== "" ? `<dt>Nilai rapor</dt><dd>${esc(f.nilaiRapor.value)}</dd>` : ""}
+      <dt>Pilihan</dt><dd>${pilihanHTML}</dd>
+    </dl>
+    <p class="muted" style="margin:10px 0 0;font-size:12px">Periksa kembali sebelum mengirim. Klik langkah di atas untuk mengubah.</p>`;
+}
+
+document.getElementById("btn-langkah-kembali").addEventListener("click", () => {
+  if (langkahAktif > 0 && !sedangMengirim) tampilkanLangkah(langkahAktif - 1);
+});
+document.querySelectorAll("#stepper li").forEach((li) => {
+  li.addEventListener("click", () => {
+    const tujuan = Number(li.dataset.langkah);
+    if (tujuan < langkahAktif && !sedangMengirim) tampilkanLangkah(tujuan);
+  });
+});
+tampilkanLangkah(0);
+
+formDaftar.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (sedangMengirim) return;
+  // Belum di langkah terakhir: tombol (atau Enter) berarti "Lanjut"
+  if (langkahAktif < JUMLAH_LANGKAH - 1) {
+    if (periksaLangkah(langkahAktif)) {
+      tampilkanLangkah(langkahAktif + 1);
+      formDaftar.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     return;
   }
+  for (let n = 0; n < JUMLAH_LANGKAH; n++) if (!periksaLangkah(n)) return;
+
+  const form = e.target;
+  const submitBtn = document.getElementById("btn-langkah-lanjut");
+  const box = document.getElementById("daftar-success");
+  const pilihan = pilihanTerisi();
 
   // Kunci tombol SEKETIKA saat diklik, dan tunjukkan progres -- tombol baru aktif lagi kalau gagal
   sedangMengirim = true;
@@ -218,7 +311,11 @@ document.getElementById("form-daftar").addEventListener("submit", async (e) => {
 
     const pilihZonasi = pilihan.some((p) => jalurList.find((j) => j.id === p.jalurId)?.syarat_radius_km);
     if (!lokasi && pilihZonasi) {
-      alert("Lokasi tidak tersedia (izin ditolak atau browser tidak mendukung). Pendaftaran tetap dikirim, tetapi skor zonasi tidak bisa dihitung — pilihan jalur Zonasi akan diberi skor 0 dengan catatan \"lokasi tidak tersedia\".");
+      const lanjut = await Dialog.konfirmasi(
+        `Lokasi tidak tersedia. ${pesanGagalLokasi().replace(/<[^>]+>/g, "")}\n\nJika tetap dikirim, jarak zonasi tidak bisa dihitung — pilihan jalur Zonasi diberi skor 0 dengan catatan "lokasi tidak tersedia".`,
+        { judul: "Kirim tanpa lokasi?", jenis: "peringatan", tombolOk: "Tetap kirim", tombolBatal: "Coba lagi nanti" }
+      );
+      if (!lanjut) throw new Error("Pendaftaran belum dikirim. Aktifkan lokasi, lalu klik Kirim Pendaftaran lagi.");
     }
 
     setProgres("Menyimpan pendaftaran…");
@@ -247,7 +344,11 @@ document.getElementById("form-daftar").addEventListener("submit", async (e) => {
     document.getElementById("daftar-form-wrap").style.display = "none";
     document.getElementById("daftar-upload-wrap").style.display = "block";
     document.getElementById("upload-nomor").innerText = data.nomor;
-    renderUploadList("upload-list", "baru", pendaftarBaruId);
+    berkasBaru.clear();
+    renderProgresBaru();
+    renderUploadList("upload-list", "baru", pendaftarBaruId, [], {
+      onSelesai: (jenis) => { berkasBaru.add(jenis); renderProgresBaru(); },
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
     loadData(); // perbarui statistik beranda di belakang layar, tidak perlu ditunggu
   } catch (err) {
@@ -310,6 +411,63 @@ function pesanGagalLokasi() {
 const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
 
 /**
+ * Pelacak progres 5 tahap: Daftar → Berkas → Verifikasi → Seleksi → Hasil.
+ * Supaya pendaftar selalu tahu posisinya dan apa yang harus dilakukan berikutnya.
+ */
+function renderProgres(pendaftar, jumlahBerkas) {
+  const final = pendaftar.status_global !== "Aktif";
+  const lengkap = pendaftar.status_berkas === "Lengkap";
+  const kurang = pendaftar.status_berkas === "Kurang Lengkap";
+  const berkasPenuh = jumlahBerkas >= JENIS_DOKUMEN.length;
+  const diPilihan = pendaftar.prioritas_aktif > 1 ? ` (Pilihan ${pendaftar.prioritas_aktif})` : "";
+
+  const tahap = [
+    { label: "Daftar", status: "selesai", ket: "Terdaftar" },
+    final || berkasPenuh
+      ? { label: "Unggah Berkas", status: "selesai", ket: `${Math.min(jumlahBerkas, 3)}/3 berkas` }
+      : { label: "Unggah Berkas", status: "berjalan", ket: `${jumlahBerkas}/3 berkas` },
+    final || lengkap ? { label: "Verifikasi", status: "selesai", ket: "Berkas lengkap" }
+      : kurang ? { label: "Verifikasi", status: "masalah", ket: "Perlu revisi" }
+      : berkasPenuh ? { label: "Verifikasi", status: "berjalan", ket: `Diperiksa panitia${diPilihan}` }
+      : { label: "Verifikasi", status: "", ket: "Oleh panitia" },
+    final ? { label: "Seleksi", status: "selesai", ket: "Selesai" }
+      : lengkap ? { label: "Seleksi", status: "berjalan", ket: `Menunggu seleksi${diPilihan}` }
+      : { label: "Seleksi", status: "", ket: "Zonasi / Prestasi" },
+    pendaftar.status_global === "Diterima Final" ? { label: "Hasil", status: "selesai", ket: "Diterima ✓" }
+      : pendaftar.status_global === "Tidak Diterima Final" ? { label: "Hasil", status: "gagal", ket: "Tidak diterima" }
+      : { label: "Hasil", status: "", ket: "Pengumuman" },
+  ];
+  const ikon = { selesai: "✓", masalah: "!", gagal: "✕" };
+  return `<div class="progres">${tahap.map((t, i) => `
+    <div class="progres-item ${t.status}">
+      <div class="progres-bulat">${ikon[t.status] || i + 1}</div>
+      <div class="progres-label">${t.label}</div>
+      <div class="progres-ket">${esc(t.ket)}</div>
+    </div>`).join("")}</div>`;
+}
+
+// Berkas yang sudah diunggah di layar "Pendaftaran Berhasil" (sesaat setelah mendaftar)
+const berkasBaru = new Set();
+function renderProgresBaru() {
+  document.getElementById("progres-baru").innerHTML = renderProgres(
+    { status_global: "Aktif", status_berkas: "Menunggu Verifikasi", prioritas_aktif: 1 },
+    berkasBaru.size
+  );
+}
+
+document.getElementById("btn-selesai-unggah").addEventListener("click", async () => {
+  const sisa = JENIS_DOKUMEN.length - berkasBaru.size;
+  if (sisa > 0) {
+    const lanjut = await Dialog.konfirmasi(
+      `Masih ada ${sisa} berkas yang belum diunggah. Panitia baru bisa memverifikasi setelah ketiga berkas lengkap.\n\nAnda bisa melanjutkan unggah nanti dari menu Cek Status (login dengan nomor pendaftaran dan password).`,
+      { judul: "Berkas belum lengkap", jenis: "peringatan", tombolOk: "Lanjutkan nanti", tombolBatal: "Unggah sekarang" }
+    );
+    if (!lanjut) return;
+  }
+  showView("status");
+});
+
+/**
  * Daftar unggah berkas. Dipakai sesaat setelah mendaftar dan di halaman Cek Status.
  * prefix membedakan id elemen di dua tempat itu; onSelesai dipanggil setelah upload berhasil.
  */
@@ -360,7 +518,8 @@ async function unggahBerkas(prefix, idx) {
   input.value = "";
   if (res.ok) {
     statusEl.innerHTML = `<span style="color:#047857">✓ ${esc(file.name)}</span>`;
-    if (onSelesai) onSelesai();
+    Dialog.toast(`${jenis} berhasil diunggah.`);
+    if (onSelesai) onSelesai(jenis);
   } else {
     statusEl.innerHTML = `<span style="color:#b91c1c">${esc(data.error || "Gagal mengunggah")}</span>`;
   }
@@ -463,19 +622,45 @@ async function renderStatusView() {
     statusBanner = `<div class="alert alert-success" style="background:#fffbeb;color:#b45309;border-color:#fde68a">Sedang diproses di Pilihan ${pendaftar.prioritas_aktif}: <strong>${esc(sekolahNama(pendaftar.sekolah_aktif_id))}</strong> · Status berkas: ${esc(pendaftar.status_berkas)}</div>`;
   }
 
-  const pilihanRows = pilihan.map((p) => `
-    <tr>
-      <td>Pilihan ${p.urutan_prioritas}</td>
-      <td>${esc(p.sekolah_nama)}</td>
-      <td>${esc(p.jalur_nama)}${p.jarak_km != null
-        ? `<br/><span style="font-size:11.5px;color:var(--muted)">📍 ${Number(p.jarak_km).toFixed(1)} km dari sekolah</span>`
-        : p.catatan_skor ? `<br/><span style="font-size:11.5px;color:#b45309">⚠ ${esc(p.catatan_skor)}</span>` : ""}</td>
-      <td>${p.skor}<br/><span style="font-size:11px;color:var(--muted)">${asalSkor(p)}</span></td>
-      <td>${pillHTML(p.status)}${p.alasan_penolakan ? `<br/><span style="font-size:11px;color:var(--muted)">${esc(p.alasan_penolakan)}</span>` : ""}</td>
-    </tr>
-  `).join("");
+  // Perjalanan pilihan: Pilihan 1 → (dialihkan otomatis) → Pilihan 2 → ... -- inti konsep auto-transfer
+  const perjalananHTML = pilihan.map((p) => {
+    let kelas = "";
+    let bulat = p.urutan_prioritas;
+    if (p.status === "Diterima") { kelas = "diterima"; bulat = "✓"; }
+    else if (p.status === "Ditolak") { kelas = "ditolak"; bulat = "✕"; }
+    else if (p.status === "Menunggu Giliran") kelas = "menunggu";
+    else if (p.status === "Dibatalkan") kelas = "batal";
+    else if (pendaftar.status_global === "Aktif" && p.urutan_prioritas === pendaftar.prioritas_aktif) kelas = "aktif";
 
-  const notifItems = notifikasi.map((n) => `<li class="timeline-item"><div class="t-title">${esc(n.isi_pesan)}</div><div class="t-meta">${esc(n.waktu)}</div></li>`).join("");
+    const pengalihan = riwayat.find((r) => r.dari_sekolah_id === p.sekolah_id);
+    const rinciJarak = p.jarak_km != null
+      ? `<span>📍 <strong>${Number(p.jarak_km).toFixed(1)} km</strong> dari rumah</span>`
+      : p.catatan_skor ? `<span style="color:#b45309">⚠ ${esc(p.catatan_skor)}</span>` : "";
+    return `
+      <li class="pj-item ${kelas}">
+        <div class="pj-garis"><div class="pj-bulat">${bulat}</div><div class="pj-batang"></div></div>
+        <div class="pj-isi">
+          <div class="pj-kartu">
+            <div class="pj-atas">
+              <div>
+                <div class="pj-urutan">Pilihan ${p.urutan_prioritas}${p.urutan_prioritas === 1 ? " · utama" : ""}${kelas === "aktif" ? " · sedang diproses" : ""}</div>
+                <div class="pj-sekolah">${esc(p.sekolah_nama)}</div>
+              </div>
+              ${pillHTML(p.status)}
+            </div>
+            <div class="pj-rinci">
+              <span>Jalur <strong>${esc(p.jalur_nama)}</strong></span>
+              ${rinciJarak}
+              <span>Skor <strong>${p.skor}</strong> <span style="font-size:11px">(${asalSkor(p)})</span></span>
+            </div>
+            ${p.alasan_penolakan ? `<div class="pj-alasan">Alasan: ${esc(p.alasan_penolakan)}</div>` : ""}
+          </div>
+          ${pengalihan && pengalihan.ke_sekolah_id ? `<div class="pj-alih">↓ Dialihkan otomatis ke ${esc(pengalihan.ke_nama)} · ${esc(formatWaktuWIB(pengalihan.waktu))}</div>` : ""}
+        </div>
+      </li>`;
+  }).join("");
+
+  const notifItems = notifikasi.map((n) => `<li class="timeline-item"><div class="t-title">${esc(n.isi_pesan)}</div><div class="t-meta">${esc(formatWaktuWIB(n.waktu))}</div></li>`).join("");
 
   container.innerHTML = `
     <div class="table-wrap" style="padding:18px;margin-bottom:16px">
@@ -485,12 +670,9 @@ async function renderStatusView() {
       </div>
       ${statusBanner}
     </div>
-    <div class="table-wrap" style="margin-bottom:16px">
-      <table>
-        <thead><tr><th>Prioritas</th><th>Sekolah</th><th>Jalur</th><th>Skor</th><th>Status</th></tr></thead>
-        <tbody>${pilihanRows}</tbody>
-      </table>
-    </div>
+    ${renderProgres(pendaftar, (dokumen || []).length)}
+    <h3 class="sub-heading" style="margin-top:4px">Perjalanan Pilihan Sekolah</h3>
+    <ol class="perjalanan">${perjalananHTML}</ol>
     <h3 class="sub-heading" style="margin-top:0">Berkas Pendaftaran</h3>
     <p class="muted" style="margin:-4px 0 10px;font-size:12.5px">PDF/JPG/PNG, maks 5MB. Berkas dapat diganti selama belum diverifikasi Lengkap oleh panitia.</p>
     <div id="status-upload-list"></div>
