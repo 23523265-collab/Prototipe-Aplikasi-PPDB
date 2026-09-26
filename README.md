@@ -13,9 +13,9 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 ## Fitur Utama
 
 ### Pendaftar
-- Formulir pendaftaran dengan hingga 3 pilihan sekolah, masing-masing dengan jalur **Zonasi** atau **Prestasi**.
-- **Cek jarak ke sekolah** sebelum mendaftar: jarak dari lokasi GPS ke tiap sekolah, beserta tanda ✓/✕ masuk radius zonasi.
-- Unggah berkas (Kartu Keluarga, Akta Kelahiran, Rapor) — bisa diganti selama belum diverifikasi.
+- Formulir pendaftaran dengan hingga 3 pilihan sekolah, masing-masing dengan salah satu dari 4 jalur **SPMB 2026**: Domisili, Afirmasi, Mutasi, Prestasi (akademik/nonakademik).
+- **Cek jarak ke sekolah** sebelum mendaftar: jarak dari lokasi GPS ke tiap sekolah, beserta tanda ✓/✕ masuk radius Domisili.
+- Unggah berkas (Kartu Keluarga, Akta Kelahiran, Rapor + berkas khusus jalur: Bukti Afirmasi, Surat Mutasi, Sertifikat Prestasi) — bisa diganti selama belum diverifikasi.
 - **Cek Status**: posisi pendaftaran, jarak, skor, riwayat pengalihan, dan notifikasi.
 - **Notifikasi email** setiap ada perubahan status (verifikasi, pengalihan, diterima/ditolak, koreksi nilai).
 - **Cetak bukti pendaftaran** (siap cetak / simpan PDF lewat menu Print browser).
@@ -26,9 +26,10 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
   **panel detail** (berkas, peringatan otomatis, lokasi, nilai, dan tombol verifikasi).
 - **Peringatan otomatis**
   (NIK tidak wajar, berkas rusak/diganti ekstensi, alamat tidak cocok dengan titik GPS).
-- **Peta lokasi rumah**: titik GPS, hasil pencarian alamat, sekolah, dan lingkaran radius zonasi.
+- **Peta lokasi rumah**: titik GPS, hasil pencarian alamat, sekolah, dan lingkaran radius domisili.
 - Verifikasi berkas: **Lengkap** (hanya bisa jika KK, Akta, dan Rapor sudah diunggah), **Kurang Lengkap** (pendaftar diberi masa revisi 2×24 jam), atau **Tolak**.
 - **Koreksi nilai rapor** setelah dicocokkan dengan berkas (nilai asli tetap tercatat).
+- **Skor prestasi nonakademik** (0–100) diberikan dari sertifikat; wajib diisi sebelum berkas ditandai Lengkap.
 - **Statistik per jalur**: peminat, sisa kuota, menunggu verifikasi/seleksi, ditolak.
 - **Unduh data pendaftar (Excel/CSV)** untuk sekolahnya sendiri.
 - **Jalankan seleksi** per jalur (hanya saat pendaftaran ditutup) dengan ringkasan hasil.
@@ -36,20 +37,25 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 ### Admin Dinas (halaman terpisah, wajib login)
 - **Tahapan PPDB**: buka/tutup pendaftaran untuk semua sekolah.
 - Ringkasan seluruh wilayah: total pendaftar, diproses, diterima.
-- Ubah **kuota, radius zonasi, dan nilai minimum prestasi** per sekolah.
-- **Tambah sekolah baru** (lengkap dengan jalur Zonasi/Prestasi dan akun panitianya).
+- Ubah **kuota 5 jalur, radius domisili, dan nilai minimum prestasi** per sekolah, dengan **peringatan porsi SPMB**
+  (domisili & afirmasi min. 30%, mutasi maks. 5% — konstanta `PORSI_SPMB` di `public/js/admin.js`, sesuaikan dengan regulasi resmi).
+- **Tambah sekolah baru** (lengkap dengan 5 jalur SPMB dan akun panitianya).
 - **Reset password akun panitia**.
 
 ### Aturan Seleksi
 | Jalur | Syarat | Urutan peringkat |
 |---|---|---|
-| **Zonasi** | Jarak rumah–sekolah ≤ radius (Kota Yogyakarta 3 km, Sleman 5 km) | Jarak terdekat |
-| **Prestasi** | Nilai rapor ≥ nilai minimum jalur (75) | Nilai tertinggi |
+| **Domisili** | Jarak rumah–sekolah ≤ radius (Kota Yogyakarta 3 km, Sleman 5 km) | Jarak terdekat |
+| **Afirmasi** | Bukti KIP/PKH/DTKS/disabilitas diverifikasi panitia | Jarak terdekat |
+| **Mutasi** | Surat penugasan orang tua / keterangan anak GTK diverifikasi panitia | Jarak terdekat |
+| **Prestasi Akademik** | Nilai rapor/TKA ≥ nilai minimum jalur (75) | Nilai tertinggi |
+| **Prestasi Nonakademik** | Sertifikat diberi skor 0–100 oleh panitia (nilai minimum opsional) | Skor tertinggi |
 
 - Jika jarak/nilai sama: **usia lebih tua** didahulukan, lalu yang **mendaftar lebih awal**.
 - Kuota dihitung dari sisa kursi (dikurangi yang sudah diterima), sehingga seleksi ulang tidak melebihi kuota.
 - Pendaftar yang ditolak otomatis dialihkan ke pilihan berikutnya; jika pilihan habis → **Tidak Diterima Final**.
-- Di jalur Zonasi, kolom skor hanya konversi jarak (`100 − 10 × km`); yang menentukan tetap jaraknya.
+- Di jalur berbasis jarak, kolom skor hanya konversi jarak (`100 − 10 × km`); yang menentukan tetap jaraknya.
+  Pendaftar Afirmasi/Mutasi tanpa lokasi GPS tidak ditolak, tetapi berada di urutan terakhir.
 
 ### Keamanan & Privasi
 - Panel panitia dipisah dari situs pendaftar; semua endpoint panitia diperiksa di server.
@@ -78,7 +84,7 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 | `server.js` | Semua endpoint API |
 | `engine.js` | Verifikasi berkas, seleksi, auto-transfer, masa revisi, notifikasi |
 | `aturan.js` | Aturan murni yang diuji otomatis: syarat & peringkat seleksi, sisa kuota, batas usia, penyamaran nama |
-| `zonasi.js` | Rumus Haversine dan konversi jarak → skor |
+| `zonasi.js` | Rumus Haversine dan konversi jarak → skor (nama file historis; dipakai semua jalur berbasis jarak) |
 | `validasi.js` | Pra-verifikasi otomatis: NIK, berkas, alamat vs GPS |
 | `auth.js` | Login, sesi (disimpan di database), batas percobaan login |
 | `storage.js` | Upload berkas, signed URL, bucket private |
@@ -123,6 +129,7 @@ Untuk Vercel, isi variabel yang sama di **Settings → Environment Variables**.
 15. `migration-v6.9-nik-seleksi.sql` — NIK unik & kunci seleksi
 16. `migration-v7.0-rls.sql` — Row Level Security di semua tabel (akses lewat anon key ditolak; server memakai service key)
 17. `ganti-password-staf.sql` — **wajib**: ganti password bawaan Admin Dinas & panitia
+18. `migration-v7.1-jalur-spmb.sql` — 4 jalur SPMB 2026 (Domisili, Afirmasi, Mutasi, Prestasi akademik/nonakademik)
 
 Semua file migration aman dijalankan ulang.
 
@@ -141,7 +148,7 @@ Buka http://localhost:3000. Saat pertama jalan, server otomatis membuat bucket `
 ```
 npm test
 ```
-Menjalankan 27 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor zonasi,
+Menjalankan 31 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor jarak, syarat & urutan 5 jalur SPMB, berkas wajib per jalur,
 syarat radius/nilai minimum, urutan peringkat dan penentu seri (usia lebih tua, lalu daftar lebih awal),
 sisa kuota, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi berkas yang diganti ekstensinya.
 
@@ -176,7 +183,7 @@ Nomor pendaftaran kembali mulai dari `PPDB-0001` dan pendaftaran dibuka kembali.
 - **Password bawaan akun staf** dari migration wajib diganti lewat `ganti-password-staf.sql` sebelum dipakai.
 - **Titik GPS dapat dipalsukan**; pengecekan alamat hanya petunjuk, keputusan akhir tetap di panitia
   dengan mencocokkan Kartu Keluarga.
-- **Jarak zonasi = garis lurus (Haversine)**, bukan jarak tempuh jalan.
+- **Jarak domisili = garis lurus (Haversine)**, bukan jarak tempuh jalan.
 - **Geocoding memakai Nominatim gratis** (maks. 1 permintaan/detik) — untuk skala nyata perlu layanan berbayar
   atau server sendiri.
 - **Format NIK belum diwajibkan 16 digit** — NIK tidak wajar hanya ditandai sebagai peringatan untuk panitia.

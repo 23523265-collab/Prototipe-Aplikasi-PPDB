@@ -116,34 +116,75 @@ function renderTotal(t) {
     <div class="stat-card"><span class="stat-ico">${ikon("sekolah")}</span><div class="stat-num">${t.sekolah}</div><div class="stat-label">Sekolah</div></div>`;
 }
 
+/*
+ * Batas porsi kuota per jalur SPMB, dalam persen dari total kursi sekolah.
+ * Hanya dipakai untuk PERINGATAN (kuota tetap bebas diatur Admin Dinas).
+ * CEK dan sesuaikan angka ini dengan regulasi SPMB resmi yang berlaku.
+ */
+const PORSI_SPMB = {
+  domisili: { min: 30 },
+  afirmasi: { min: 30 },
+  mutasi: { maks: 5 },
+};
+const LABEL_JALUR = { domisili: "Domisili", afirmasi: "Afirmasi", mutasi: "Mutasi", prestasi_akademik: "Prestasi Akademik", prestasi_nonakademik: "Prestasi Nonakademik" };
+const URUTAN_JALUR = Object.keys(LABEL_JALUR);
+
+/** Hitung porsi tiap jalur dari angka kuota yang sedang diketik di satu baris, lalu tampilkan peringatan. */
+function perbaruiPorsi(sekolahId) {
+  const baris = document.querySelector(`tr[data-sekolah="${sekolahId}"]`);
+  const kuota = {};
+  baris.querySelectorAll('input[data-field="kuota"]').forEach((inp) => { kuota[inp.dataset.jenis] = Math.max(0, Number(inp.value) || 0); });
+  const total = Object.values(kuota).reduce((a, b) => a + b, 0);
+  const persen = (j) => (total ? Math.round(((kuota[j] || 0) / total) * 100) : 0);
+  const peringatan = [];
+  for (const [jenis, batas] of Object.entries(PORSI_SPMB)) {
+    if (!(jenis in kuota)) continue;
+    if (batas.min != null && persen(jenis) < batas.min) peringatan.push(`${LABEL_JALUR[jenis]} ${persen(jenis)}% (min. ${batas.min}%)`);
+    if (batas.maks != null && persen(jenis) > batas.maks) peringatan.push(`${LABEL_JALUR[jenis]} ${persen(jenis)}% (maks. ${batas.maks}%)`);
+  }
+  baris.querySelector(".porsi-sel").innerHTML = `
+    <strong>${total} kursi</strong>
+    <div class="porsi-rinci">${URUTAN_JALUR.filter((j) => j in kuota).map((j) => `${LABEL_JALUR[j].split(" ").map((k) => k[0]).join("")} ${persen(j)}%`).join(" · ")}</div>
+    ${peringatan.length
+      ? `<div class="porsi-peringatan">${ikon("peringatan")} ${esc(peringatan.join("; "))}</div>`
+      : total ? `<div class="porsi-ok">${ikon("centang")} Porsi sesuai</div>` : ""}`;
+}
+
 function renderSekolah(daftar) {
   const tbody = document.querySelector("#tabel-sekolah tbody");
   tbody.innerHTML = daftar.map((s) => {
-    const zonasi = s.jalur.find((j) => j.syarat_radius_km != null);
-    const prestasi = s.jalur.find((j) => j.syarat_nilai_minimum != null);
-    const terisi = s.jalur.map((j) => `${esc(j.nama)}: <strong>${j.diterima}</strong>/${j.kuota}`).join("<br/>");
+    const jalur = (jenis) => s.jalur.find((j) => j.jenis === jenis);
+    // Satu sel per jalur: kuota (+ radius untuk domisili, + nilai minimum untuk prestasi akademik) dan kursi terisi
+    const sel = (jenis) => {
+      const j = jalur(jenis);
+      if (!j) return "<td>-</td>";
+      const ekstra = jenis === "domisili"
+        ? `<input type="number" min="0.1" step="0.1" data-jalur="${j.jalur_id}" data-field="syarat_radius_km" value="${esc(j.syarat_radius_km)}" title="Radius domisili (km)" aria-label="Radius domisili ${esc(s.nama)}" />`
+        : jenis === "prestasi_akademik"
+          ? `<input type="number" min="0" max="100" data-jalur="${j.jalur_id}" data-field="syarat_nilai_minimum" value="${esc(j.syarat_nilai_minimum)}" title="Nilai minimum" aria-label="Nilai minimum ${esc(s.nama)}" />`
+          : "";
+      return `<td>
+        <div class="input-mini">
+          <input type="number" min="0" data-jalur="${j.jalur_id}" data-jenis="${jenis}" data-field="kuota" value="${j.kuota}"
+            title="Kuota ${LABEL_JALUR[jenis]}" aria-label="Kuota ${LABEL_JALUR[jenis]} ${esc(s.nama)}" oninput="perbaruiPorsi(${s.id})" />${ekstra}
+        </div>
+        <div class="terisi-mini">${j.diterima} diterima</div>
+      </td>`;
+    };
     const panitia = s.panitia.map((a) => `
       <div style="font-size:12.5px">${esc(a.username)}
-        <button class="action-btn btn-lokasi" onclick="resetPasswordPanitia(${a.id}, '${esc(a.username)}')">Reset password</button>
+        <button class="action-btn btn-lokasi" data-username="${esc(a.username)}" onclick="resetPasswordPanitia(${a.id}, this.dataset.username)">Reset password</button>
       </div>`).join("") || '<span class="muted" style="font-size:12px">Belum ada</span>';
     return `
     <tr data-sekolah="${s.id}">
-      <td><strong>${esc(s.nama)}</strong><br/><span class="muted" style="font-size:11.5px;margin:0">${esc(s.alamat || "")}</span></td>
-      <td>${zonasi ? `
-        <div class="input-mini">
-          <input type="number" min="0" data-jalur="${zonasi.jalur_id}" data-field="kuota" value="${zonasi.kuota}" title="Kuota zonasi" />
-          <input type="number" min="0.1" step="0.1" data-jalur="${zonasi.jalur_id}" data-field="syarat_radius_km" value="${esc(zonasi.syarat_radius_km)}" title="Radius (km)" />
-        </div>` : "-"}</td>
-      <td>${prestasi ? `
-        <div class="input-mini">
-          <input type="number" min="0" data-jalur="${prestasi.jalur_id}" data-field="kuota" value="${prestasi.kuota}" title="Kuota prestasi" />
-          <input type="number" min="0" max="100" data-jalur="${prestasi.jalur_id}" data-field="syarat_nilai_minimum" value="${esc(prestasi.syarat_nilai_minimum)}" title="Nilai minimum" />
-        </div>` : "-"}</td>
-      <td style="font-size:12.5px">${terisi}</td>
+      <td class="sel-sekolah"><strong>${esc(s.nama)}</strong><br/><span class="muted" style="font-size:11.5px;margin:0">${esc(s.alamat || "")}</span></td>
+      ${URUTAN_JALUR.map(sel).join("")}
+      <td class="porsi-sel"></td>
       <td>${panitia}</td>
       <td><button class="btn btn-accent" style="padding:6px 12px;font-size:13px" onclick="simpanSekolah(${s.id}, this)">Simpan</button></td>
     </tr>`;
   }).join("");
+  daftar.forEach((s) => perbaruiPorsi(s.id));
 }
 
 async function simpanSekolah(sekolahId, btn) {

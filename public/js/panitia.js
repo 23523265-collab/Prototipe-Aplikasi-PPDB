@@ -162,7 +162,7 @@ function renderTabelAntrean() {
             onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); bukaDetail(${a.pendaftar_id}); }">
           <td data-label="Pendaftar"><strong>${esc(a.nama)}</strong><div class="sel-sub">${esc(a.nomor)} · Pilihan ${a.prioritas_aktif}</div></td>
           <td data-label="Jalur">${esc(a.jalur_nama)}${infoJarak(a)}</td>
-          <td data-label="Skor"><strong>${a.skor}</strong><div class="sel-sub">${a.syarat_radius_km != null ? "dari jarak" : a.nilai_rapor != null ? `rapor ${esc(a.nilai_rapor)}` : ""}</div></td>
+          <td data-label="Skor"><strong>${a.skor}</strong><div class="sel-sub">${keteranganSkor(a)}</div></td>
           <td data-label="Berkas">${pillHTML(a.status_berkas)}<div class="sel-sub">${jumlahDokumen}/3 dokumen</div>${infoRevisi(a)}</td>
           <td data-label="Peringatan">${jumlahPeringatan
             ? `<span class="lencana lencana-peringatan">${ikon("peringatan")} ${jumlahPeringatan} peringatan</span>`
@@ -183,7 +183,14 @@ function renderTabelAntrean() {
    PANEL DETAIL PENDAFTAR
    ========================================================= */
 let detailId = null;
-const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
+const JALUR_JARAK = ["domisili", "afirmasi", "mutasi"];
+
+/** Keterangan asal skor sesuai jalur SPMB */
+function keteranganSkor(a) {
+  if (JALUR_JARAK.includes(a.jalur_jenis)) return "dari jarak";
+  if (a.jalur_jenis === "prestasi_nonakademik") return a.skor_nonakademik != null ? "skor sertifikat" : "belum diberi skor";
+  return a.nilai_rapor != null ? `rapor ${esc(a.nilai_rapor)}` : "";
+}
 
 function bukaDetail(pendaftarId) {
   detailId = pendaftarId;
@@ -210,12 +217,13 @@ function renderDetail() {
   if (!a) return;
   const peringatan = daftarPeringatan(a);
   const belumAda = a.berkas_belum_ada || [];
-  const zonasi = a.syarat_radius_km != null;
+  const pakaiJarak = JALUR_JARAK.includes(a.jalur_jenis);
+  const nonakademik = a.jalur_jenis === "prestasi_nonakademik";
 
   document.getElementById("laci-sub").innerText = `${a.nomor} · Pilihan ${a.prioritas_aktif} · ${a.jalur_nama}`;
   document.getElementById("laci-judul").innerText = a.nama;
 
-  const dokumenHTML = JENIS_DOKUMEN.map((jenis) => {
+  const dokumenHTML = (a.berkas_wajib || []).map((jenis) => {
     const d = (a.dokumen || []).find((x) => x.jenis === jenis);
     return d
       ? `<a class="berkas-chip" href="${safeUrl(d.url)}" target="_blank" rel="noopener">${ikon("berkas")}<span><strong>${esc(jenis)}</strong><small>${esc(d.nama_file || "Buka berkas")}</small></span>${ikon("panahKanan")}</a>`
@@ -227,8 +235,10 @@ function renderDetail() {
 
     <dl class="laci-data">
       <div><dt>NIK</dt><dd>${esc(a.nik)}</dd></div>
-      <div><dt>Skor</dt><dd>${a.skor} <small>${zonasi ? "(dari jarak)" : "(nilai rapor)"}</small></dd></div>
-      ${zonasi ? `<div><dt>Jarak ke sekolah</dt><dd>${a.jarak_km != null ? `${Number(a.jarak_km).toFixed(2)} km` : "-"} <small>/ radius ${esc(a.syarat_radius_km)} km</small></dd></div>` : ""}
+      <div><dt>Skor</dt><dd>${a.skor} <small>(${keteranganSkor(a)})</small></dd></div>
+      ${pakaiJarak ? `<div><dt>Jarak ke sekolah</dt><dd>${a.jarak_km != null ? `${Number(a.jarak_km).toFixed(2)} km` : "-"}${a.syarat_radius_km != null ? ` <small>/ radius ${esc(a.syarat_radius_km)} km</small>` : ""}</dd></div>` : ""}
+      ${nonakademik ? `<div><dt>Skor prestasi nonakademik</dt><dd>${a.skor_nonakademik ?? "belum diberi"}
+        <button type="button" class="link-btn" style="margin:0 0 0 6px" onclick="beriSkorNonakademik(${a.pendaftar_id})">${ikon("pensil")} ${a.skor_nonakademik != null ? "Ubah" : "Beri skor"}</button></dd></div>` : ""}
       <div><dt>Nilai rapor</dt><dd>${a.nilai_rapor ?? "-"}${a.nilai_rapor_dikoreksi_oleh ? ` <small>(dikoreksi dari ${esc(a.nilai_rapor_awal ?? "-")})</small>` : ""}
         <button type="button" class="link-btn" style="margin:0 0 0 6px" onclick="koreksiNilai(${a.pendaftar_id})">${ikon("pensil")} Koreksi</button></dd></div>
     </dl>
@@ -247,8 +257,9 @@ function renderDetail() {
 
   document.getElementById("laci-kaki").innerHTML = `
     ${belumAda.length ? `<p class="laci-catatan">${ikon("info")} Tombol Lengkap aktif setelah ${esc(belumAda.join(", "))} diunggah.</p>` : ""}
+    ${!belumAda.length && nonakademik && a.skor_nonakademik == null ? `<p class="laci-catatan">${ikon("info")} Beri skor prestasi nonakademik dari sertifikat sebelum menandai Lengkap.</p>` : ""}
     <div class="laci-tombol">
-      <button type="button" class="btn btn-sukses" ${belumAda.length ? "disabled" : ""} onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">${ikon("centang")} Lengkap</button>
+      <button type="button" class="btn btn-sukses" ${belumAda.length || (nonakademik && a.skor_nonakademik == null) ? "disabled" : ""} onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">${ikon("centang")} Lengkap</button>
       <button type="button" class="btn btn-peringatan" onclick="tandaiKurang(${a.pendaftar_id})">${ikon("peringatan")} Kurang</button>
       <button type="button" class="btn btn-bahaya-garis" onclick="tolakBerkas(${a.pendaftar_id})">${ikon("silang")} Tolak</button>
     </div>`;
@@ -263,7 +274,7 @@ function renderStatistik(daftar) {
     const persen = j.kuota ? Math.min(100, Math.round((j.diterima / j.kuota) * 100)) : 0;
     return `
     <div class="statistik-kartu">
-      <div class="statistik-judul">${esc(j.nama)} <span class="muted" style="margin:0;font-size:12px">${j.syarat_radius_km ? `radius ${esc(j.syarat_radius_km)} km` : j.syarat_nilai_minimum ? `min. nilai ${esc(j.syarat_nilai_minimum)}` : ""}</span></div>
+      <div class="statistik-judul">${esc(j.nama)} <span class="muted" style="margin:0;font-size:12px">${j.syarat_radius_km ? `radius ${esc(j.syarat_radius_km)} km` : j.syarat_nilai_minimum ? `min. nilai ${esc(j.syarat_nilai_minimum)}` : j.jenis === "afirmasi" || j.jenis === "mutasi" ? "urut jarak" : j.jenis === "prestasi_nonakademik" ? "skor sertifikat" : ""}</span></div>
       <div class="statistik-kuota"><strong>${j.diterima}</strong> / ${j.kuota} kursi terisi · sisa <strong>${j.sisa_kuota}</strong></div>
       <div class="bar-kuota"><div style="width:${persen}%"></div></div>
       <div class="statistik-rinci">
@@ -334,6 +345,26 @@ function infoNilai(a) {
   return `<br/><span style="font-size:11.5px;color:var(--muted)">Rapor: ${esc(a.nilai_rapor)}</span>${dikoreksi}`;
 }
 
+async function beriSkorNonakademik(pendaftarId) {
+  const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
+  if (!a) return;
+  const input = await Dialog.isian(
+    "Nilai sertifikat yang diunggah (lomba, ketua OSIS, pramuka, dan sejenisnya) dengan skor 0–100 sesuai pedoman penilaian sekolah. Skor ini menentukan peringkat di jalur Prestasi Nonakademik.",
+    { tipe: "number", nilai: a.skor_nonakademik ?? "", min: 0, max: 100, step: 1, wajib: true },
+    { judul: `Skor Prestasi Nonakademik — ${a.nama}`, tombolOk: "Simpan skor" }
+  );
+  if (input === null) return;
+  const res = await fetch(`/api/pendaftar/${pendaftarId}/skor-nonakademik`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ skor: Number(String(input).replace(",", ".")) }),
+  });
+  const data = await res.json().catch(() => ({}));
+  await renderPanitiaView();
+  if (!res.ok) return Dialog.galat(data.error || "Gagal menyimpan skor.");
+  Dialog.toast(`Skor prestasi nonakademik ${a.nama} disimpan.`);
+}
+
 async function koreksiNilai(pendaftarId) {
   const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
   if (!a) return;
@@ -359,11 +390,14 @@ async function koreksiNilai(pendaftarId) {
   Dialog.toast(`Nilai rapor ${a.nama} diperbarui (${data.pilihanDiperbarui} pilihan Prestasi ikut diperbarui). Pendaftar sudah diberi notifikasi.`);
 }
 
-// Jarak rumah–sekolah untuk jalur zonasi, merah bila di luar radius
+// Jarak rumah–sekolah untuk jalur berbasis jarak; merah bila di luar radius domisili
 function infoJarak(a) {
-  if (a.syarat_radius_km == null) return "";
+  if (!JALUR_JARAK.includes(a.jalur_jenis)) return "";
   if (a.jarak_km == null) {
     return `<br/><span style="font-size:11.5px;color:#b91c1c">${ikon("peringatan")} ${esc(a.catatan_skor || "Lokasi tidak tersedia")}</span>`;
+  }
+  if (a.syarat_radius_km == null) {
+    return `<br/><span style="font-size:11.5px;color:var(--muted)">${ikon("lokasi")} ${Number(a.jarak_km).toFixed(2)} km dari sekolah</span>`;
   }
   const diLuar = Number(a.jarak_km) > Number(a.syarat_radius_km);
   return `<br/><span style="font-size:11.5px;color:${diLuar ? "#b91c1c" : "#047857"}">${ikon("lokasi")} ${Number(a.jarak_km).toFixed(2)} km / radius ${a.syarat_radius_km} km${diLuar ? " — di luar radius" : ""}</span>`;
@@ -442,7 +476,7 @@ function bukaLokasi(pendaftarId) {
   }
   if (titik.length === 2) L.polyline(titik, { color: "#1B3358", weight: 2, dashArray: "4 6" }).addTo(petaLokasi);
 
-  // Titik hasil pencarian alamat (tidak ikut garis jarak zonasi)
+  // Titik hasil pencarian alamat (tidak ikut garis jarak)
   const semuaTitik = [...titik];
   if (a.alamat_latitude != null && a.alamat_longitude != null) {
     const pos = [Number(a.alamat_latitude), Number(a.alamat_longitude)];

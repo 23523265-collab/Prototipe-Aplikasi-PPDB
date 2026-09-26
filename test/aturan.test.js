@@ -1,6 +1,21 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi } = require("../aturan");
+const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, jenisJalur, dokumenWajib } = require("../aturan");
+
+describe("jalur SPMB: jenis & berkas wajib", () => {
+  test("jenis dari kolom jenis; data lama ditebak dari syaratnya", () => {
+    assert.equal(jenisJalur({ jenis: "mutasi" }), "mutasi");
+    assert.equal(jenisJalur({ syarat_radius_km: 3 }), "domisili");
+    assert.equal(jenisJalur({ syarat_nilai_minimum: 75 }), "prestasi_akademik");
+  });
+  test("berkas dasar + berkas tambahan sesuai jalur yang dipilih, tanpa duplikat", () => {
+    assert.deepEqual(dokumenWajib([{ jenis: "domisili" }]), ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"]);
+    assert.deepEqual(
+      dokumenWajib([{ jenis: "afirmasi" }, { jenis: "prestasi_nonakademik" }, { jenis: "afirmasi" }]),
+      ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir", "Bukti Afirmasi", "Sertifikat Prestasi"]
+    );
+  });
+});
 
 // Tanggal "hari ini" dikunci supaya hasil tes tidak berubah tiap tahun
 const HARI_INI = new Date("2026-09-25T00:00:00Z"); // acuan usia: 1 Juli 2026
@@ -70,7 +85,7 @@ describe("tentukanHasilSeleksi", () => {
     assert.deepEqual(id(hasil.diterima), [5, 3]);
     assert.deepEqual(id(hasil.ditolakKuota), [1]);
     assert.deepEqual(hasil.tidakMemenuhi.map((x) => x.k.pendaftar_id), [2, 4]);
-    assert.match(hasil.tidakMemenuhi[0].alasan, /Di luar radius zonasi: jarak 3\.50 km melebihi batas 3 km/);
+    assert.match(hasil.tidakMemenuhi[0].alasan, /Di luar radius domisili: jarak 3\.50 km melebihi batas 3 km/);
     assert.match(hasil.tidakMemenuhi[1].alasan, /Lokasi tidak tersedia/);
   });
 
@@ -113,6 +128,28 @@ describe("tentukanHasilSeleksi", () => {
     );
     assert.equal(hasil.diterima.length, 0);
     assert.deepEqual(id(hasil.ditolakKuota), [1, 2]);
+  });
+
+  test("afirmasi & mutasi: tanpa syarat radius, urut jarak terdekat, tanpa lokasi di urutan terakhir", () => {
+    for (const jenis of ["afirmasi", "mutasi"]) {
+      const kandidat = [
+        { pendaftar_id: 1, jarak_km: 9.5 },            // jauh, tetap memenuhi syarat
+        { pendaftar_id: 2, jarak_km: null },           // lokasi tidak ada -> paling akhir, bukan ditolak
+        { pendaftar_id: 3, jarak_km: 2.1 },
+      ];
+      const hasil = tentukanHasilSeleksi(kandidat, { jenis, syarat_radius_km: null }, info, 2);
+      assert.deepEqual(id(hasil.diterima), [3, 1], jenis);
+      assert.deepEqual(id(hasil.ditolakKuota), [2], jenis);
+      assert.equal(hasil.tidakMemenuhi.length, 0, jenis);
+    }
+  });
+
+  test("prestasi nonakademik: urut skor panitia; nilai minimum hanya berlaku jika diisi", () => {
+    const kandidat = [{ pendaftar_id: 1, skor: 60 }, { pendaftar_id: 4, skor: 85 }, { pendaftar_id: 5, skor: 85 }];
+    const tanpaMin = tentukanHasilSeleksi(kandidat, { jenis: "prestasi_nonakademik", syarat_nilai_minimum: null }, info, 3);
+    assert.deepEqual(id(tanpaMin.diterima), [5, 4, 1]); // #5 lahir lebih awal dari #4
+    const denganMin = tentukanHasilSeleksi(kandidat, { jenis: "prestasi_nonakademik", syarat_nilai_minimum: 70 }, info, 3);
+    assert.match(denganMin.tidakMemenuhi[0].alasan, /Skor prestasi nonakademik 60 di bawah syarat minimum 70/);
   });
 
   test("tidak ada kandidat -> hasil kosong", () => {

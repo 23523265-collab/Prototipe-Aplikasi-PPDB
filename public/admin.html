@@ -26,7 +26,7 @@
       <div class="auth-card">
         <div class="auth-icon"><i data-ikon="dinas"></i></div>
         <h2>Login Admin Dinas</h2>
-        <p class="muted">Mengatur tahapan PPDB, kuota, radius zonasi, sekolah, dan akun panitia untuk seluruh wilayah.</p>
+        <p class="muted">Mengatur tahapan SPMB, kuota 4 jalur, radius domisili, sekolah, dan akun panitia untuk seluruh wilayah.</p>
         <div id="admin-login-error" class="alert alert-error" style="display:none"></div>
         <form id="form-login-admin">
           <label>Username<input required name="username" placeholder="admin_dinas" autocomplete="username" /></label>
@@ -37,28 +37,31 @@
     </div>
 
     <!-- ===================== DASHBOARD ===================== -->
-    <div id="admin-view-wrap" class="staff-main" style="display:none">
+    <div id="admin-view-wrap" class="staff-main staff-main-lebar" style="display:none">
       <div id="admin-tahapan" class="tahapan-box"><div class="kerangka" style="height:44px;width:100%"></div></div>
 
       <div class="stat-grid" id="admin-total" style="margin:0 0 28px"><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div></div>
 
       <div class="row-between" style="margin-bottom:10px">
-        <h3 class="sub-heading" style="margin:0">Sekolah, Kuota &amp; Radius Zonasi</h3>
+        <h3 class="sub-heading" style="margin:0">Sekolah &amp; Kuota Jalur SPMB</h3>
       </div>
-      <p class="muted" style="font-size:12.5px;margin-top:0">Ubah angka lalu klik <strong>Simpan</strong> pada baris sekolah. Kuota tidak memengaruhi pendaftar yang sudah diterima.</p>
-      <div class="table-wrap">
+      <p class="muted" style="font-size:12.5px;margin-top:0">Ubah angka lalu klik <strong>Simpan</strong> pada baris sekolah. Kolom <strong>Porsi</strong> langsung dihitung ulang dan memberi peringatan bila porsi jalur menyimpang dari batas SPMB (domisili & afirmasi min. 30%, mutasi maks. 5% — cek kembali dengan regulasi resmi). Kuota tidak memengaruhi pendaftar yang sudah diterima.</p>
+      <div class="table-wrap tabel-lebar">
         <table id="tabel-sekolah">
           <thead>
             <tr>
               <th>Sekolah</th>
-              <th>Zonasi<br/><span style="font-weight:400;text-transform:none">kuota · radius (km)</span></th>
-              <th>Prestasi<br/><span style="font-weight:400;text-transform:none">kuota · nilai min.</span></th>
-              <th>Terisi</th>
+              <th>Domisili<br/><span style="font-weight:400;text-transform:none">kuota · radius (km)</span></th>
+              <th>Afirmasi<br/><span style="font-weight:400;text-transform:none">kuota</span></th>
+              <th>Mutasi<br/><span style="font-weight:400;text-transform:none">kuota</span></th>
+              <th>Prestasi Akademik<br/><span style="font-weight:400;text-transform:none">kuota · nilai min.</span></th>
+              <th>Prestasi Non&shy;akademik<br/><span style="font-weight:400;text-transform:none">kuota</span></th>
+              <th>Porsi</th>
               <th>Akun Panitia</th>
               <th></th>
             </tr>
           </thead>
-          <tbody><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="6"><div class="kerangka" style="height:40px"></div></td></tr></tbody>
+          <tbody><tr class="baris-kerangka"><td colspan="10"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="10"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="10"><div class="kerangka" style="height:40px"></div></td></tr><tr class="baris-kerangka"><td colspan="10"><div class="kerangka" style="height:40px"></div></td></tr></tbody>
         </table>
       </div>
 
@@ -71,10 +74,14 @@
           <label>Latitude<input required name="latitude" type="number" step="any" placeholder="-7.7801" /></label>
           <label>Longitude<input required name="longitude" type="number" step="any" placeholder="110.3676" /></label>
           <p class="muted penuh" style="margin:-4px 0 0;font-size:12px">Tips: di Google Maps, klik kanan titik sekolah → klik angka koordinat untuk menyalin, lalu tempel ke Latitude & Longitude.</p>
-          <label>Radius Zonasi (km)<input required name="radiusZonasi" type="number" step="0.1" min="0.1" value="3" /></label>
-          <label>Kuota Zonasi<input required name="kuotaZonasi" type="number" min="0" value="3" /></label>
-          <label>Kuota Prestasi<input required name="kuotaPrestasi" type="number" min="0" value="2" /></label>
-          <label>Nilai Minimum Prestasi<input required name="nilaiMinimum" type="number" min="0" max="100" value="75" /></label>
+          <label>Radius Domisili (km)<input required name="radiusDomisili" type="number" step="0.1" min="0.1" value="3" /></label>
+          <label>Nilai Minimum Prestasi Akademik<input required name="nilaiMinimum" type="number" min="0" max="100" value="75" /></label>
+          <p class="muted penuh" style="margin:4px 0 -4px;font-size:12px">Kuota per jalur (contoh awal 20 kursi: domisili 6 = 30%, afirmasi 6 = 30%, mutasi 1 = 5%, prestasi 5 + 2). Sesuaikan dengan daya tampung dan regulasi SPMB.</p>
+          <label>Kuota Domisili<input required name="kuotaDomisili" type="number" min="0" value="6" /></label>
+          <label>Kuota Afirmasi<input required name="kuotaAfirmasi" type="number" min="0" value="6" /></label>
+          <label>Kuota Mutasi<input required name="kuotaMutasi" type="number" min="0" value="1" /></label>
+          <label>Kuota Prestasi Akademik<input required name="kuotaPrestasiAkademik" type="number" min="0" value="5" /></label>
+          <label>Kuota Prestasi Nonakademik<input required name="kuotaPrestasiNonakademik" type="number" min="0" value="2" /></label>
           <label>Username Panitia<input required name="usernamePanitia" placeholder="panitia_sma11" pattern="[a-z0-9_]{4,40}" /></label>
           <label>Password Panitia<input required name="passwordPanitia" type="text" minlength="6" placeholder="Minimal 6 karakter, jangan password umum" autocomplete="off" /></label>
           <button type="submit" class="btn btn-primary penuh">Tambah Sekolah</button>

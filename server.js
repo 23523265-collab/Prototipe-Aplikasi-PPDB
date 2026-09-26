@@ -58,7 +58,17 @@ const JENDELA_DAFTAR_MENIT = 60;
 const PESAN_NIK_TERDAFTAR = "NIK ini sudah terdaftar. Satu calon siswa hanya boleh mendaftar sekali (sudah mencakup 3 pilihan sekolah). "
   + "Gunakan menu Cek Status dengan nomor pendaftaran Anda, atau hubungi panitia jika merasa tidak pernah mendaftar.";
 
-const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
+// Berkas wajib = berkas dasar (KK, akta, rapor) + berkas tambahan jalur (lihat aturan.JENIS_JALUR)
+const berkasUntukJalur = (daftarJalur) => aturan.dokumenWajib(daftarJalur.filter(Boolean));
+
+/** Jalur dari pilihan yang sedang diproses (prioritas aktif) seorang pendaftar. */
+async function jalurAktifPendaftar(pendaftarId, prioritasAktif) {
+  const { data: pil } = await supabase.from("pilihan").select("jalur_id")
+    .eq("pendaftar_id", pendaftarId).eq("urutan_prioritas", prioritasAktif).maybeSingle();
+  if (!pil) return null;
+  const { data: jalur } = await supabase.from("jalur").select("*").eq("id", pil.jalur_id).single();
+  return jalur;
+}
 const TIPE_FILE_DIIZINKAN = ["application/pdf", "image/jpeg", "image/png"];
 
 // Aturan usia (12–21 tahun per 1 Juli) dan penyamaran nama ada di aturan.js supaya bisa diuji otomatis
@@ -183,7 +193,8 @@ app.get("/api/sekolah", async (req, res) => {
 app.get("/api/jalur", async (req, res) => {
   const { data, error } = await supabase.from("jalur").select("*").order("id");
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  // jenis selalu terisi (data sebelum migration v7.1 ditebak dari syaratnya)
+  res.json(data.map((j) => ({ ...j, jenis: aturan.jenisJalur(j) })));
 });
 
 /* =========================================================
@@ -227,11 +238,19 @@ app.get("/api/pendaftar/nomor/:nomor", auth.requirePendaftarLogin, async (req, r
   const namaSekolah = (id) => sekolahList.find((s) => s.id === id)?.nama || "-";
   const namaJalur = (id) => jalurList.find((j) => j.id === id)?.nama || "-";
 
-  const pilihan = pilihanRaw.map((p) => ({ ...p, sekolah_nama: namaSekolah(p.sekolah_id), jalur_nama: namaJalur(p.jalur_id) }));
+  const jalurDari = (id) => jalurList.find((j) => j.id === id);
+  const pilihan = pilihanRaw.map((p) => ({
+    ...p, sekolah_nama: namaSekolah(p.sekolah_id), jalur_nama: namaJalur(p.jalur_id), jalur_jenis: aturan.jenisJalur(jalurDari(p.jalur_id)),
+  }));
   const riwayat = riwayatRaw.map((r) => ({ ...r, dari_nama: namaSekolah(r.dari_sekolah_id), ke_nama: namaSekolah(r.ke_sekolah_id) }));
 
   const { password_hash, ...pendaftarAman } = pendaftar;
-  res.json({ pendaftar: pendaftarAman, pilihan, riwayat, notifikasi, dokumen: await storage.tandatanganiDokumen(dokumen), jenisDokumen: JENIS_DOKUMEN });
+  res.json({
+    pendaftar: pendaftarAman, pilihan, riwayat, notifikasi,
+    dokumen: await storage.tandatanganiDokumen(dokumen),
+    // semua berkas yang mungkin dibutuhkan di pilihan mana pun (bisa diunggah sejak awal)
+    jenisDokumen: berkasUntukJalur(pilihanRaw.map((p) => jalurDari(p.jalur_id))),
+  });
 });
 
 app.post("/api/pendaftar", async (req, res) => {
@@ -282,7 +301,9 @@ app.post("/api/pendaftar", async (req, res) => {
     supabase.from("jalur").select("*").in("id", pilihan.map((p) => p.jalurId)),
   ]);
 
-  // Skor tiap pilihan: zonasi dari jarak GPS, prestasi dari nilai rapor
+  // Skor tiap pilihan sesuai jalur SPMB:
+  //  domisili/afirmasi/mutasi -> jarak GPS (skor hanya konversi jarak), prestasi akademik -> nilai rapor,
+  //  prestasi nonakademik -> diberi panitia setelah memeriksa sertifikat
   const skorPilihan = [];
   for (const p of pilihan) {
     const jalur = jalurDipilih.find((j) => j.id === p.jalurId);
@@ -290,8 +311,9 @@ app.post("/api/pendaftar", async (req, res) => {
     if (!jalur || !sekolah || jalur.sekolah_id !== p.sekolahId) {
       return res.status(400).json({ error: "Kombinasi sekolah dan jalur tidak valid." });
     }
+    const jenis = aturan.jenisJalur(jalur);
 
-    if (jalur.syarat_radius_km != null) {
+    if (aturan.JENIS_JALUR[jenis].urut === "jarak") {
       if (!lokasiAda) {
         skorPilihan.push({ skor: 0, jarak_km: null, catatan_skor: "Lokasi tidak tersedia" });
       } else if (sekolah.latitude == null || sekolah.longitude == null) {
@@ -300,13 +322,13 @@ app.post("/api/pendaftar", async (req, res) => {
         const jarak = zonasi.hitungJarakKm(latitude, longitude, Number(sekolah.latitude), Number(sekolah.longitude));
         skorPilihan.push({ skor: Math.round(zonasi.skorDariJarak(jarak)), jarak_km: Number(jarak.toFixed(2)), catatan_skor: null });
       }
-    } else if (jalur.syarat_nilai_minimum != null) {
+    } else if (jenis === "prestasi_akademik") {
       if (nilai === null) {
         return res.status(400).json({ error: `Nilai rapor wajib diisi untuk jalur ${jalur.nama}.` });
       }
       skorPilihan.push({ skor: Math.round(nilai), jarak_km: null, catatan_skor: null });
     } else {
-      skorPilihan.push({ skor: nilai === null ? 0 : Math.round(nilai), jarak_km: null, catatan_skor: null });
+      skorPilihan.push({ skor: 0, jarak_km: null, catatan_skor: "Menunggu skor dari panitia" });
     }
   }
 
@@ -358,7 +380,7 @@ app.post("/api/pendaftar", async (req, res) => {
   if (err2) return res.status(500).json({ error: err2.message });
   res.cookie("sid", token, auth.opsiCookie(req));
 
-  res.status(201).json({ nomor: pendaftarBaru.nomor, id: pendaftarBaru.id });
+  res.status(201).json({ nomor: pendaftarBaru.nomor, id: pendaftarBaru.id, jenisDokumen: berkasUntukJalur(jalurDipilih) });
 
   // Pra-Verifikasi alamat vs GPS dijalankan SETELAH respons terkirim, supaya pendaftar tidak
   // menunggu layanan peta (1–7 detik). Hasilnya hanya flag untuk panitia, tidak menolak pendaftaran.
@@ -388,7 +410,13 @@ app.post("/api/pendaftar/:id/dokumen", auth.requirePendaftarLogin, upload.single
   }
   const { jenis } = req.body;
   if (!req.file) return res.status(400).json({ error: "File tidak ditemukan." });
-  if (!JENIS_DOKUMEN.includes(jenis)) return res.status(400).json({ error: "Jenis dokumen tidak dikenal." });
+  // Jenis berkas yang boleh diunggah = berkas dasar + berkas tambahan dari semua jalur yang dipilih pendaftar
+  const [{ data: pilihanSaya }, { data: semuaJalur }] = await Promise.all([
+    supabase.from("pilihan").select("jalur_id").eq("pendaftar_id", pendaftarId),
+    supabase.from("jalur").select("*"),
+  ]);
+  const jenisBoleh = berkasUntukJalur((pilihanSaya || []).map((p) => (semuaJalur || []).find((j) => j.id === p.jalur_id)));
+  if (!jenisBoleh.includes(jenis)) return res.status(400).json({ error: "Jenis dokumen tidak dikenal untuk jalur yang Anda pilih." });
   if (!TIPE_FILE_DIIZINKAN.includes(req.file.mimetype)) {
     return res.status(400).json({ error: "Format file harus PDF, JPG, atau PNG." });
   }
@@ -439,17 +467,26 @@ app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res
   if (!["Lengkap", "Kurang Lengkap", "Ditolak"].includes(req.body.status)) {
     return res.status(400).json({ error: "Status verifikasi tidak dikenal." });
   }
-  const { data: pendaftar } = await supabase.from("pendaftar").select("sekolah_aktif_id").eq("id", pendaftarId).single();
+  const { data: pendaftar } = await supabase.from("pendaftar").select("*").eq("id", pendaftarId).single();
   if (!pendaftar || pendaftar.sekolah_aktif_id !== req.panitia.sekolahId) {
     return res.status(403).json({ error: "Pendaftar ini tidak sedang aktif di sekolah Anda." });
   }
+  // Pendaftar yang sudah final (diterima / tidak diterima) tidak boleh diubah lagi status berkasnya --
+  // mengubah pilihan "Diterima" kembali ke "Menunggu Seleksi" akan membuat kuota terlampaui
+  if (pendaftar.status_global !== "Aktif") {
+    return res.status(409).json({ error: "Pendaftaran ini sudah selesai diproses; status berkas tidak dapat diubah lagi." });
+  }
   if (req.body.status === "Lengkap") {
+    const jalurAktif = await jalurAktifPendaftar(pendaftarId, pendaftar.prioritas_aktif);
     const { data: dokumen } = await supabase.from("dokumen").select("jenis").eq("pendaftar_id", pendaftarId);
-    const belumAda = JENIS_DOKUMEN.filter((j) => !(dokumen || []).some((d) => d.jenis === j));
+    const belumAda = berkasUntukJalur([jalurAktif]).filter((j) => !(dokumen || []).some((d) => d.jenis === j));
     if (belumAda.length) {
       return res.status(409).json({
         error: `Belum bisa ditandai Lengkap: ${belumAda.join(", ")} belum diunggah. Gunakan tombol "Kurang" untuk meminta pendaftar melengkapi berkas.`,
       });
+    }
+    if (aturan.jenisJalur(jalurAktif) === "prestasi_nonakademik" && pendaftar.skor_nonakademik == null) {
+      return res.status(409).json({ error: "Beri skor prestasi nonakademik (0–100) dari sertifikat terlebih dahulu, lalu tandai Lengkap." });
     }
   }
   const catatan = typeof req.body.catatan === "string" ? req.body.catatan.trim().slice(0, 500) : null;
@@ -488,7 +525,8 @@ app.patch("/api/pendaftar/:id/nilai-rapor", auth.requirePanitiaLogin, async (req
     .eq("id", pendaftarId);
 
   // Perbarui skor di pilihan jalur prestasi yang belum diputuskan (termasuk pilihan cadangan)
-  const { data: jalurPrestasi } = await supabase.from("jalur").select("id").not("syarat_nilai_minimum", "is", null);
+  const { data: semuaJalur } = await supabase.from("jalur").select("*");
+  const jalurPrestasi = semuaJalur.filter((j) => aturan.jenisJalur(j) === "prestasi_akademik");
   const { data: diperbarui } = await supabase
     .from("pilihan")
     .update({ skor: Math.round(nilaiBaru) })
@@ -504,6 +542,39 @@ app.patch("/api/pendaftar/:id/nilai-rapor", auth.requirePanitiaLogin, async (req
   );
 
   res.json({ ok: true, pilihanDiperbarui: diperbarui?.length || 0 });
+});
+
+// Jalur Prestasi Nonakademik: panitia memberi skor 0–100 setelah memeriksa sertifikat (lomba, OSIS, pramuka, dll.)
+app.patch("/api/pendaftar/:id/skor-nonakademik", auth.requirePanitiaLogin, async (req, res) => {
+  const pendaftarId = Number(req.params.id);
+  const skor = Number(req.body.skor);
+  if (req.body.skor === "" || req.body.skor == null || !Number.isFinite(skor) || skor < 0 || skor > 100) {
+    return res.status(400).json({ error: "Skor harus berupa angka 0–100." });
+  }
+  const { data: pendaftar } = await supabase.from("pendaftar").select("*").eq("id", pendaftarId).single();
+  if (!pendaftar || pendaftar.sekolah_aktif_id !== req.panitia.sekolahId) {
+    return res.status(403).json({ error: "Pendaftar ini tidak sedang aktif di sekolah Anda." });
+  }
+  if (pendaftar.status_global !== "Aktif") {
+    return res.status(409).json({ error: "Pendaftaran sudah selesai diproses, skor tidak dapat diubah." });
+  }
+  const jalurAktif = await jalurAktifPendaftar(pendaftarId, pendaftar.prioritas_aktif);
+  if (aturan.jenisJalur(jalurAktif) !== "prestasi_nonakademik") {
+    return res.status(409).json({ error: "Pilihan yang sedang diproses bukan jalur Prestasi Nonakademik." });
+  }
+
+  const { error } = await supabase.from("pendaftar").update({
+    skor_nonakademik: skor,
+    skor_nonakademik_oleh: `${req.panitia.nama} (${req.panitia.username})`,
+    skor_nonakademik_at: new Date().toISOString(),
+  }).eq("id", pendaftarId);
+  if (error) return res.status(500).json({ error: `Gagal menyimpan skor (sudah jalankan migration v7.1?): ${error.message}` });
+
+  // Skor berlaku untuk pilihan aktif (jalur prestasi nonakademik di sekolah ini)
+  await supabase.from("pilihan").update({ skor: Math.round(skor), catatan_skor: null })
+    .eq("pendaftar_id", pendaftarId).eq("urutan_prioritas", pendaftar.prioritas_aktif);
+  await engine.tambahNotifikasi(pendaftarId, `Panitia memberi skor prestasi nonakademik ${skor} berdasarkan sertifikat yang Anda unggah.`);
+  res.json({ ok: true });
 });
 
 app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) => {
@@ -537,6 +608,8 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
     const pil = semuaPilihan.find((x) => x.pendaftar_id === p.id && x.urutan_prioritas === p.prioritas_aktif);
     if (!pil) continue;
     const dokumen = dokumenTertanda.filter((d) => d.pendaftar_id === p.id);
+    const jalurAktif = jalurList.find((j) => j.id === pil.jalur_id);
+    const berkasWajib = berkasUntukJalur([jalurAktif]);
 
     rows.push({
       pendaftar_id: p.id, nomor: p.nomor, nama: p.nama, nik: p.nik,
@@ -546,9 +619,13 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
       pilihan_id: pil.id, jalur_id: pil.jalur_id, skor: pil.skor,
       status_pilihan: pil.status, jalur_nama: namaJalur(pil.jalur_id),
       jarak_km: pil.jarak_km, catatan_skor: pil.catatan_skor,
-      syarat_radius_km: jalurList.find((j) => j.id === pil.jalur_id)?.syarat_radius_km ?? null,
+      syarat_radius_km: jalurAktif?.syarat_radius_km ?? null,
+      syarat_nilai_minimum: jalurAktif?.syarat_nilai_minimum ?? null,
+      jalur_jenis: aturan.jenisJalur(jalurAktif),
+      skor_nonakademik: p.skor_nonakademik ?? null, skor_nonakademik_oleh: p.skor_nonakademik_oleh ?? null,
       dokumen,
-      berkas_belum_ada: JENIS_DOKUMEN.filter((j) => !dokumen.some((d) => d.jenis === j)),
+      berkas_wajib: berkasWajib,
+      berkas_belum_ada: berkasWajib.filter((j) => !dokumen.some((d) => d.jenis === j)),
       catatan_validasi_nik: p.catatan_validasi_nik,
       batas_revisi_at: p.batas_revisi_at, catatan_revisi: p.catatan_revisi,
       alamat: p.alamat, latitude: p.latitude, longitude: p.longitude, akurasi_lokasi_m: p.akurasi_lokasi_m,
@@ -663,6 +740,7 @@ function hitungStatistikJalur(jalur, pilihanJalur) {
   return {
     jalur_id: jalur.id,
     nama: jalur.nama,
+    jenis: aturan.jenisJalur(jalur),
     kuota: jalur.kuota,
     syarat_radius_km: jalur.syarat_radius_km,
     syarat_nilai_minimum: jalur.syarat_nilai_minimum,
@@ -800,9 +878,11 @@ app.patch("/api/admin/jalur/:id", auth.requireAdminLogin, async (req, res) => {
   if (!jalur) return res.status(404).json({ error: "Jalur tidak ditemukan." });
 
   const perubahan = { kuota };
-  // Jenis jalur tidak diubah: zonasi tetap pakai radius, prestasi tetap pakai nilai minimum
-  if (jalur.syarat_radius_km != null) perubahan.syarat_radius_km = radius ?? jalur.syarat_radius_km;
-  if (jalur.syarat_nilai_minimum != null) perubahan.syarat_nilai_minimum = nilaiMin ?? jalur.syarat_nilai_minimum;
+  // Jenis jalur tidak diubah: domisili memakai radius, prestasi memakai nilai minimum (nonakademik boleh kosong)
+  const jenis = aturan.jenisJalur(jalur);
+  if (jenis === "domisili") perubahan.syarat_radius_km = radius ?? jalur.syarat_radius_km;
+  if (jenis === "prestasi_akademik") perubahan.syarat_nilai_minimum = nilaiMin ?? jalur.syarat_nilai_minimum;
+  if (jenis === "prestasi_nonakademik") perubahan.syarat_nilai_minimum = nilaiMin;
 
   const { error } = await supabase.from("jalur").update(perubahan).eq("id", jalur.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -813,14 +893,19 @@ app.post("/api/admin/sekolah", auth.requireAdminLogin, async (req, res) => {
   const b = req.body;
   const nama = String(b.nama || "").trim();
   const lat = Number(b.latitude), lng = Number(b.longitude);
-  const radius = Number(b.radiusZonasi), kuotaZ = Number(b.kuotaZonasi), kuotaP = Number(b.kuotaPrestasi), nilaiMin = Number(b.nilaiMinimum);
+  const radius = Number(b.radiusDomisili), nilaiMin = Number(b.nilaiMinimum);
+  // Kuota 5 jalur SPMB (porsi yang sesuai regulasi diatur Admin Dinas; panel admin memberi peringatan)
+  const kuota = {
+    domisili: Number(b.kuotaDomisili), afirmasi: Number(b.kuotaAfirmasi), mutasi: Number(b.kuotaMutasi),
+    prestasi_akademik: Number(b.kuotaPrestasiAkademik), prestasi_nonakademik: Number(b.kuotaPrestasiNonakademik),
+  };
   const username = String(b.usernamePanitia || "").trim().toLowerCase();
   const passwordPanitia = String(b.passwordPanitia || "");
 
   if (!nama) return res.status(400).json({ error: "Nama sekolah wajib diisi." });
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return res.status(400).json({ error: "Koordinat sekolah tidak valid." });
-  if (!(radius > 0 && radius <= 50)) return res.status(400).json({ error: "Radius zonasi harus 0–50 km." });
-  if (![kuotaZ, kuotaP].every((k) => Number.isInteger(k) && k >= 0)) return res.status(400).json({ error: "Kuota harus bilangan bulat ≥ 0." });
+  if (!(radius > 0 && radius <= 50)) return res.status(400).json({ error: "Radius domisili harus 0–50 km." });
+  if (!Object.values(kuota).every((k) => Number.isInteger(k) && k >= 0)) return res.status(400).json({ error: "Kuota setiap jalur harus bilangan bulat ≥ 0." });
   if (!(nilaiMin >= 0 && nilaiMin <= 100)) return res.status(400).json({ error: "Nilai minimum prestasi harus 0–100." });
   if (!/^[a-z0-9_]{4,40}$/.test(username)) return res.status(400).json({ error: "Username panitia 4–40 karakter: huruf kecil, angka, atau garis bawah." });
   if (passwordPanitia.length < 6) return res.status(400).json({ error: "Password panitia minimal 6 karakter." });
@@ -840,8 +925,11 @@ app.post("/api/admin/sekolah", auth.requireAdminLogin, async (req, res) => {
   if (e1) return res.status(500).json({ error: e1.message });
 
   const { error: e2 } = await supabase.from("jalur").insert([
-    { sekolah_id: sekolah.id, nama: "Zonasi", kuota: kuotaZ, syarat_nilai_minimum: null, syarat_radius_km: radius },
-    { sekolah_id: sekolah.id, nama: "Prestasi", kuota: kuotaP, syarat_nilai_minimum: nilaiMin, syarat_radius_km: null },
+    ...Object.entries(aturan.JENIS_JALUR).map(([jenis, info]) => ({
+      sekolah_id: sekolah.id, nama: info.label, jenis, kuota: kuota[jenis],
+      syarat_radius_km: jenis === "domisili" ? radius : null,
+      syarat_nilai_minimum: jenis === "prestasi_akademik" ? nilaiMin : null,
+    })),
   ]);
   const { error: e3 } = await supabase.from("akun_panitia").insert({
     username, password_hash: auth.hashPassword(passwordPanitia), nama: `Panitia ${nama}`, sekolah_id: sekolah.id,

@@ -33,6 +33,36 @@ function samarkanNama(nama) {
     .join(" ");
 }
 
+/* ---------------------------------------------------------
+   Jalur SPMB 2026 (migration v7.1)
+   - urut      : "jarak" (terdekat dulu) atau "skor" (tertinggi dulu)
+   - radius    : wajib berada dalam radius jalur (hanya domisili)
+   - nilaiMin  : skor harus >= syarat_nilai_minimum jalur (jika diisi)
+   - dokumen   : berkas tambahan di luar berkas dasar
+   --------------------------------------------------------- */
+const DOKUMEN_DASAR = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
+const JENIS_JALUR = {
+  domisili: { label: "Domisili", urut: "jarak", radius: true, nilaiMin: false, dokumen: [] },
+  afirmasi: { label: "Afirmasi", urut: "jarak", radius: false, nilaiMin: false, dokumen: ["Bukti Afirmasi"] },
+  mutasi: { label: "Mutasi", urut: "jarak", radius: false, nilaiMin: false, dokumen: ["Surat Mutasi"] },
+  prestasi_akademik: { label: "Prestasi Akademik", urut: "skor", radius: false, nilaiMin: true, dokumen: [] },
+  prestasi_nonakademik: { label: "Prestasi Nonakademik", urut: "skor", radius: false, nilaiMin: true, dokumen: ["Sertifikat Prestasi"] },
+};
+
+/** Jenis jalur; untuk data sebelum migration v7.1 ditebak dari syaratnya. */
+function jenisJalur(jalur) {
+  if (jalur?.jenis && JENIS_JALUR[jalur.jenis]) return jalur.jenis;
+  if (jalur?.syarat_radius_km != null) return "domisili";
+  if (jalur?.syarat_nilai_minimum != null) return "prestasi_akademik";
+  return "domisili";
+}
+
+/** Berkas wajib untuk sekumpulan jalur (berkas dasar + berkas tambahan tiap jalur, tanpa duplikat). */
+function dokumenWajib(daftarJalur) {
+  const tambahan = daftarJalur.flatMap((j) => JENIS_JALUR[jenisJalur(j)].dokumen);
+  return [...new Set([...DOKUMEN_DASAR, ...tambahan])];
+}
+
 /** Kursi yang masih tersedia: kuota dikurangi yang sudah diterima di seleksi sebelumnya (tidak pernah negatif). */
 function hitungSisaKuota(kuota, sudahDiterima) {
   return Math.max(0, Number(kuota) - (Number(sudahDiterima) || 0));
@@ -47,29 +77,30 @@ function hitungSisaKuota(kuota, sudahDiterima) {
  * Mengembalikan { diterima: [...], ditolakKuota: [...], tidakMemenuhi: [{ k, alasan }] }.
  */
 function tentukanHasilSeleksi(kandidat, jalur, infoPendaftar, sisaKuota) {
-  const isZonasi = jalur.syarat_radius_km != null;
+  const jenis = jenisJalur(jalur);
+  const aturanJalur = JENIS_JALUR[jenis];
   const radius = Number(jalur.syarat_radius_km);
+  const nilaiMin = aturanJalur.nilaiMin && jalur.syarat_nilai_minimum != null ? Number(jalur.syarat_nilai_minimum) : null;
+  const namaSkor = jenis === "prestasi_nonakademik" ? "Skor prestasi nonakademik" : "Nilai rapor";
 
-  // 1) Pisahkan kandidat yang tidak memenuhi syarat dasar jalur
+  // 1) Pisahkan kandidat yang tidak memenuhi syarat dasar jalur.
+  //    Afirmasi & mutasi tidak punya syarat angka: kelayakannya dibuktikan lewat berkas yang sudah diverifikasi panitia.
   const memenuhiSyarat = [];
   const tidakMemenuhi = [];
   for (const k of kandidat) {
-    if (isZonasi) {
-      if (k.jarak_km == null) {
-        tidakMemenuhi.push({ k, alasan: `Jarak tidak dapat dihitung (${k.catatan_skor || "lokasi tidak tersedia"})` });
-      } else if (Number(k.jarak_km) > radius) {
-        tidakMemenuhi.push({ k, alasan: `Di luar radius zonasi: jarak ${Number(k.jarak_km).toFixed(2)} km melebihi batas ${radius} km` });
-      } else {
-        memenuhiSyarat.push(k);
-      }
-    } else if (jalur.syarat_nilai_minimum != null && k.skor < jalur.syarat_nilai_minimum) {
-      tidakMemenuhi.push({ k, alasan: `Nilai rapor ${k.skor} di bawah syarat minimum ${jalur.syarat_nilai_minimum}` });
+    if (aturanJalur.radius && k.jarak_km == null) {
+      tidakMemenuhi.push({ k, alasan: `Jarak tidak dapat dihitung (${k.catatan_skor || "lokasi tidak tersedia"})` });
+    } else if (aturanJalur.radius && Number(k.jarak_km) > radius) {
+      tidakMemenuhi.push({ k, alasan: `Di luar radius domisili: jarak ${Number(k.jarak_km).toFixed(2)} km melebihi batas ${radius} km` });
+    } else if (nilaiMin != null && k.skor < nilaiMin) {
+      tidakMemenuhi.push({ k, alasan: `${namaSkor} ${k.skor} di bawah syarat minimum ${nilaiMin}` });
     } else {
       memenuhiSyarat.push(k);
     }
   }
 
-  // 2) Urutkan: zonasi berdasarkan jarak terdekat, jalur lain berdasarkan skor tertinggi.
+  // 2) Urutkan: domisili/afirmasi/mutasi berdasarkan jarak terdekat (tanpa lokasi di urutan terakhir),
+  //    prestasi berdasarkan skor tertinggi.
   // Bila jarak/skor sama: usia lebih tua (tanggal lahir lebih awal) didahulukan, lalu yang mendaftar lebih awal.
   const info = (k) => infoPendaftar(k.pendaftar_id) || {};
   const penentuSeri = (a, b) => {
@@ -77,8 +108,9 @@ function tentukanHasilSeleksi(kandidat, jalur, infoPendaftar, sisaKuota) {
     return String(pa.tanggal_lahir).localeCompare(String(pb.tanggal_lahir))
       || String(pa.created_at).localeCompare(String(pb.created_at));
   };
-  memenuhiSyarat.sort(isZonasi
-    ? (a, b) => Number(a.jarak_km) - Number(b.jarak_km) || penentuSeri(a, b)
+  const jarakUrut = (k) => (k.jarak_km == null ? Infinity : Number(k.jarak_km));
+  memenuhiSyarat.sort(aturanJalur.urut === "jarak"
+    ? (a, b) => (jarakUrut(a) - jarakUrut(b)) || penentuSeri(a, b)
     : (a, b) => b.skor - a.skor || penentuSeri(a, b));
 
   // 3) Terima sejumlah sisa kuota teratas, sisanya ditolak karena kuota
@@ -89,4 +121,7 @@ function tentukanHasilSeleksi(kandidat, jalur, infoPendaftar, sisaKuota) {
   };
 }
 
-module.exports = { USIA_MIN, USIA_MAKS, validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi };
+module.exports = {
+  USIA_MIN, USIA_MAKS, DOKUMEN_DASAR, JENIS_JALUR,
+  validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, jenisJalur, dokumenWajib,
+};

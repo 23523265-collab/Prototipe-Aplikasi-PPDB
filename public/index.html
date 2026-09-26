@@ -52,7 +52,7 @@
               </div>
             </div>
             <!-- Ilustrasi: rumah di luar radius Pilihan 1, dialihkan ke Pilihan 2 yang masuk radius -->
-            <figure class="hero-ilustrasi" aria-label="Ilustrasi auto-transfer: pendaftar di luar radius zonasi Pilihan 1 dialihkan otomatis ke Pilihan 2">
+            <figure class="hero-ilustrasi" aria-label="Ilustrasi auto-transfer: pendaftar di luar radius domisili Pilihan 1 dialihkan otomatis ke Pilihan 2">
               <svg viewBox="0 0 440 360" role="img" aria-hidden="true">
                 <defs>
                   <pattern id="kisi" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0V22" fill="none" stroke="#dfe6ef" stroke-width="1"/></pattern>
@@ -107,8 +107,8 @@
 
         <section data-muncul class="bagian bagian-warna">
           <div class="kontainer">
-            <p class="bagian-eyebrow">Jalur</p>
-            <h2 class="bagian-judul">Dua jalur pendaftaran</h2>
+            <p class="bagian-eyebrow">Jalur SPMB 2026</p>
+            <h2 class="bagian-judul">Empat jalur pendaftaran</h2>
             <div class="jalur-info-grid" id="beranda-jalur"><div class="kerangka" style="height:170px"></div><div class="kerangka" style="height:170px"></div></div>
           </div>
         </section>
@@ -118,7 +118,7 @@
             <div class="sekolah-intro">
               <p class="bagian-eyebrow">Sekolah peserta</p>
               <h2 class="bagian-judul">Sekolah yang bisa dipilih</h2>
-              <p class="muted">SMA Negeri di Kota Yogyakarta dan Kabupaten Sleman. Radius zonasi Kota 3 km, Sleman 5 km, dihitung garis lurus dari titik lokasi rumah.</p>
+              <p class="muted">SMA Negeri di Kota Yogyakarta dan Kabupaten Sleman. Radius jalur Domisili Kota 3 km, Sleman 5 km, dihitung garis lurus dari titik lokasi rumah. Setiap sekolah membuka jalur Domisili, Afirmasi, Mutasi, dan Prestasi.</p>
               <button class="btn btn-primary" data-goto="daftar">Pilih sekolah &amp; daftar</button>
             </div>
             <div class="sekolah-daftar-wrap">
@@ -174,14 +174,14 @@
               <label>Alamat Rumah<textarea required name="alamat" rows="3" placeholder="Sesuai Kartu Keluarga: jalan, RT/RW, kelurahan, kecamatan"></textarea></label>
               <div class="jarak-box">
                 <button type="button" class="btn btn-outline" id="btn-cek-jarak"><i data-ikon="lokasi"></i> Cek jarak saya ke sekolah</button>
-                <div id="jarak-info" class="muted" style="margin:8px 0 0;font-size:12.5px">Lakukan dari rumah. Lokasi dipakai untuk menghitung jarak rumah ke sekolah pada jalur Zonasi, dan menandai sekolah mana yang masuk radius.</div>
+                <div id="jarak-info" class="muted" style="margin:8px 0 0;font-size:12.5px">Lakukan dari rumah. Lokasi dipakai untuk menghitung jarak rumah ke sekolah (jalur Domisili, Afirmasi, dan Mutasi), dan menandai sekolah mana yang masuk radius Domisili.</div>
               </div>
             </fieldset>
 
             <fieldset class="langkah" data-langkah="2">
               <p class="langkah-judul">Pilihan Sekolah</p>
               <p class="muted" style="margin:0;font-size:12.5px">Urutkan dari yang paling diinginkan. Jika tidak diterima di Pilihan 1, pendaftaran otomatis dialihkan ke Pilihan 2, lalu Pilihan 3.</p>
-              <label>Nilai Rapor<input type="number" name="nilaiRapor" min="0" max="100" step="0.01" placeholder="Rata-rata rapor 0–100 — wajib jika memilih jalur Prestasi" /></label>
+              <label>Nilai Rapor<input type="number" name="nilaiRapor" min="0" max="100" step="0.01" placeholder="Rata-rata rapor atau nilai TKA 0–100 — wajib untuk jalur Prestasi Akademik" /></label>
 
               <div class="pilihan-block" data-index="0">
                 <p class="pilihan-title">Pilihan 1 (Utama)</p>

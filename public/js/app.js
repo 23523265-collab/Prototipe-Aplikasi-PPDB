@@ -117,18 +117,28 @@ async function cekTahapanPendaftaran() {
   document.getElementById("form-daftar").style.display = t.dibuka ? "" : "none";
 }
 
-// Keterangan asal skor: di Zonasi skor hanya konversi jarak (100 − 10 × km), yang menentukan tetap jaraknya
+/* Jalur SPMB 2026: jenis dari server (/api/jalur). Jalur dengan urut "jarak" butuh lokasi GPS. */
+const JALUR_JARAK = ["domisili", "afirmasi", "mutasi"];
+const DOKUMEN_DASAR = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
+const jalurDariId = (id) => jalurList.find((j) => j.id === id);
+
+// Keterangan asal skor: di jalur berbasis jarak skor hanya konversi jarak (100 − 10 × km), yang menentukan tetap jaraknya
 function asalSkor(p) {
   const jalur = jalurList.find((j) => j.id === p.jalur_id);
-  if (jalur?.syarat_radius_km != null || p.jarak_km != null) {
+  if (JALUR_JARAK.includes(jalur?.jenis) || p.jarak_km != null) {
     return p.jarak_km != null ? `dari jarak ${Number(p.jarak_km).toFixed(1)} km` : "jarak tidak tersedia";
   }
-  if (jalur?.syarat_nilai_minimum != null) return "nilai rapor";
+  if (jalur?.jenis === "prestasi_akademik") return "nilai rapor";
+  if (jalur?.jenis === "prestasi_nonakademik") return p.catatan_skor ? "menunggu panitia" : "skor sertifikat";
   return "";
 }
 
+// Urutan jalur mengikuti SPMB 2026: Domisili, Afirmasi, Mutasi, Prestasi (akademik, nonakademik)
+const URUTAN_JALUR = ["domisili", "afirmasi", "mutasi", "prestasi_akademik", "prestasi_nonakademik"];
 function jalurOptionsForSekolah(sekolahId) {
-  return jalurList.filter((j) => j.sekolah_id === Number(sekolahId));
+  return jalurList
+    .filter((j) => j.sekolah_id === Number(sekolahId))
+    .sort((x, y) => URUTAN_JALUR.indexOf(x.jenis) - URUTAN_JALUR.indexOf(y.jenis));
 }
 
 function populateSekolahSelects() {
@@ -155,7 +165,7 @@ function isiJalur(sel) {
 /* ---------- Cek jarak ke sekolah (sebelum mendaftar) ---------- */
 let lokasiTerakhir = null; // { latitude, longitude, akurasi, waktu }
 
-// Rumus Haversine -- sama dengan zonasi.js di server
+// Rumus Haversine -- sama dengan zonasi.js (rumus jarak) di server
 function hitungJarakKm(lat1, lng1, lat2, lng2) {
   const rad = (d) => (d * Math.PI) / 180;
   const a = Math.sin(rad(lat2 - lat1) / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
@@ -167,14 +177,14 @@ function jarakKeSekolah(sekolah) {
   return hitungJarakKm(lokasiTerakhir.latitude, lokasiTerakhir.longitude, Number(sekolah.latitude), Number(sekolah.longitude));
 }
 
-function radiusZonasi(sekolahId) {
-  return jalurList.find((j) => j.sekolah_id === sekolahId && j.syarat_radius_km)?.syarat_radius_km ?? null;
+function radiusDomisili(sekolahId) {
+  return jalurList.find((j) => j.sekolah_id === sekolahId && j.jenis === "domisili")?.syarat_radius_km ?? null;
 }
 
 function labelJarakSekolah(sekolah) {
   const jarak = jarakKeSekolah(sekolah);
   if (jarak == null) return "";
-  const radius = radiusZonasi(sekolah.id);
+  const radius = radiusDomisili(sekolah.id);
   const tanda = radius == null ? "" : jarak <= Number(radius) ? " ✓" : " ✕";
   return ` — ${jarak.toFixed(1)} km${tanda}`;
 }
@@ -201,15 +211,15 @@ document.getElementById("btn-cek-jarak").addEventListener("click", async (e) => 
   });
 
   const urut = sekolahList
-    .map((s) => ({ s, jarak: jarakKeSekolah(s), radius: radiusZonasi(s.id) }))
+    .map((s) => ({ s, jarak: jarakKeSekolah(s), radius: radiusDomisili(s.id) }))
     .filter((x) => x.jarak != null)
     .sort((a, b) => a.jarak - b.jarak);
   const masuk = urut.filter((x) => x.radius != null && x.jarak <= Number(x.radius));
   info.innerHTML = `Akurasi GPS ± ${Math.round(lokasi.akurasi)} m. ` +
     (masuk.length
-      ? `<strong style="color:#047857">${masuk.length} sekolah masuk radius zonasi:</strong> ${masuk.map((x) => `${esc(x.s.nama)} (${x.jarak.toFixed(1)} km)`).join(", ")}.`
-      : '<strong style="color:#b91c1c">Tidak ada sekolah dalam radius zonasi dari lokasimu.</strong>') +
-    ` Terdekat berikutnya: ${urut.filter((x) => !masuk.includes(x)).slice(0, 2).map((x) => `${esc(x.s.nama)} (${x.jarak.toFixed(1)} km)`).join(", ") || "-"}. Tanda ✓/✕ di pilihan sekolah menunjukkan masuk/tidak radius zonasi.`;
+      ? `<strong style="color:#047857">${masuk.length} sekolah masuk radius domisili:</strong> ${masuk.map((x) => `${esc(x.s.nama)} (${x.jarak.toFixed(1)} km)`).join(", ")}.`
+      : '<strong style="color:#b91c1c">Tidak ada sekolah dalam radius domisili dari lokasimu. Jalur Afirmasi, Mutasi, dan Prestasi tidak memakai syarat radius.</strong>') +
+    ` Terdekat berikutnya: ${urut.filter((x) => !masuk.includes(x)).slice(0, 2).map((x) => `${esc(x.s.nama)} (${x.jarak.toFixed(1)} km)`).join(", ") || "-"}. Tanda ✓/✕ di pilihan sekolah menunjukkan masuk/tidak radius jalur Domisili.`;
 });
 
 // ---------- Beranda ----------
@@ -247,11 +257,12 @@ function renderSekolahBeranda() {
 
   document.getElementById("beranda-sekolah").innerHTML = tampil.length ? tampil.map((s) => {
     const jalur = jalurOptionsForSekolah(s.id);
-    const zonasi = jalur.find((j) => j.syarat_radius_km != null);
-    const prestasi = jalur.find((j) => j.syarat_nilai_minimum != null);
+    const domisili = jalur.find((j) => j.jenis === "domisili");
+    const kuotaJalur = (jenis) => jalur.find((j) => j.jenis === jenis)?.kuota;
     const jarak = jarakKeSekolah(s);
-    const jarakHTML = jarak == null || !zonasi ? ""
-      : `<span class="${jarak <= Number(zonasi.syarat_radius_km) ? "rinci-jarak" : "rinci-jauh"}">${jarak.toFixed(1)} km dari rumah</span>`;
+    const jarakHTML = jarak == null || !domisili ? ""
+      : `<span class="${jarak <= Number(domisili.syarat_radius_km) ? "rinci-jarak" : "rinci-jauh"}">${jarak.toFixed(1)} km dari rumah</span>`;
+    const totalKursi = jalur.reduce((n, j) => n + (Number(j.kuota) || 0), 0);
     const peta = s.latitude != null ? `https://www.google.com/maps?q=${Number(s.latitude)},${Number(s.longitude)}` : null;
     return `
       <div class="sekolah-kartu">
@@ -260,8 +271,12 @@ function renderSekolahBeranda() {
           <strong>${esc(s.nama)}</strong>
           <div class="sekolah-alamat">${esc(s.alamat || "-")}</div>
           <div class="sekolah-rinci">
-            ${zonasi ? `<span class="rinci-zonasi">Zonasi ${esc(zonasi.syarat_radius_km)} km · ${zonasi.kuota} kursi</span>` : ""}
-            ${prestasi ? `<span class="rinci-prestasi">Prestasi ≥ ${esc(prestasi.syarat_nilai_minimum)} · ${prestasi.kuota} kursi</span>` : ""}
+            <span class="rinci-total">${totalKursi} kursi</span>
+            ${domisili ? `<span class="rinci-zonasi">Domisili ${esc(domisili.syarat_radius_km)} km · ${domisili.kuota}</span>` : ""}
+            ${kuotaJalur("afirmasi") != null ? `<span>Afirmasi ${kuotaJalur("afirmasi")}</span>` : ""}
+            ${kuotaJalur("mutasi") != null ? `<span>Mutasi ${kuotaJalur("mutasi")}</span>` : ""}
+            ${kuotaJalur("prestasi_akademik") != null || kuotaJalur("prestasi_nonakademik") != null
+              ? `<span class="rinci-prestasi">Prestasi ${(kuotaJalur("prestasi_akademik") || 0) + (kuotaJalur("prestasi_nonakademik") || 0)}</span>` : ""}
             ${jarakHTML}
           </div>
           ${peta ? `<a class="sekolah-peta" href="${peta}" target="_blank" rel="noopener">Lihat di peta ${ikon("panahKanan")}</a>` : ""}
@@ -300,27 +315,35 @@ async function renderTahapanBeranda(adaHasil) {
 
 function renderJalurBeranda() {
   const unik = (arr) => [...new Set(arr.filter((x) => x != null).map(Number))].sort((a, b) => a - b);
-  const radius = unik(jalurList.map((j) => j.syarat_radius_km));
-  const nilaiMin = unik(jalurList.map((j) => j.syarat_nilai_minimum));
-  const teksRadius = radius.length ? radius.join(" atau ") + " km" : "-";
-  document.getElementById("beranda-jalur").innerHTML = `
+  const radius = unik(jalurList.filter((j) => j.jenis === "domisili").map((j) => j.syarat_radius_km));
+  const nilaiMin = unik(jalurList.filter((j) => j.jenis === "prestasi_akademik").map((j) => j.syarat_nilai_minimum));
+  const kartu = (ikonNama, judul, sub, isi, berkas) => `
     <div class="jalur-info">
-      <div class="jalur-info-kepala"><span class="stat-ico">${ikon("lokasi")}</span><div><strong>Zonasi</strong><span>Berdasarkan jarak rumah</span></div></div>
-      <ul>
-        <li>Syarat: jarak rumah ke sekolah <strong>≤ radius zonasi</strong> (${teksRadius}; Kota Yogyakarta lebih kecil dari Sleman).</li>
-        <li>Jarak dihitung otomatis dari lokasi GPS saat mendaftar, dicocokkan panitia dengan alamat di KK.</li>
-        <li>Peringkat: <strong>jarak terdekat</strong> diterima lebih dulu.</li>
-      </ul>
-    </div>
-    <div class="jalur-info">
-      <div class="jalur-info-kepala"><span class="stat-ico">${ikon("piala")}</span><div><strong>Prestasi</strong><span>Berdasarkan nilai rapor</span></div></div>
-      <ul>
-        <li>Syarat: rata-rata nilai rapor <strong>≥ ${nilaiMin.length ? nilaiMin.join(" / ") : "-"}</strong>.</li>
-        <li>Nilai diisi saat mendaftar dan dicocokkan panitia dengan berkas rapor.</li>
-        <li>Peringkat: <strong>nilai tertinggi</strong> diterima lebih dulu.</li>
-      </ul>
-    </div>
-    <p class="muted" style="grid-column:1/-1;font-size:12.5px;margin:0">Jika jarak atau nilai sama, <strong>usia lebih tua</strong> didahulukan, lalu yang <strong>mendaftar lebih awal</strong>. Gunakan tombol <em>Cek jarak saya ke sekolah</em> di formulir untuk melihat sekolah mana yang masuk radius.</p>`;
+      <div class="jalur-info-kepala"><span class="stat-ico">${ikon(ikonNama)}</span><div><strong>${judul}</strong><span>${sub}</span></div></div>
+      <ul>${isi.map((x) => `<li>${x}</li>`).join("")}</ul>
+      ${berkas ? `<p class="jalur-berkas">${ikon("berkas")} Berkas tambahan: <strong>${berkas}</strong></p>` : ""}
+    </div>`;
+  document.getElementById("beranda-jalur").innerHTML =
+    kartu("lokasi", "Domisili", "Berdasarkan jarak tempat tinggal", [
+      `Syarat: jarak rumah ke sekolah <strong>≤ radius domisili</strong> (${radius.length ? radius.join(" atau ") + " km" : "-"}; Kota Yogyakarta lebih kecil dari Sleman).`,
+      "Jarak dihitung otomatis dari lokasi GPS, dicocokkan panitia dengan alamat di KK.",
+      "Peringkat: <strong>jarak terdekat</strong> diterima lebih dulu.",
+    ]) +
+    kartu("perisai", "Afirmasi", "Keluarga tidak mampu & penyandang disabilitas", [
+      "Untuk pemegang KIP/PKH, terdaftar DTKS, atau penyandang disabilitas.",
+      "Kelayakan dibuktikan dengan berkas yang diverifikasi panitia; tidak ada syarat radius.",
+      "Peringkat: <strong>jarak terdekat</strong> diterima lebih dulu.",
+    ], "Bukti Afirmasi (KIP/PKH/DTKS/surat disabilitas)") +
+    kartu("alih", "Mutasi", "Perpindahan tugas orang tua & anak guru", [
+      "Untuk orang tua/wali yang pindah tugas, atau anak guru/tenaga kependidikan.",
+      "Kelayakan dibuktikan dengan surat penugasan/keterangan yang diverifikasi panitia.",
+      "Peringkat: <strong>jarak terdekat</strong> diterima lebih dulu.",
+    ], "Surat Mutasi / keterangan GTK") +
+    kartu("piala", "Prestasi", "Akademik & nonakademik", [
+      `<strong>Akademik:</strong> rata-rata nilai rapor (atau hasil TKA) <strong>≥ ${nilaiMin.length ? nilaiMin.join(" / ") : "-"}</strong>, peringkat nilai tertinggi.`,
+      "<strong>Nonakademik:</strong> lomba, ketua OSIS, pramuka, dan sejenisnya — panitia memberi skor 0–100 dari sertifikat, peringkat skor tertinggi.",
+    ], "Sertifikat Prestasi (khusus nonakademik)") +
+    `<p class="muted" style="grid-column:1/-1;font-size:12.5px;margin:0">Setiap pilihan sekolah boleh memakai jalur yang berbeda. Jika jarak atau nilai sama, <strong>usia lebih tua</strong> didahulukan, lalu yang <strong>mendaftar lebih awal</strong>. Semua jalur wajib mengunggah KK, akta kelahiran, dan rapor.</p>`;
 }
 
 /* =========================================================
@@ -372,9 +395,9 @@ function periksaLangkah(n) {
       Dialog.info("Pilih minimal satu sekolah dan jalurnya di Pilihan 1.", { judul: "Pilihan sekolah kosong", jenis: "peringatan" });
       return false;
     }
-    const pakaiPrestasi = pilihan.some((p) => jalurList.find((j) => j.id === p.jalurId)?.syarat_nilai_minimum != null);
+    const pakaiPrestasi = pilihan.some((p) => jalurDariId(p.jalurId)?.jenis === "prestasi_akademik");
     if (pakaiPrestasi && formDaftar.nilaiRapor.value === "") {
-      formDaftar.nilaiRapor.setCustomValidity("Nilai rapor wajib diisi karena memilih jalur Prestasi.");
+      formDaftar.nilaiRapor.setCustomValidity("Nilai rapor wajib diisi karena memilih jalur Prestasi Akademik.");
       formDaftar.nilaiRapor.reportValidity();
       formDaftar.nilaiRapor.addEventListener("input", () => formDaftar.nilaiRapor.setCustomValidity(""), { once: true });
       return false;
@@ -448,10 +471,10 @@ formDaftar.addEventListener("submit", async (e) => {
     setProgres("Mengambil lokasi…");
     const lokasi = await ambilLokasi();
 
-    const pilihZonasi = pilihan.some((p) => jalurList.find((j) => j.id === p.jalurId)?.syarat_radius_km);
-    if (!lokasi && pilihZonasi) {
+    const pakaiJarak = pilihan.some((p) => JALUR_JARAK.includes(jalurDariId(p.jalurId)?.jenis));
+    if (!lokasi && pakaiJarak) {
       const lanjut = await Dialog.konfirmasi(
-        `Lokasi tidak tersedia. ${pesanGagalLokasi().replace(/<[^>]+>/g, "")}\n\nJika tetap dikirim, jarak zonasi tidak bisa dihitung — pilihan jalur Zonasi diberi skor 0 dengan catatan "lokasi tidak tersedia".`,
+        `Lokasi tidak tersedia. ${pesanGagalLokasi().replace(/<[^>]+>/g, "")}\n\nJika tetap dikirim, jarak tidak bisa dihitung — jalur Domisili tidak dapat diseleksi, dan di jalur Afirmasi/Mutasi Anda berada di urutan terakhir.`,
         { judul: "Kirim tanpa lokasi?", jenis: "peringatan", tombolOk: "Tetap kirim", tombolBatal: "Coba lagi nanti" }
       );
       if (!lanjut) throw new Error("Pendaftaran belum dikirim. Aktifkan lokasi, lalu klik Kirim Pendaftaran lagi.");
@@ -484,8 +507,10 @@ formDaftar.addEventListener("submit", async (e) => {
     document.getElementById("daftar-upload-wrap").style.display = "block";
     document.getElementById("upload-nomor").innerText = data.nomor;
     berkasBaru.clear();
+    jenisDokumenBaru = Array.isArray(data.jenisDokumen) && data.jenisDokumen.length ? data.jenisDokumen : DOKUMEN_DASAR;
     renderProgresBaru();
     renderUploadList("upload-list", "baru", pendaftarBaruId, [], {
+      jenisDokumen: jenisDokumenBaru,
       onSelesai: (jenis) => { berkasBaru.add(jenis); renderProgresBaru(); },
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -547,31 +572,30 @@ function pesanGagalLokasi() {
   return "Lokasi tidak dapat ditentukan. Pastikan GPS/Lokasi di HP aktif, lalu coba lagi.";
 }
 
-const JENIS_DOKUMEN = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
 
 /**
  * Pelacak progres 5 tahap: Daftar → Berkas → Verifikasi → Seleksi → Hasil.
  * Supaya pendaftar selalu tahu posisinya dan apa yang harus dilakukan berikutnya.
  */
-function renderProgres(pendaftar, jumlahBerkas) {
+function renderProgres(pendaftar, jumlahBerkas, totalBerkas = DOKUMEN_DASAR.length) {
   const final = pendaftar.status_global !== "Aktif";
   const lengkap = pendaftar.status_berkas === "Lengkap";
   const kurang = pendaftar.status_berkas === "Kurang Lengkap";
-  const berkasPenuh = jumlahBerkas >= JENIS_DOKUMEN.length;
+  const berkasPenuh = jumlahBerkas >= totalBerkas;
   const diPilihan = pendaftar.prioritas_aktif > 1 ? ` (Pilihan ${pendaftar.prioritas_aktif})` : "";
 
   const tahap = [
     { label: "Daftar", status: "selesai", ket: "Terdaftar" },
     final || berkasPenuh
-      ? { label: "Unggah Berkas", status: "selesai", ket: `${Math.min(jumlahBerkas, 3)}/3 berkas` }
-      : { label: "Unggah Berkas", status: "berjalan", ket: `${jumlahBerkas}/3 berkas` },
+      ? { label: "Unggah Berkas", status: "selesai", ket: `${Math.min(jumlahBerkas, totalBerkas)}/${totalBerkas} berkas` }
+      : { label: "Unggah Berkas", status: "berjalan", ket: `${jumlahBerkas}/${totalBerkas} berkas` },
     final || lengkap ? { label: "Verifikasi", status: "selesai", ket: "Berkas lengkap" }
       : kurang ? { label: "Verifikasi", status: "masalah", ket: "Perlu revisi" }
       : berkasPenuh ? { label: "Verifikasi", status: "berjalan", ket: `Diperiksa panitia${diPilihan}` }
       : { label: "Verifikasi", status: "", ket: "Oleh panitia" },
     final ? { label: "Seleksi", status: "selesai", ket: "Selesai" }
       : lengkap ? { label: "Seleksi", status: "berjalan", ket: `Menunggu seleksi${diPilihan}` }
-      : { label: "Seleksi", status: "", ket: "Zonasi / Prestasi" },
+      : { label: "Seleksi", status: "", ket: "Sesuai jalur" },
     pendaftar.status_global === "Diterima Final" ? { label: "Hasil", status: "selesai", ket: "Diterima ✓" }
       : pendaftar.status_global === "Tidak Diterima Final" ? { label: "Hasil", status: "gagal", ket: "Tidak diterima" }
       : { label: "Hasil", status: "", ket: "Pengumuman" },
@@ -587,18 +611,19 @@ function renderProgres(pendaftar, jumlahBerkas) {
 
 // Berkas yang sudah diunggah di layar "Pendaftaran Berhasil" (sesaat setelah mendaftar)
 const berkasBaru = new Set();
+let jenisDokumenBaru = DOKUMEN_DASAR; // diganti daftar dari server sesuai jalur yang dipilih
 function renderProgresBaru() {
   document.getElementById("progres-baru").innerHTML = renderProgres(
     { status_global: "Aktif", status_berkas: "Menunggu Verifikasi", prioritas_aktif: 1 },
-    berkasBaru.size
+    berkasBaru.size, jenisDokumenBaru.length
   );
 }
 
 document.getElementById("btn-selesai-unggah").addEventListener("click", async () => {
-  const sisa = JENIS_DOKUMEN.length - berkasBaru.size;
+  const sisa = jenisDokumenBaru.length - berkasBaru.size;
   if (sisa > 0) {
     const lanjut = await Dialog.konfirmasi(
-      `Masih ada ${sisa} berkas yang belum diunggah. Panitia baru bisa memverifikasi setelah ketiga berkas lengkap.\n\nAnda bisa melanjutkan unggah nanti dari menu Cek Status (login dengan nomor pendaftaran dan password).`,
+      `Masih ada ${sisa} berkas yang belum diunggah. Panitia baru bisa memverifikasi setelah semua berkas lengkap.\n\nAnda bisa melanjutkan unggah nanti dari menu Cek Status (login dengan nomor pendaftaran dan password).`,
       { judul: "Berkas belum lengkap", jenis: "peringatan", tombolOk: "Lanjutkan nanti", tombolBatal: "Unggah sekarang" }
     );
     if (!lanjut) return;
@@ -611,10 +636,10 @@ document.getElementById("btn-selesai-unggah").addEventListener("click", async ()
  * prefix membedakan id elemen di dua tempat itu; onSelesai dipanggil setelah upload berhasil.
  */
 const uploadCtx = {};
-function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terkunci = null, onSelesai = null } = {}) {
-  uploadCtx[prefix] = { pendaftarId, onSelesai };
+function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terkunci = null, onSelesai = null, jenisDokumen = DOKUMEN_DASAR } = {}) {
+  uploadCtx[prefix] = { pendaftarId, onSelesai, jenisDokumen };
   const container = document.getElementById(containerId);
-  container.innerHTML = JENIS_DOKUMEN.map((jenis, i) => {
+  container.innerHTML = jenisDokumen.map((jenis, i) => {
     const ada = dokumen.find((d) => d.jenis === jenis);
     const statusHTML = ada
       ? `<span style="color:#047857">✓ ${ada.url ? `<a href="${safeUrl(ada.url)}" target="_blank" rel="noopener">${esc(ada.nama_file)}</a>` : esc(ada.nama_file)}</span>`
@@ -622,7 +647,7 @@ function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terk
     return `
     <div class="upload-item">
       <div class="upload-info">
-        <strong>${esc(jenis)}</strong>
+        <strong>${esc(jenis)}</strong>${DOKUMEN_DASAR.includes(jenis) ? "" : ' <span class="lencana-jalur">khusus jalur</span>'}
         <div class="upload-status" id="${prefix}-status-${i}">${statusHTML}</div>
       </div>
       <div>${terkunci
@@ -635,8 +660,8 @@ function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terk
 }
 
 async function unggahBerkas(prefix, idx) {
-  const { pendaftarId, onSelesai } = uploadCtx[prefix];
-  const jenis = JENIS_DOKUMEN[idx];
+  const { pendaftarId, onSelesai, jenisDokumen } = uploadCtx[prefix];
+  const jenis = jenisDokumen[idx];
   const input = document.getElementById(`${prefix}-file-${idx}`);
   const file = input.files[0];
   if (!file) return;
@@ -745,7 +770,9 @@ async function renderStatusView() {
     container.innerHTML = `<p style="color:#b91c1c;font-size:14px">Gagal memuat data.</p>`;
     return;
   }
-  const { pendaftar, pilihan, riwayat, notifikasi, dokumen } = await res.json();
+  const { pendaftar, pilihan, riwayat, notifikasi, dokumen, jenisDokumen: jenisDariServer } = await res.json();
+  const jenisDokumen = Array.isArray(jenisDariServer) && jenisDariServer.length ? jenisDariServer : DOKUMEN_DASAR;
+  const jumlahBerkas = (dokumen || []).filter((d) => jenisDokumen.includes(d.jenis)).length;
 
   let terkunci = null;
   if (pendaftar.status_global !== "Aktif") terkunci = "Pendaftaran selesai";
@@ -814,7 +841,7 @@ async function renderStatusView() {
       </div>
       ${statusBanner}
     </div>
-    ${renderProgres(pendaftar, (dokumen || []).length)}
+    ${renderProgres(pendaftar, jumlahBerkas, jenisDokumen.length)}
     <h3 class="sub-heading" style="margin-top:4px">Perjalanan Pilihan Sekolah</h3>
     <ol class="perjalanan">${perjalananHTML}</ol>
     <h3 class="sub-heading" style="margin-top:0">Berkas Pendaftaran</h3>
@@ -825,6 +852,7 @@ async function renderStatusView() {
   `;
 
   renderUploadList("status-upload-list", "status", pendaftar.id, dokumen || [], {
+    jenisDokumen,
     terkunci,
     onSelesai: () => renderStatusView(),
   });

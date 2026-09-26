@@ -325,6 +325,18 @@ a.btn { text-decoration: none; display: inline-block; }
 .admin-topbar { background: linear-gradient(135deg, #3b2a14 0%, #1f160a 100%); }
 .input-mini { display: flex; gap: 6px; }
 .input-mini input { width: 72px; padding: 6px 8px; font-size: 13px; }
+/* Tabel kuota 5 jalur SPMB di panel Admin Dinas */
+.staff-main-lebar { max-width: 1440px; }
+.tabel-lebar { overflow-x: auto; }
+.tabel-lebar table { min-width: 1180px; }
+.tabel-lebar .input-mini input { width: 64px; }
+.sel-sekolah { min-width: 190px; }
+.terisi-mini { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.porsi-sel { min-width: 170px; font-size: 12.5px; }
+.porsi-rinci { font-size: 11px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.porsi-peringatan { display: flex; gap: 5px; align-items: flex-start; margin-top: 6px; font-size: 11.5px; font-weight: 600; color: #b45309; background: #fffbeb; border-radius: 6px; padding: 5px 7px; }
+.porsi-peringatan .ikon { margin-top: 1px; flex-shrink: 0; }
+.porsi-ok { display: flex; gap: 5px; align-items: center; margin-top: 6px; font-size: 11.5px; font-weight: 600; color: #047857; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; max-width: 640px; margin-top: 14px; }
 .form-grid .penuh { grid-column: 1 / -1; }
 @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
@@ -741,6 +753,10 @@ a.berkas-chip:hover { border-color: var(--navy); background: #f8f9fb; color: var
 .sekolah-rinci .rinci-prestasi { background: #fdf3e2; color: var(--amber-dark); }
 .sekolah-rinci .rinci-jarak { background: #ecfdf5; color: #047857; }
 .sekolah-rinci .rinci-jauh { background: #fef2f2; color: #b91c1c; }
+.sekolah-rinci .rinci-total { background: var(--navy); color: #fff; }
+.jalur-berkas { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12.5px; color: var(--muted); }
+.jalur-berkas .ikon { margin-top: 2px; color: var(--amber-dark); }
+.lencana-jalur { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #fdf3e2; color: var(--amber-dark); vertical-align: 1px; margin-left: 4px; }
 .sekolah-peta { font-size: 12px; font-weight: 600; margin-top: 8px; display: inline-block; }
 
 /* Footer */
