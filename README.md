@@ -121,6 +121,8 @@ Untuk Vercel, isi variabel yang sama di **Settings → Environment Variables**.
 13. `migration-v6.7-tahapan.sql` — buka/tutup pendaftaran
 14. `migration-v6.8-admin-reset.sql` — akun Admin Dinas & lupa password pendaftar
 15. `migration-v6.9-nik-seleksi.sql` — NIK unik & kunci seleksi
+16. `migration-v7.0-rls.sql` — Row Level Security di semua tabel (akses lewat anon key ditolak; server memakai service key)
+17. `ganti-password-staf.sql` — **wajib**: ganti password bawaan Admin Dinas & panitia
 
 Semua file migration aman dijalankan ulang.
 
@@ -145,17 +147,21 @@ sisa kuota, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi
 
 ---
 
-## Akun Uji
+## Akun
 
-| Peran | Username | Password |
-|---|---|---|
-| **Admin Dinas** | `admin_dinas` | `admin123` |
-| Panitia SMA Negeri 1 Yogyakarta | `panitia_sma1` | `panitia123` |
-| Panitia SMA Negeri 2 / 5 / 8 Yogyakarta | `panitia_sekolah1` / `panitia_sekolah2` / `panitia_sekolah3` | `panitia123` |
-| Panitia SMA Negeri 1 Ngaglik | `panitia_sma1ngaglik` | `panitia123` |
-| Panitia SMA Negeri 2 Ngaglik | `panitia_sma2ngaglik` | `panitia123` |
-| Panitia sekolah lain | `panitia_sma3` … `panitia_sma10`, `panitia_sma1depok`, `panitia_sma1mlati`, `panitia_sma1kalasan` | `panitia123` |
-| Pendaftar | Nomor pendaftaran (mis. `PPDB-0001`) | Password yang dibuat saat mendaftar |
+| Peran | Username |
+|---|---|
+| **Admin Dinas** | `admin_dinas` |
+| Panitia SMA Negeri 1 Yogyakarta | `panitia_sma1` |
+| Panitia SMA Negeri 2 / 5 / 8 Yogyakarta | `panitia_sekolah1` / `panitia_sekolah2` / `panitia_sekolah3` |
+| Panitia SMA Negeri 1 / 2 Ngaglik | `panitia_sma1ngaglik` / `panitia_sma2ngaglik` |
+| Panitia sekolah lain | `panitia_sma3` … `panitia_sma10`, `panitia_sma1depok`, `panitia_sma1mlati`, `panitia_sma1kalasan` |
+| Pendaftar | Nomor pendaftaran (mis. `PPDB-0001`) + password yang dibuat saat mendaftar |
+
+Password staf **tidak** dicantumkan di repo. Migration membuat akun dengan password bawaan yang sudah diketahui umum,
+jadi setelah memasang database baru **wajib** jalankan `ganti-password-staf.sql` di SQL Editor:
+password Admin Dinas ditentukan sendiri, password tiap panitia dibuat acak dan ditampilkan sekali di hasil query.
+Password panitia dapat diganti lagi dari panel Admin Dinas.
 
 ## Reset Data Sebelum Demo
 Menghapus semua pendaftar (sekolah, jalur, dan akun panitia tetap ada). **Tidak bisa dibatalkan.**
@@ -167,7 +173,7 @@ Nomor pendaftaran kembali mulai dari `PPDB-0001` dan pendaftaran dibuka kembali.
 ---
 
 ## Keterbatasan (Pengembangan Lanjutan)
-- **Password akun contoh** (`admin123`, `panitia123`) wajib diganti sebelum dipakai sungguhan.
+- **Password bawaan akun staf** dari migration wajib diganti lewat `ganti-password-staf.sql` sebelum dipakai.
 - **Titik GPS dapat dipalsukan**; pengecekan alamat hanya petunjuk, keputusan akhir tetap di panitia
   dengan mencocokkan Kartu Keluarga.
 - **Jarak zonasi = garis lurus (Haversine)**, bukan jarak tempuh jalan.
