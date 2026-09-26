@@ -15,6 +15,46 @@ const formatWaktuWIB = (d) =>
 
 const sekolahNama = (id) => sekolahList.find((s) => s.id === id)?.nama ?? "-";
 
+// ---------- Efek tampilan ----------
+const kurangiGerak = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+document.documentElement.classList.add("anim"); // CSS efek muncul hanya aktif kalau JS berjalan
+
+// Bagian Beranda muncul halus saat masuk layar
+(function pasangEfekMuncul() {
+  const bagian = document.querySelectorAll("[data-muncul]");
+  const tampilkan = (el) => {
+    el.classList.add("tampak");
+    setTimeout(() => el.classList.add("selesai"), 1200); // setelah itu hover kartu tanpa jeda
+  };
+  if (kurangiGerak || !("IntersectionObserver" in window)) return bagian.forEach(tampilkan);
+  const pengamat = new IntersectionObserver((entri) => {
+    entri.forEach((e) => {
+      if (!e.isIntersecting) return;
+      tampilkan(e.target);
+      pengamat.unobserve(e.target);
+    });
+  }, { rootMargin: "0px 0px -12% 0px", threshold: 0.08 });
+  bagian.forEach((el) => pengamat.observe(el));
+})();
+
+// Navbar mendapat bayangan setelah halaman digulir
+window.addEventListener("scroll", () => {
+  document.querySelector(".topnav").classList.toggle("tergulir", window.scrollY > 8);
+}, { passive: true });
+
+/** Angka naik dari 0 ke nilai akhir (statistik Beranda) */
+function hitungNaik(el) {
+  const akhir = Number(el.dataset.angka) || 0;
+  if (kurangiGerak || akhir === 0) { el.textContent = akhir; return; }
+  const mulai = performance.now(), durasi = 900;
+  const langkah = (t) => {
+    const p = Math.min(1, (t - mulai) / durasi);
+    el.textContent = Math.round(akhir * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(langkah);
+  };
+  requestAnimationFrame(langkah);
+}
+
 // ---------- Navigation ----------
 document.querySelectorAll(".nav-item[data-view]").forEach((btn) => {
   btn.addEventListener("click", () => showView(btn.dataset.view));
@@ -27,6 +67,7 @@ function showView(view) {
   document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
   document.getElementById(`view-${view}`).classList.add("active");
   document.querySelectorAll(".nav-item[data-view]").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+  window.scrollTo({ top: 0 }); // menu ada di atas: halaman baru selalu mulai dari atas
   if (view === "beranda") renderBeranda();
   if (view === "daftar") cekTahapanPendaftaran();
   if (view === "status") renderStatusView();
@@ -177,14 +218,62 @@ function renderBeranda() {
   const totalDiterima = pendaftarList.filter((p) => p.status_global === "Diterima Final").length;
   const totalTidakDiterima = pendaftarList.filter((p) => p.status_global === "Tidak Diterima Final").length;
   document.getElementById("stat-grid").innerHTML = `
-    <div class="stat-card"><span class="stat-ico">${ikon("orang")}</span><div class="stat-num">${pendaftarList.length}</div><div class="stat-label">Total pendaftar</div></div>
-    <div class="stat-card"><span class="stat-ico">${ikon("jam")}</span><div class="stat-num" style="color:var(--amber)">${totalAktif}</div><div class="stat-label">Masih diproses (aktif)</div></div>
-    <div class="stat-card"><span class="stat-ico">${ikon("diterima")}</span><div class="stat-num" style="color:#047857">${totalDiterima}</div><div class="stat-label">Diterima</div></div>
-    <div class="stat-card"><span class="stat-ico">${ikon("ditolak")}</span><div class="stat-num" style="color:#b91c1c">${totalTidakDiterima}</div><div class="stat-label">Tidak diterima (habis pilihan)</div></div>
+    <div class="strip-item"><strong data-angka="${sekolahList.length}">${sekolahList.length}</strong><span><b>Sekolah</b>SMA Negeri peserta</span></div>
+    <div class="strip-item"><strong data-angka="${pendaftarList.length}">${pendaftarList.length}</strong><span><b>Pendaftar</b>total saat ini</span></div>
+    <div class="strip-item"><strong data-angka="${totalAktif}" style="color:var(--amber-dark)">${totalAktif}</strong><span><b>Diproses</b>verifikasi &amp; seleksi</span></div>
+    <div class="strip-item"><strong data-angka="${totalDiterima}" style="color:#047857">${totalDiterima}</strong><span><b>Diterima</b>${totalTidakDiterima ? `${totalTidakDiterima} tidak diterima` : "di salah satu pilihan"}</span></div>
+    <button type="button" class="strip-cta" onclick="showView('daftar')">Daftar Sekarang ${ikon("panahKanan")}</button>
   `;
+  document.querySelectorAll("#stat-grid [data-angka]").forEach(hitungNaik);
   renderJalurBeranda();
+  renderSekolahBeranda();
   renderTahapanBeranda(totalDiterima + totalTidakDiterima > 0);
 }
+
+/** Daftar sekolah peserta di Beranda: radius, kuota, dan jarak dari rumah (kalau lokasi sudah diambil). */
+const JUMLAH_SEKOLAH_AWAL = 6; // sisanya lewat tombol "Tampilkan semua" supaya Beranda tidak terlalu panjang di HP
+let tampilkanSemuaSekolah = false;
+
+function renderSekolahBeranda() {
+  const kata = document.getElementById("cari-sekolah").value.trim().toLowerCase();
+  const cocok = sekolahList.filter((s) => !kata || `${s.nama} ${s.alamat || ""}`.toLowerCase().includes(kata));
+  const dipotong = !kata && !tampilkanSemuaSekolah && cocok.length > JUMLAH_SEKOLAH_AWAL;
+  const tampil = dipotong ? cocok.slice(0, JUMLAH_SEKOLAH_AWAL) : cocok;
+  document.getElementById("sekolah-semua").hidden = !dipotong;
+  document.getElementById("sekolah-semua").innerText = `Tampilkan semua ${cocok.length} sekolah`;
+  document.getElementById("sekolah-jumlah").innerText = kata
+    ? `${cocok.length} dari ${sekolahList.length} sekolah`
+    : `${sekolahList.length} sekolah`;
+
+  document.getElementById("beranda-sekolah").innerHTML = tampil.length ? tampil.map((s) => {
+    const jalur = jalurOptionsForSekolah(s.id);
+    const zonasi = jalur.find((j) => j.syarat_radius_km != null);
+    const prestasi = jalur.find((j) => j.syarat_nilai_minimum != null);
+    const jarak = jarakKeSekolah(s);
+    const jarakHTML = jarak == null || !zonasi ? ""
+      : `<span class="${jarak <= Number(zonasi.syarat_radius_km) ? "rinci-jarak" : "rinci-jauh"}">${jarak.toFixed(1)} km dari rumah</span>`;
+    const peta = s.latitude != null ? `https://www.google.com/maps?q=${Number(s.latitude)},${Number(s.longitude)}` : null;
+    return `
+      <div class="sekolah-kartu">
+        <span class="sekolah-ikon">${ikon("sekolah")}</span>
+        <div style="min-width:0">
+          <strong>${esc(s.nama)}</strong>
+          <div class="sekolah-alamat">${esc(s.alamat || "-")}</div>
+          <div class="sekolah-rinci">
+            ${zonasi ? `<span class="rinci-zonasi">Zonasi ${esc(zonasi.syarat_radius_km)} km · ${zonasi.kuota} kursi</span>` : ""}
+            ${prestasi ? `<span class="rinci-prestasi">Prestasi ≥ ${esc(prestasi.syarat_nilai_minimum)} · ${prestasi.kuota} kursi</span>` : ""}
+            ${jarakHTML}
+          </div>
+          ${peta ? `<a class="sekolah-peta" href="${peta}" target="_blank" rel="noopener">Lihat di peta ${ikon("panahKanan")}</a>` : ""}
+        </div>
+      </div>`;
+  }).join("") : `<p class="muted" style="grid-column:1/-1">Tidak ada sekolah yang cocok dengan "${esc(kata)}".</p>`;
+}
+document.getElementById("cari-sekolah").addEventListener("input", () => renderSekolahBeranda());
+document.getElementById("sekolah-semua").addEventListener("click", () => {
+  tampilkanSemuaSekolah = true;
+  renderSekolahBeranda();
+});
 
 /** Tahapan PPDB mengikuti status buka/tutup yang diatur Admin Dinas (tanpa tanggal karangan). */
 async function renderTahapanBeranda(adaHasil) {

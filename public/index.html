@@ -8,52 +8,142 @@
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-badge"><i data-ikon="toga"></i></div>
-        <div>
-          <p class="brand-title">SiPPDB</p>
-          <p class="brand-sub">Multi-Sekolah · Auto-Transfer</p>
+    <!-- Navbar atas (layar lebar) / nama aplikasi + 4 menu ikon (HP) -->
+    <header class="topnav">
+      <div class="topnav-isi">
+        <button type="button" class="brand" data-goto="beranda" aria-label="SiPPDB — ke Beranda">
+          <span class="brand-badge"><i data-ikon="toga"></i></span>
+          <span class="brand-teks">
+            <span class="brand-title">SiPPDB</span>
+            <span class="brand-sub">Multi-Sekolah · Auto-Transfer</span>
+          </span>
+        </button>
+        <nav aria-label="Menu utama">
+          <button class="nav-item active" data-view="beranda"><span class="nav-ico"><i data-ikon="rumah"></i></span>Beranda</button>
+          <button class="nav-item" data-view="daftar"><span class="nav-ico"><i data-ikon="formulir"></i></span>Pendaftaran</button>
+          <button class="nav-item" data-view="status"><span class="nav-ico"><i data-ikon="cari"></i></span>Cek Status</button>
+          <button class="nav-item" data-view="pengumuman"><span class="nav-ico"><i data-ikon="pengumuman"></i></span>Pengumuman</button>
+        </nav>
+        <div class="topnav-aksi">
+          <a class="btn btn-outline" href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
+          <button class="btn btn-accent" data-goto="daftar">Daftar Sekarang</button>
         </div>
       </div>
-      <nav>
-        <button class="nav-item active" data-view="beranda"><span class="nav-ico"><i data-ikon="rumah"></i></span>Beranda</button>
-        <button class="nav-item" data-view="daftar"><span class="nav-ico"><i data-ikon="formulir"></i></span>Pendaftaran</button>
-        <button class="nav-item" data-view="status"><span class="nav-ico"><i data-ikon="cari"></i></span>Cek Status</button>
-        <p class="nav-label">Umum</p>
-        <button class="nav-item" data-view="pengumuman"><span class="nav-ico"><i data-ikon="pengumuman"></i></span>Pengumuman</button>
-      </nav>
-      <div class="sidebar-foot">
-        <a class="sidebar-foot-link" href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
-      </div>
-    </aside>
+    </header>
 
     <main class="content">
       <section id="view-beranda" class="view active">
-        <div class="hero-wrap">
-          <p class="eyebrow"><i data-ikon="kilau"></i> Penerimaan Peserta Didik Baru 2026/2027 · Lintas Sekolah</p>
-          <h1>Daftar sekali, pilih hingga 3 sekolah.<br />Sisanya biar sistem yang urus.</h1>
-          <p class="lead">Kalau tidak diterima di Pilihan 1, sistem otomatis mengalihkan pendaftaranmu ke Pilihan 2 — tanpa perlu daftar ulang dari awal.</p>
-          <div class="cta-row">
-            <button class="btn btn-primary" data-goto="daftar">Daftar Sekarang</button>
-            <button class="btn btn-outline" data-goto="status">Cek Status Pendaftaran</button>
+        <!-- Hero selebar layar -->
+        <div class="hero-penuh">
+          <span class="orb orb-1" aria-hidden="true"></span><span class="orb orb-2" aria-hidden="true"></span>
+          <svg class="hero-gelombang" viewBox="0 0 1440 320" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 210 C 240 140, 420 300, 720 230 S 1200 120, 1440 200 L1440 320 L0 320 Z" fill="rgba(255,255,255,0.05)"/>
+            <path d="M0 250 C 300 190, 520 320, 820 260 S 1260 170, 1440 240" fill="none" stroke="rgba(245,200,119,0.35)" stroke-width="2"/>
+            <path d="M0 275 C 320 215, 560 330, 860 285 S 1280 205, 1440 268" fill="none" stroke="rgba(245,200,119,0.18)" stroke-width="2"/>
+          </svg>
+          <div class="kontainer hero-isi">
+            <div class="hero-teks">
+              <p class="eyebrow"><i data-ikon="kilau"></i> PPDB 2026/2027 · Kota Yogyakarta &amp; Sleman</p>
+              <h1>Daftar sekali, pilih hingga <span class="sorot">3 sekolah</span>. Sisanya biar sistem yang urus.</h1>
+              <p class="lead">Kalau tidak diterima di Pilihan 1, pendaftaranmu otomatis dialihkan ke Pilihan 2, lalu Pilihan 3, tanpa perlu daftar ulang dari awal.</p>
+              <div class="cta-row">
+                <button class="btn btn-accent btn-besar" data-goto="daftar">Daftar Sekarang</button>
+                <button class="btn btn-garis-terang btn-besar" data-goto="status">Cek Status Pendaftaran</button>
+              </div>
+            </div>
+            <!-- Ilustrasi: rumah di luar radius Pilihan 1, dialihkan ke Pilihan 2 yang masuk radius -->
+            <figure class="hero-ilustrasi" aria-label="Ilustrasi auto-transfer: pendaftar di luar radius zonasi Pilihan 1 dialihkan otomatis ke Pilihan 2">
+              <svg viewBox="0 0 440 360" role="img" aria-hidden="true">
+                <defs>
+                  <pattern id="kisi" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0V22" fill="none" stroke="#dfe6ef" stroke-width="1"/></pattern>
+                  <marker id="panah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#C98A2C"/></marker>
+                </defs>
+                <rect x="6" y="6" width="428" height="348" rx="22" fill="#f7f9fc"/>
+                <rect x="6" y="6" width="428" height="348" rx="22" fill="url(#kisi)"/>
+                <path d="M6 250 C 120 230, 180 120, 300 110 S 420 70, 434 60" fill="none" stroke="#ffffff" stroke-width="14"/>
+                <path d="M6 250 C 120 230, 180 120, 300 110 S 420 70, 434 60" fill="none" stroke="#e3e9f2" stroke-width="10"/>
+                <path d="M140 354 C 150 280, 210 230, 260 200 S 380 160, 434 170" fill="none" stroke="#e3e9f2" stroke-width="8"/>
+                <!-- Pilihan 1: radius kecil, rumah di luar -->
+                <circle class="radius-denyut" cx="110" cy="96" r="62" fill="rgba(185,28,28,0.06)" stroke="#e8a3a3" stroke-width="2" stroke-dasharray="6 6"/>
+                <circle cx="110" cy="96" r="13" fill="#1B3358"/>
+                <path d="M104 99h12M106 94l4-4 4 4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <rect x="58" y="16" width="104" height="24" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+                <text x="110" y="32" text-anchor="middle" font-size="11.5" font-weight="700" fill="#b91c1c" font-family="IBM Plex Sans, Inter, sans-serif">Pilihan 1 · ✕ di luar radius</text>
+                <!-- Pilihan 2: radius besar, rumah di dalam -->
+                <circle class="radius-denyut radius-denyut-2" cx="318" cy="228" r="98" fill="rgba(4,120,87,0.07)" stroke="#86cfae" stroke-width="2" stroke-dasharray="6 6"/>
+                <circle cx="318" cy="228" r="13" fill="#1B3358"/>
+                <path d="M312 231h12M314 226l4-4 4 4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+                <rect x="276" y="330" width="112" height="24" rx="12" fill="#ffffff" stroke="#e5e7eb"/>
+                <text x="332" y="346" text-anchor="middle" font-size="11.5" font-weight="700" fill="#047857" font-family="IBM Plex Sans, Inter, sans-serif">Pilihan 2 · ✓ diterima</text>
+                <!-- Rumah pendaftar -->
+                <g class="rumah-lompat"><path d="M258 150 l18 -15 l18 15 v18 h-36 z" fill="#C98A2C"/>
+                <rect x="271" y="156" width="10" height="12" fill="#fff"/>
+                <text x="276" y="186" text-anchor="middle" font-size="11" font-weight="600" fill="#1B3358" font-family="IBM Plex Sans, Inter, sans-serif">Rumah</text></g>
+                <!-- Alur auto-transfer -->
+                <path class="alur-panah" d="M152 128 C 200 150, 170 230, 290 230" fill="none" stroke="#C98A2C" stroke-width="2.5" stroke-dasharray="2 7" stroke-linecap="round" marker-end="url(#panah)"/>
+              </svg>
+              <figcaption class="kartu-melayang">
+                <span class="km-ikon"><i data-ikon="alih"></i></span>
+                <span><strong>Dialihkan otomatis</strong><small>Pilihan 1 → Pilihan 2, tanpa daftar ulang</small></span>
+              </figcaption>
+            </figure>
           </div>
-          <div class="stat-grid" id="stat-grid"><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div><div class="kerangka" style="height:124px"></div></div>
         </div>
 
-        <h3 class="sub-heading" style="margin-top:8px"><i data-ikon="kalender"></i> Tahapan PPDB</h3>
-        <ol class="jadwal" id="beranda-tahapan"><div class="kerangka" style="height:150px"></div><div class="kerangka" style="height:150px"></div><div class="kerangka" style="height:150px"></div><div class="kerangka" style="height:150px"></div></ol>
-
-        <h3 class="sub-heading"><i data-ikon="daftarCek"></i> Jalur Pendaftaran</h3>
-        <div class="jalur-info-grid" id="beranda-jalur"><div class="kerangka" style="height:170px"></div><div class="kerangka" style="height:170px"></div></div>
-
-        <h3 class="sub-heading"><i data-ikon="alih"></i> Bagaimana auto-transfer bekerja?</h3>
-        <div class="cara-kerja">
-          <div><span class="ck-no">1</span><strong>Pilih hingga 3 sekolah</strong><p>Urutkan dari yang paling diinginkan. Setiap pilihan bisa memakai jalur berbeda.</p></div>
-          <div><span class="ck-no">2</span><strong>Diproses satu per satu</strong><p>Panitia Pilihan 1 memverifikasi berkas dan menjalankan seleksi lebih dulu.</p></div>
-          <div><span class="ck-no">3</span><strong>Dialihkan otomatis</strong><p>Tidak lolos di Pilihan 1? Pendaftaran langsung pindah ke Pilihan 2 — tanpa daftar ulang.</p></div>
-          <div><span class="ck-no">4</span><strong>Pantau & dapat email</strong><p>Setiap perubahan status dikirim ke email dan tampil di menu Cek Status.</p></div>
+        <!-- Strip angka di bawah hero -->
+        <div class="kontainer">
+          <div class="strip-stat" id="stat-grid">
+            <div class="kerangka" style="height:64px"></div><div class="kerangka" style="height:64px"></div><div class="kerangka" style="height:64px"></div><div class="kerangka" style="height:64px"></div>
+          </div>
         </div>
+
+        <section data-muncul class="bagian">
+          <div class="kontainer">
+            <p class="bagian-eyebrow">Jadwal</p>
+            <h2 class="bagian-judul">Tahapan PPDB</h2>
+            <ol class="jadwal" id="beranda-tahapan"><div class="kerangka" style="height:150px"></div><div class="kerangka" style="height:150px"></div><div class="kerangka" style="height:150px"></div><div class="kerangka" style="height:150px"></div></ol>
+          </div>
+        </section>
+
+        <section data-muncul class="bagian bagian-warna">
+          <div class="kontainer">
+            <p class="bagian-eyebrow">Jalur</p>
+            <h2 class="bagian-judul">Dua jalur pendaftaran</h2>
+            <div class="jalur-info-grid" id="beranda-jalur"><div class="kerangka" style="height:170px"></div><div class="kerangka" style="height:170px"></div></div>
+          </div>
+        </section>
+
+        <section data-muncul class="bagian">
+          <div class="kontainer sekolah-tata">
+            <div class="sekolah-intro">
+              <p class="bagian-eyebrow">Sekolah peserta</p>
+              <h2 class="bagian-judul">Sekolah yang bisa dipilih</h2>
+              <p class="muted">SMA Negeri di Kota Yogyakarta dan Kabupaten Sleman. Radius zonasi Kota 3 km, Sleman 5 km, dihitung garis lurus dari titik lokasi rumah.</p>
+              <button class="btn btn-primary" data-goto="daftar">Pilih sekolah &amp; daftar</button>
+            </div>
+            <div class="sekolah-daftar-wrap">
+              <div class="row-between sekolah-alat">
+                <span class="muted" id="sekolah-jumlah" style="margin:0;font-size:13px"></span>
+                <label class="cari-kotak"><i data-ikon="cari"></i><input type="search" id="cari-sekolah" placeholder="Cari sekolah atau wilayah…" aria-label="Cari sekolah" /></label>
+              </div>
+              <div class="sekolah-grid" id="beranda-sekolah"><div class="kerangka" style="height:96px"></div><div class="kerangka" style="height:96px"></div><div class="kerangka" style="height:96px"></div><div class="kerangka" style="height:96px"></div></div>
+              <button type="button" class="btn btn-outline sekolah-semua" id="sekolah-semua" hidden>Tampilkan semua sekolah</button>
+            </div>
+          </div>
+        </section>
+
+        <section data-muncul class="bagian bagian-gelap">
+          <div class="kontainer">
+            <p class="bagian-eyebrow">Auto-transfer</p>
+            <h2 class="bagian-judul">Bagaimana auto-transfer bekerja?</h2>
+            <div class="cara-kerja">
+              <div><span class="ck-no">1</span><strong>Pilih hingga 3 sekolah</strong><p>Urutkan dari yang paling diinginkan. Setiap pilihan bisa memakai jalur berbeda.</p></div>
+              <div><span class="ck-no">2</span><strong>Diproses satu per satu</strong><p>Panitia Pilihan 1 memverifikasi berkas dan menjalankan seleksi lebih dulu.</p></div>
+              <div><span class="ck-no">3</span><strong>Dialihkan otomatis</strong><p>Tidak lolos di Pilihan 1? Pendaftaran langsung pindah ke Pilihan 2, tanpa daftar ulang.</p></div>
+              <div><span class="ck-no">4</span><strong>Pantau &amp; dapat email</strong><p>Setiap perubahan status dikirim ke email dan tampil di menu Cek Status.</p></div>
+            </div>
+          </div>
+        </section>
       </section>
 
       <!-- ===================== PENDAFTARAN ===================== -->
@@ -199,11 +289,23 @@
         <div id="pengumuman-container"></div>
       </section>
 
-      <!-- Layar sempit (HP): link panitia di sidebar tersembunyi, jadi ditaruh di kaki halaman -->
-      <footer class="kaki-halaman">
-        <a href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
-      </footer>
     </main>
+
+    <footer class="kaki">
+      <div class="kontainer kaki-isi">
+        <div class="kaki-merek">
+          <span class="brand-badge"><i data-ikon="toga"></i></span>
+          <div><strong>SiPPDB</strong><p>Sistem Penerimaan Peserta Didik Baru multi-sekolah dengan auto-transfer. Prototipe skripsi — Muhammad Agil Mubarak, Universitas Islam Indonesia.</p></div>
+        </div>
+        <nav class="kaki-tautan" aria-label="Tautan kaki halaman">
+          <button type="button" data-goto="daftar">Pendaftaran</button>
+          <button type="button" data-goto="status">Cek Status</button>
+          <button type="button" data-goto="pengumuman">Pengumuman</button>
+          <a href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
+        </nav>
+      </div>
+      <div class="kontainer kaki-bawah">© 2026 SiPPDB · Data sekolah: SMA Negeri Kota Yogyakarta &amp; Kabupaten Sleman · Peta © OpenStreetMap</div>
+    </footer>
   </div>
 
   <script src="/js/ikon.js"></script>
