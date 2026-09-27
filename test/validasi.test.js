@@ -1,6 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { validasiNIK, validasiBerkas } = require("../validasi");
+const { validasiNIK, validasiBerkas } = require("../lib/validasi");
 
 describe("validasiNIK (hanya peringatan untuk panitia, tidak menolak)", () => {
   test("16 digit angka wajar -> tidak ada catatan", () => {

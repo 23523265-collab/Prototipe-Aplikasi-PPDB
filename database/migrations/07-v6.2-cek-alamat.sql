@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.2 — Pra-Verifikasi Alamat vs Titik GPS (geocoding)
--- Jalankan ini SETELAH migration-v6.1-lokasi.sql
+-- Jalankan ini SETELAH 06-v6.1-lokasi.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

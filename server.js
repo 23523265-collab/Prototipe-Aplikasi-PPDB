@@ -3,16 +3,16 @@ const express = require("express");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const path = require("path");
-const supabase = require("./supabase");
-const engine = require("./engine");
-const auth = require("./auth");
-const storage = require("./storage");
-const validasi = require("./validasi");
-const zonasi = require("./zonasi");
-const aturan = require("./aturan");
+const supabase = require("./lib/supabase");
+const engine = require("./lib/engine");
+const auth = require("./lib/auth");
+const storage = require("./lib/storage");
+const validasi = require("./lib/validasi");
+const zonasi = require("./lib/zonasi");
+const aturan = require("./lib/aturan");
 const { waitUntil } = require("@vercel/functions");
 const crypto = require("crypto");
-const email = require("./email");
+const email = require("./lib/email");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -333,6 +333,12 @@ app.post("/api/pendaftar", async (req, res) => {
   }
 
 
+  // Kategori jalur khusus (afirmasi/mutasi/prestasi nonakademik) wajib sesuai jalur yang dipilih
+  const kategori = aturan.validasiKategoriJalur(jalurDipilih.map((j) => aturan.jenisJalur(j)), req.body);
+  if (kategori.error) return res.status(400).json({ error: kategori.error });
+  // Hanya kolom yang terisi yang dikirim, supaya pendaftaran jalur biasa tetap jalan walau migration v7.2 belum dijalankan
+  const kolomKategori = Object.fromEntries(Object.entries(kategori.data).filter(([, v]) => v != null));
+
   // FR-09: Pra-Verifikasi NIK -- hanya flag, tidak menolak pendaftaran
   const catatanNik = validasi.validasiNIK(nikBersih);
 
@@ -354,6 +360,7 @@ app.post("/api/pendaftar", async (req, res) => {
       alamat: alamatBersih,
       nilai_rapor: nilai,
       nilai_rapor_awal: nilai,
+      ...kolomKategori,
     })
     .select()
     .single();
@@ -623,6 +630,8 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
       syarat_nilai_minimum: jalurAktif?.syarat_nilai_minimum ?? null,
       jalur_jenis: aturan.jenisJalur(jalurAktif),
       skor_nonakademik: p.skor_nonakademik ?? null, skor_nonakademik_oleh: p.skor_nonakademik_oleh ?? null,
+      kategori_afirmasi: p.kategori_afirmasi ?? null, kategori_mutasi: p.kategori_mutasi ?? null,
+      keterangan_prestasi: p.keterangan_prestasi ?? null,
       dokumen,
       berkas_wajib: berkasWajib,
       berkas_belum_ada: berkasWajib.filter((j) => !dokumen.some((d) => d.jenis === j)),

@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.4 — Batas Percobaan Login (anti brute force)
--- Jalankan ini SETELAH migration-v6.3-nomor-nilai.sql
+-- Jalankan ini SETELAH 08-v6.3-nomor-nilai.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

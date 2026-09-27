@@ -204,6 +204,39 @@
                   <select class="select-jalur" data-index="2"></select>
                 </div>
               </div>
+
+              <!-- Muncul otomatis bila salah satu pilihan memakai jalur khusus (lihat perbaruiInfoJalur di app.js) -->
+              <div class="jalur-khusus" id="jk-afirmasi" hidden>
+                <p class="jk-judul"><i data-ikon="perisai"></i> Jalur Afirmasi <span class="jk-pilihan"></span></p>
+                <p class="jk-teks">Untuk keluarga tidak mampu atau penyandang disabilitas. Setelah mendaftar, wajib mengunggah <strong>Bukti Afirmasi</strong> sesuai kategori di bawah.</p>
+                <label>Kategori afirmasi
+                  <select name="kategoriAfirmasi" required disabled>
+                    <option value="">-- Pilih kategori --</option>
+                    <option value="kip">Pemegang KIP (Kartu Indonesia Pintar) — unggah kartu KIP</option>
+                    <option value="pkh">Peserta PKH — unggah kartu/bukti PKH</option>
+                    <option value="dtks">Terdaftar DTKS — unggah bukti terdaftar DTKS</option>
+                    <option value="disabilitas">Penyandang disabilitas — unggah surat keterangan</option>
+                  </select>
+                </label>
+              </div>
+              <div class="jalur-khusus" id="jk-mutasi" hidden>
+                <p class="jk-judul"><i data-ikon="alih"></i> Jalur Mutasi <span class="jk-pilihan"></span></p>
+                <p class="jk-teks">Setelah mendaftar, wajib mengunggah <strong>Surat Mutasi</strong>: surat penugasan/pindah tugas orang tua, atau surat keterangan dari sekolah tempat orang tua mengajar.</p>
+                <label>Kategori mutasi
+                  <select name="kategoriMutasi" required disabled>
+                    <option value="">-- Pilih kategori --</option>
+                    <option value="pindah_tugas">Orang tua/wali pindah tugas — unggah surat penugasan</option>
+                    <option value="anak_gtk">Anak guru/tenaga kependidikan — unggah surat keterangan GTK</option>
+                  </select>
+                </label>
+              </div>
+              <div class="jalur-khusus" id="jk-prestasi_nonakademik" hidden>
+                <p class="jk-judul"><i data-ikon="piala"></i> Jalur Prestasi Nonakademik <span class="jk-pilihan"></span></p>
+                <p class="jk-teks">Setelah mendaftar, wajib mengunggah <strong>Sertifikat Prestasi</strong>. Panitia memberi skor 0–100 dari sertifikat tersebut.</p>
+                <label>Prestasi yang diajukan
+                  <input name="keteranganPrestasi" required disabled minlength="5" maxlength="300" placeholder="Contoh: Juara 1 Lomba Pidato Tingkat Kabupaten Sleman 2025" />
+                </label>
+              </div>
             </fieldset>
 
             <fieldset class="langkah" data-langkah="3">

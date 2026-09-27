@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.5 — Masa Revisi Berkas "Kurang Lengkap"
--- Jalankan ini SETELAH migration-v6.4-batas-login.sql
+-- Jalankan ini SETELAH 09-v6.4-batas-login.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

@@ -79,8 +79,34 @@ Calon siswa **mendaftar sekali dan memilih hingga 3 sekolah**. Kalau tidak diter
 
 ## Struktur File
 
-| File | Isi |
-|---|---|
+```
+ppdb-project-v3/
+├─ server.js               Titik masuk: semua endpoint API (dibaca Vercel)
+├─ lib/                    Modul backend
+│  ├─ aturan.js            Aturan murni yang diuji otomatis: jalur SPMB, syarat & peringkat seleksi,
+│  │                       sisa kuota, berkas wajib, kategori jalur, batas usia, penyamaran nama
+│  ├─ engine.js            Verifikasi berkas, seleksi, auto-transfer, masa revisi, notifikasi
+│  ├─ auth.js              Login, sesi (disimpan di database), batas percobaan
+│  ├─ storage.js           Upload berkas, signed URL, bucket private
+│  ├─ validasi.js          Pra-verifikasi otomatis: NIK, berkas, alamat vs GPS
+│  ├─ zonasi.js            Rumus Haversine & konversi jarak → skor (dipakai semua jalur berbasis jarak)
+│  ├─ email.js             Pengiriman email notifikasi
+│  └─ supabase.js          Koneksi Supabase (service key dari .env)
+├─ database/
+│  ├─ schema.sql           Tabel dasar + data contoh
+│  ├─ migrations/          01-… s.d. 17-… — jalankan berurutan sesuai nomor
+│  ├─ ganti-password-staf.sql   Wajib setelah memasang database baru
+│  └─ reset-data-demo.sql  Hapus semua pendaftar (sebelum demo)
+├─ docs/
+│  └─ PRD_Aplikasi_PPDB_v7.2.docx / .pdf   Product Requirements Document (FR-01 s.d. FR-14)
+├─ scripts/
+│  └─ reset-berkas-demo.js Hapus file berkas di Supabase Storage (pasangan reset-data-demo.sql)
+├─ public/                 Situs pendaftar (index.html, js/app.js), panel panitia (panitia.html),
+│                          Admin Dinas (admin.html), dialog & ikon bersama (js/dialog.js, js/ikon.js)
+└─ test/                   Unit test (npm test)
+```
+
+---|---|
 | `server.js` | Semua endpoint API |
 | `engine.js` | Verifikasi berkas, seleksi, auto-transfer, masa revisi, notifikasi |
 | `aturan.js` | Aturan murni yang diuji otomatis: syarat & peringkat seleksi, sisa kuota, batas usia, penyamaran nama |
@@ -112,24 +138,27 @@ EMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx   # App Password Google (16 huruf, tanpa spa
 Untuk Vercel, isi variabel yang sama di **Settings → Environment Variables**.
 
 ### 2. Database — jalankan di Supabase SQL Editor, berurutan
-1. `supabase-schema.sql` — tabel dasar + data contoh
-2. `migration-v4-auth-upload.sql` — login & berkas
-3. `migration-v4.1-sesi.sql` — sesi login di database
-4. `migration-v4.2-email.sql` — kolom email
-5. `migration-v5-praverifikasi.sql` — peringatan otomatis NIK & berkas
-6. `migration-v6-zonasi.sql` — koordinat, jarak, nilai rapor
-7. `migration-v6.1-lokasi.sql` — alamat & akurasi GPS
-8. `migration-v6.2-cek-alamat.sql` — hasil cek alamat vs GPS
-9. `migration-v6.3-nomor-nilai.sql` — nomor pendaftaran (sequence) & koreksi nilai
-10. `migration-v6.4-batas-login.sql` — batas percobaan login
-11. `migration-v6.5-revisi-berkas.sql` — masa revisi berkas
-12. `migration-v6.6-sekolah-asli.sql` — 15 SMA Negeri dengan koordinat asli + akun panitia
-13. `migration-v6.7-tahapan.sql` — buka/tutup pendaftaran
-14. `migration-v6.8-admin-reset.sql` — akun Admin Dinas & lupa password pendaftar
-15. `migration-v6.9-nik-seleksi.sql` — NIK unik & kunci seleksi
-16. `migration-v7.0-rls.sql` — Row Level Security di semua tabel (akses lewat anon key ditolak; server memakai service key)
-17. `ganti-password-staf.sql` — **wajib**: ganti password bawaan Admin Dinas & panitia
-18. `migration-v7.1-jalur-spmb.sql` — 4 jalur SPMB 2026 (Domisili, Afirmasi, Mutasi, Prestasi akademik/nonakademik)
+Semua file ada di folder `database/` (migration di `database/migrations/`, nomor di depan nama file = urutan).
+
+1. `schema.sql` — tabel dasar + data contoh
+2. `01-v4-auth-upload.sql` — login & berkas
+3. `02-v4.1-sesi.sql` — sesi login di database
+4. `03-v4.2-email.sql` — kolom email
+5. `04-v5-praverifikasi.sql` — peringatan otomatis NIK & berkas
+6. `05-v6-zonasi.sql` — koordinat, jarak, nilai rapor
+7. `06-v6.1-lokasi.sql` — alamat & akurasi GPS
+8. `07-v6.2-cek-alamat.sql` — hasil cek alamat vs GPS
+9. `08-v6.3-nomor-nilai.sql` — nomor pendaftaran (sequence) & koreksi nilai
+10. `09-v6.4-batas-login.sql` — batas percobaan login
+11. `10-v6.5-revisi-berkas.sql` — masa revisi berkas
+12. `11-v6.6-sekolah-asli.sql` — 15 SMA Negeri dengan koordinat asli + akun panitia
+13. `12-v6.7-tahapan.sql` — buka/tutup pendaftaran
+14. `13-v6.8-admin-reset.sql` — akun Admin Dinas & lupa password pendaftar
+15. `14-v6.9-nik-seleksi.sql` — NIK unik & kunci seleksi
+16. `15-v7.0-rls.sql` — Row Level Security di semua tabel (akses lewat anon key ditolak; server memakai service key)
+17. `database/ganti-password-staf.sql` — **wajib**: ganti password bawaan Admin Dinas & panitia
+18. `16-v7.1-jalur-spmb.sql` — 4 jalur SPMB 2026 (Domisili, Afirmasi, Mutasi, Prestasi akademik/nonakademik)
+19. `17-v7.2-kategori-jalur.sql` — kategori afirmasi (KIP/PKH/DTKS/disabilitas), mutasi, dan keterangan prestasi nonakademik
 
 Semua file migration aman dijalankan ulang.
 
@@ -148,7 +177,7 @@ Buka http://localhost:3000. Saat pertama jalan, server otomatis membuat bucket `
 ```
 npm test
 ```
-Menjalankan 31 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor jarak, syarat & urutan 5 jalur SPMB, berkas wajib per jalur,
+Menjalankan 33 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor jarak, syarat & urutan 5 jalur SPMB, berkas wajib per jalur,
 syarat radius/nilai minimum, urutan peringkat dan penentu seri (usia lebih tua, lalu daftar lebih awal),
 sisa kuota, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi berkas yang diganti ekstensinya.
 
@@ -166,21 +195,21 @@ sisa kuota, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi
 | Pendaftar | Nomor pendaftaran (mis. `PPDB-0001`) + password yang dibuat saat mendaftar |
 
 Password staf **tidak** dicantumkan di repo. Migration membuat akun dengan password bawaan yang sudah diketahui umum,
-jadi setelah memasang database baru **wajib** jalankan `ganti-password-staf.sql` di SQL Editor:
+jadi setelah memasang database baru **wajib** jalankan `database/ganti-password-staf.sql` di SQL Editor:
 password Admin Dinas ditentukan sendiri, password tiap panitia dibuat acak dan ditampilkan sekali di hasil query.
 Password panitia dapat diganti lagi dari panel Admin Dinas.
 
 ## Reset Data Sebelum Demo
 Menghapus semua pendaftar (sekolah, jalur, dan akun panitia tetap ada). **Tidak bisa dibatalkan.**
-1. Jalankan `reset-data-demo.sql` di Supabase SQL Editor.
-2. Hapus file berkas: `node reset-berkas-demo.js --ya` (tanpa `--ya` hanya menampilkan jumlah file).
+1. Jalankan `database/reset-data-demo.sql` di Supabase SQL Editor.
+2. Hapus file berkas: `node scripts/reset-berkas-demo.js --ya` (tanpa `--ya` hanya menampilkan jumlah file).
 
 Nomor pendaftaran kembali mulai dari `PPDB-0001` dan pendaftaran dibuka kembali.
 
 ---
 
 ## Keterbatasan (Pengembangan Lanjutan)
-- **Password bawaan akun staf** dari migration wajib diganti lewat `ganti-password-staf.sql` sebelum dipakai.
+- **Password bawaan akun staf** dari migration wajib diganti lewat `database/ganti-password-staf.sql` sebelum dipakai.
 - **Titik GPS dapat dipalsukan**; pengecekan alamat hanya petunjuk, keputusan akhir tetap di panitia
   dengan mencocokkan Kartu Keluarga.
 - **Jarak domisili = garis lurus (Haversine)**, bukan jarak tempuh jalan.

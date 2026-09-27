@@ -4,7 +4,7 @@
 --
 -- 1. Satu NIK hanya boleh mendaftar sekali (unique index).
 --    Kalau di data lama sudah ada NIK ganda, index TIDAK dibuat dan daftar NIK gandanya
---    ditampilkan -- hapus dulu data ganda (atau jalankan reset-data-demo.sql), lalu jalankan ulang file ini.
+--    ditampilkan -- hapus dulu data ganda (atau jalankan database/reset-data-demo.sql), lalu jalankan ulang file ini.
 --    Server tetap menolak NIK ganda untuk pendaftaran baru walaupun index belum terbentuk.
 --
 -- 2. Tabel kunci_seleksi: mencegah satu jalur diseleksi dua kali bersamaan.

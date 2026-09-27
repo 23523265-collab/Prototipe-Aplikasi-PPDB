@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.6 — Data Sekolah Asli (Kota Yogyakarta + Sleman)
--- Jalankan ini SETELAH migration-v6.5-revisi-berkas.sql
+-- Jalankan ini SETELAH 10-v6.5-revisi-berkas.sql
 -- Aman dijalankan berulang kali.
 --
 -- Koordinat diambil dari OpenStreetMap (titik gedung/lahan sekolah).

@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.7 — Tahapan PPDB (buka/tutup pendaftaran)
--- Jalankan ini SETELAH migration-v6.6-sekolah-asli.sql
+-- Jalankan ini SETELAH 11-v6.6-sekolah-asli.sql
 -- Aman dijalankan berulang kali.
 --
 -- Aturan: seleksi hanya boleh dijalankan saat pendaftaran DITUTUP,

@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.1 — Data Verifikasi Lokasi untuk Panitia
--- Jalankan ini SETELAH migration-v6-zonasi.sql
+-- Jalankan ini SETELAH 05-v6-zonasi.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

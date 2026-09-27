@@ -1,6 +1,18 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, jenisJalur, dokumenWajib } = require("../aturan");
+const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
+
+describe("kategori jalur khusus", () => {
+  test("wajib diisi sesuai jalur yang dipilih", () => {
+    assert.match(validasiKategoriJalur(["afirmasi"], {}).error, /kategori afirmasi/);
+    assert.match(validasiKategoriJalur(["mutasi"], { kategoriMutasi: "pensiun" }).error, /kategori mutasi/);
+    assert.match(validasiKategoriJalur(["prestasi_nonakademik"], { keteranganPrestasi: " " }).error, /prestasi nonakademik/);
+  });
+  test("kategori jalur yang tidak dipilih dibuang", () => {
+    const { data } = validasiKategoriJalur(["domisili", "afirmasi"], { kategoriAfirmasi: "kip", kategoriMutasi: "anak_gtk", keteranganPrestasi: "Juara 1 OSN" });
+    assert.deepEqual(data, { kategori_afirmasi: "kip", kategori_mutasi: null, keterangan_prestasi: null });
+  });
+});
 
 describe("jalur SPMB: jenis & berkas wajib", () => {
   test("jenis dari kolom jenis; data lama ditebak dari syaratnya", () => {

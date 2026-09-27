@@ -19,6 +19,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; } /* atribut hidden selalu menang atas display flex/grid */
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
@@ -756,6 +757,26 @@ a.berkas-chip:hover { border-color: var(--navy); background: #f8f9fb; color: var
 .sekolah-rinci .rinci-total { background: var(--navy); color: #fff; }
 .jalur-berkas { display: flex; align-items: flex-start; gap: 6px; margin: 10px 0 0; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12.5px; color: var(--muted); }
 .jalur-berkas .ikon { margin-top: 2px; color: var(--amber-dark); }
+/* Kotak jalur khusus di formulir (Afirmasi / Mutasi / Prestasi Nonakademik) */
+.jalur-khusus { border: 1px solid var(--amber-light); background: #fffaf0; border-radius: 11px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; animation: fadeIn 0.25s ease; }
+.jalur-khusus[hidden] { display: none; }
+.jk-judul { margin: 0; font-size: 14px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.jk-judul .ikon { color: var(--amber-dark); }
+.jk-pilihan { font-weight: 500; color: var(--muted); font-size: 12.5px; }
+.jk-teks { margin: 0; font-size: 12.5px; color: #4b5563; line-height: 1.55; }
+
+/* Daftar unggah: berkas umum vs berkas khusus jalur */
+.upload-grup { margin: 6px 0 8px; font-size: 13px; font-weight: 700; color: var(--navy); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.upload-grup span { font-weight: 400; font-size: 12px; color: var(--muted); }
+.upload-grup-khusus { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
+.upload-grup-khusus .ikon { color: var(--amber-dark); }
+.upload-jalur { font-size: 12px; color: var(--amber-dark); font-weight: 600; margin-top: 2px; }
+
+/* Panduan verifikasi di panel detail panitia */
+.laci-panduan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.laci-panduan li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: #374151; background: #f4f7fb; border-radius: var(--radius-sm); padding: 8px 10px; }
+.laci-panduan .ikon { margin-top: 2px; color: var(--navy-light); flex-shrink: 0; }
+
 .lencana-jalur { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #fdf3e2; color: var(--amber-dark); vertical-align: 1px; margin-left: 4px; }
 .sekolah-peta { font-size: 12px; font-weight: 600; margin-top: 8px; display: inline-block; }
 

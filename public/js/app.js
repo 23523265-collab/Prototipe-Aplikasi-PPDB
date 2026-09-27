@@ -121,6 +121,26 @@ async function cekTahapanPendaftaran() {
 const JALUR_JARAK = ["domisili", "afirmasi", "mutasi"];
 const DOKUMEN_DASAR = ["Kartu Keluarga", "Akta Kelahiran", "Rapor Terakhir"];
 const jalurDariId = (id) => jalurList.find((j) => j.id === id);
+const LABEL_JALUR = { domisili: "Domisili", afirmasi: "Afirmasi", mutasi: "Mutasi", prestasi_akademik: "Prestasi Akademik", prestasi_nonakademik: "Prestasi Nonakademik" };
+// Berkas tambahan -> jalur yang mewajibkannya
+const JALUR_BERKAS = { "Bukti Afirmasi": "afirmasi", "Surat Mutasi": "mutasi", "Sertifikat Prestasi": "prestasi_nonakademik" };
+const KATEGORI_AFIRMASI = { kip: "Pemegang KIP", pkh: "Peserta PKH", dtks: "Terdaftar DTKS", disabilitas: "Penyandang disabilitas" };
+const KATEGORI_MUTASI = { pindah_tugas: "Orang tua/wali pindah tugas", anak_gtk: "Anak guru/tenaga kependidikan" };
+
+/**
+ * Keterangan tiap berkas khusus: jalur & pilihan mana yang membutuhkannya.
+ * daftarPilihan: [{ urutan, sekolah, jenis }]
+ */
+function keteranganBerkasKhusus(daftarPilihan) {
+  const hasil = {};
+  for (const [berkas, jenis] of Object.entries(JALUR_BERKAS)) {
+    const dipakai = daftarPilihan.filter((p) => p.jenis === jenis);
+    if (dipakai.length) {
+      hasil[berkas] = `Jalur ${LABEL_JALUR[jenis]} · ${dipakai.map((p) => `Pilihan ${p.urutan} (${p.sekolah})`).join(", ")}`;
+    }
+  }
+  return hasil;
+}
 
 // Keterangan asal skor: di jalur berbasis jarak skor hanya konversi jarak (100 − 10 × km), yang menentukan tetap jaraknya
 function asalSkor(p) {
@@ -366,6 +386,21 @@ function pilihanTerisi() {
   return pilihan;
 }
 
+/** Kotak Afirmasi/Mutasi/Prestasi Nonakademik muncul (dan isiannya jadi wajib) hanya jika jalurnya dipilih. */
+function perbaruiInfoJalur() {
+  const pilihan = pilihanTerisi().map((p, i) => ({ urutan: i + 1, sekolah: sekolahNama(p.sekolahId), jenis: jalurDariId(p.jalurId)?.jenis }));
+  for (const jenis of ["afirmasi", "mutasi", "prestasi_nonakademik"]) {
+    const kotak = document.getElementById(`jk-${jenis}`);
+    const dipakai = pilihan.filter((p) => p.jenis === jenis);
+    kotak.hidden = !dipakai.length;
+    kotak.querySelectorAll("select, input").forEach((el) => { el.disabled = !dipakai.length; });
+    kotak.querySelector(".jk-pilihan").textContent = dipakai.length ? `— ${dipakai.map((p) => `Pilihan ${p.urutan}: ${p.sekolah}`).join(", ")}` : "";
+  }
+}
+formDaftar.addEventListener("change", (e) => {
+  if (e.target.matches(".select-sekolah, .select-jalur")) perbaruiInfoJalur();
+});
+
 function tampilkanLangkah(n) {
   langkahAktif = n;
   formDaftar.querySelectorAll(".langkah").forEach((f) => f.classList.toggle("aktif", Number(f.dataset.langkah) === n));
@@ -428,6 +463,9 @@ function renderRingkasan() {
       <dt>Lokasi GPS</dt><dd>${lokasiTerakhir ? `✓ sudah diambil (± ${Math.round(lokasiTerakhir.akurasi)} m)` : "akan diminta saat mengirim"}</dd>
       ${f.nilaiRapor.value !== "" ? `<dt>Nilai rapor</dt><dd>${esc(f.nilaiRapor.value)}</dd>` : ""}
       <dt>Pilihan</dt><dd>${pilihanHTML}</dd>
+      ${!f.kategoriAfirmasi.disabled ? `<dt>Afirmasi</dt><dd>${esc(KATEGORI_AFIRMASI[f.kategoriAfirmasi.value] || "-")}</dd>` : ""}
+      ${!f.kategoriMutasi.disabled ? `<dt>Mutasi</dt><dd>${esc(KATEGORI_MUTASI[f.kategoriMutasi.value] || "-")}</dd>` : ""}
+      ${!f.keteranganPrestasi.disabled ? `<dt>Prestasi</dt><dd>${esc(f.keteranganPrestasi.value)}</dd>` : ""}
     </dl>
     <p class="muted" style="margin:10px 0 0;font-size:12px">Periksa kembali sebelum mengirim. Klik langkah di atas untuk mengubah.</p>`;
 }
@@ -489,6 +527,9 @@ formDaftar.addEventListener("submit", async (e) => {
       password: form.password.value,
       nilaiRapor: form.nilaiRapor.value === "" ? null : Number(form.nilaiRapor.value),
       alamat: form.alamat.value,
+      kategoriAfirmasi: form.kategoriAfirmasi.disabled ? null : form.kategoriAfirmasi.value,
+      kategoriMutasi: form.kategoriMutasi.disabled ? null : form.kategoriMutasi.value,
+      keteranganPrestasi: form.keteranganPrestasi.disabled ? null : form.keteranganPrestasi.value,
       akurasiLokasi: lokasi ? lokasi.akurasi : null,
       latitude: lokasi ? lokasi.latitude : null,
       longitude: lokasi ? lokasi.longitude : null,
@@ -509,7 +550,9 @@ formDaftar.addEventListener("submit", async (e) => {
     berkasBaru.clear();
     jenisDokumenBaru = Array.isArray(data.jenisDokumen) && data.jenisDokumen.length ? data.jenisDokumen : DOKUMEN_DASAR;
     renderProgresBaru();
+    const pilihanDipilih = pilihan.map((p, i) => ({ urutan: i + 1, sekolah: sekolahNama(p.sekolahId), jenis: jalurDariId(p.jalurId)?.jenis }));
     renderUploadList("upload-list", "baru", pendaftarBaruId, [], {
+      keteranganKhusus: keteranganBerkasKhusus(pilihanDipilih),
       jenisDokumen: jenisDokumenBaru,
       onSelesai: (jenis) => { berkasBaru.add(jenis); renderProgresBaru(); },
     });
@@ -636,10 +679,10 @@ document.getElementById("btn-selesai-unggah").addEventListener("click", async ()
  * prefix membedakan id elemen di dua tempat itu; onSelesai dipanggil setelah upload berhasil.
  */
 const uploadCtx = {};
-function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terkunci = null, onSelesai = null, jenisDokumen = DOKUMEN_DASAR } = {}) {
+function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terkunci = null, onSelesai = null, jenisDokumen = DOKUMEN_DASAR, keteranganKhusus = {} } = {}) {
   uploadCtx[prefix] = { pendaftarId, onSelesai, jenisDokumen };
   const container = document.getElementById(containerId);
-  container.innerHTML = jenisDokumen.map((jenis, i) => {
+  const itemHTML = (jenis, i) => {
     const ada = dokumen.find((d) => d.jenis === jenis);
     const statusHTML = ada
       ? `<span style="color:#047857">✓ ${ada.url ? `<a href="${safeUrl(ada.url)}" target="_blank" rel="noopener">${esc(ada.nama_file)}</a>` : esc(ada.nama_file)}</span>`
@@ -648,6 +691,7 @@ function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terk
     <div class="upload-item">
       <div class="upload-info">
         <strong>${esc(jenis)}</strong>${DOKUMEN_DASAR.includes(jenis) ? "" : ' <span class="lencana-jalur">khusus jalur</span>'}
+        ${keteranganKhusus[jenis] ? `<div class="upload-jalur">${esc(keteranganKhusus[jenis])}</div>` : ""}
         <div class="upload-status" id="${prefix}-status-${i}">${statusHTML}</div>
       </div>
       <div>${terkunci
@@ -656,7 +700,14 @@ function renderUploadList(containerId, prefix, pendaftarId, dokumen = [], { terk
            <button class="btn btn-outline" onclick="document.getElementById('${prefix}-file-${i}').click()">${ada ? "Ganti" : "Pilih File"}</button>`}
       </div>
     </div>`;
-  }).join("");
+  };
+  // Indeks tetap mengikuti urutan jenisDokumen (dipakai unggahBerkas)
+  const umum = jenisDokumen.map((j, i) => [j, i]).filter(([j]) => DOKUMEN_DASAR.includes(j));
+  const khusus = jenisDokumen.map((j, i) => [j, i]).filter(([j]) => !DOKUMEN_DASAR.includes(j));
+  container.innerHTML = khusus.length
+    ? `<p class="upload-grup">Berkas umum <span>wajib untuk semua jalur</span></p>${umum.map(([j, i]) => itemHTML(j, i)).join("")}
+       <p class="upload-grup upload-grup-khusus">${ikon("info")} Berkas khusus jalur <span>diperiksa panitia sekolah pada pilihan yang memakai jalur tersebut</span></p>${khusus.map(([j, i]) => itemHTML(j, i)).join("")}`
+    : umum.map(([j, i]) => itemHTML(j, i)).join("");
 }
 
 async function unggahBerkas(prefix, idx) {
@@ -853,6 +904,7 @@ async function renderStatusView() {
 
   renderUploadList("status-upload-list", "status", pendaftar.id, dokumen || [], {
     jenisDokumen,
+    keteranganKhusus: keteranganBerkasKhusus(pilihan.map((p) => ({ urutan: p.urutan_prioritas, sekolah: p.sekolah_nama, jenis: p.jalur_jenis }))),
     terkunci,
     onSelesai: () => renderStatusView(),
   });

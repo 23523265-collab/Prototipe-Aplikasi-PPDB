@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v4.1 — Perbaikan Sesi Login (kompatibel Vercel Serverless)
--- Jalankan ini SETELAH migration-v4-auth-upload.sql
+-- Jalankan ini SETELAH 01-v4-auth-upload.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

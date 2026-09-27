@@ -9,7 +9,7 @@
 -- Nomor pendaftaran dimulai lagi dari PPDB-0001, pendaftaran dibuka kembali.
 --
 -- File berkas (KK/akta/rapor) di Supabase Storage TIDAK ikut terhapus lewat SQL.
--- Hapus dengan: node reset-berkas-demo.js --ya
+-- Hapus dengan: node scripts/reset-berkas-demo.js --ya
 -- =========================================================
 
 begin;

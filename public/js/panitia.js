@@ -156,14 +156,16 @@ function renderTabelAntrean() {
   tbody.innerHTML = tampil.length
     ? tampil.map((a) => {
         const jumlahPeringatan = daftarPeringatan(a).length;
-        const jumlahDokumen = (a.dokumen || []).length;
+        // Hitung berkas WAJIB untuk jalur aktif yang sudah ada (berkas jalur lain tidak ikut dihitung)
+        const wajib = a.berkas_wajib || [];
+        const jumlahDokumen = wajib.length - (a.berkas_belum_ada || []).length;
         return `
         <tr class="baris-klik ${a.pendaftar_id === detailId ? "terpilih" : ""}" tabindex="0" onclick="bukaDetail(${a.pendaftar_id})"
             onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); bukaDetail(${a.pendaftar_id}); }">
           <td data-label="Pendaftar"><strong>${esc(a.nama)}</strong><div class="sel-sub">${esc(a.nomor)} · Pilihan ${a.prioritas_aktif}</div></td>
-          <td data-label="Jalur">${esc(a.jalur_nama)}${infoJarak(a)}</td>
+          <td data-label="Jalur">${esc(a.jalur_nama)}${kategoriSingkat(a) ? `<div class="sel-sub">${esc(kategoriSingkat(a))}</div>` : ""}${infoJarak(a)}</td>
           <td data-label="Skor"><strong>${a.skor}</strong><div class="sel-sub">${keteranganSkor(a)}</div></td>
-          <td data-label="Berkas">${pillHTML(a.status_berkas)}<div class="sel-sub">${jumlahDokumen}/3 dokumen</div>${infoRevisi(a)}</td>
+          <td data-label="Berkas">${pillHTML(a.status_berkas)}<div class="sel-sub">${jumlahDokumen}/${wajib.length} berkas wajib</div>${infoRevisi(a)}</td>
           <td data-label="Peringatan">${jumlahPeringatan
             ? `<span class="lencana lencana-peringatan">${ikon("peringatan")} ${jumlahPeringatan} peringatan</span>`
             : `<span class="lencana lencana-aman">${ikon("centang")} Aman</span>`}</td>
@@ -186,6 +188,38 @@ let detailId = null;
 const JALUR_JARAK = ["domisili", "afirmasi", "mutasi"];
 
 /** Keterangan asal skor sesuai jalur SPMB */
+const KATEGORI_AFIRMASI = { kip: "Pemegang KIP", pkh: "Peserta PKH", dtks: "Terdaftar DTKS", disabilitas: "Penyandang disabilitas" };
+const KATEGORI_MUTASI = { pindah_tugas: "Orang tua/wali pindah tugas", anak_gtk: "Anak guru/tenaga kependidikan" };
+
+/** Kategori yang dipilih pendaftar untuk jalur aktifnya (kosong untuk domisili/prestasi akademik) */
+function kategoriSingkat(a) {
+  if (a.jalur_jenis === "afirmasi") return KATEGORI_AFIRMASI[a.kategori_afirmasi] || "";
+  if (a.jalur_jenis === "mutasi") return KATEGORI_MUTASI[a.kategori_mutasi] || "";
+  if (a.jalur_jenis === "prestasi_nonakademik") return a.keterangan_prestasi || "";
+  return "";
+}
+
+/** Panduan verifikasi: apa yang dicocokkan panitia untuk tiap jalur */
+function panduanVerifikasi(a) {
+  const umum = "KK, akta, dan rapor atas nama pendaftar; NIK dan tanggal lahir sama dengan formulir.";
+  const perJalur = {
+    domisili: ["Alamat di KK sama dengan alamat formulir dan titik GPS di peta (tombol di bawah).", "Jarak ke sekolah tidak melebihi radius domisili."],
+    afirmasi: {
+      kip: ["Kartu KIP atas nama pendaftar, nomor kartu terbaca jelas."],
+      pkh: ["Kartu/bukti PKH atas nama orang tua yang tercantum di KK."],
+      dtks: ["Bukti terdaftar DTKS (mis. cetak cekbansos/surat desa) atas nama keluarga di KK."],
+      disabilitas: ["Surat keterangan disabilitas dari dokter/lembaga berwenang atas nama pendaftar."],
+    }[a.kategori_afirmasi] || ["Bukti afirmasi sesuai kategori yang dipilih pendaftar."],
+    mutasi: {
+      pindah_tugas: ["Surat penugasan/pindah tugas atas nama orang tua/wali yang tercantum di KK.", "Lokasi tugas baru berada di wilayah sekolah ini."],
+      anak_gtk: ["Surat keterangan dari sekolah tempat orang tua mengajar/bertugas.", "Nama orang tua di surat sama dengan di KK."],
+    }[a.kategori_mutasi] || ["Surat mutasi sesuai kategori yang dipilih pendaftar."],
+    prestasi_akademik: ["Nilai rapor di formulir sama dengan berkas rapor (koreksi bila berbeda)."],
+    prestasi_nonakademik: ["Nama di sertifikat sama dengan pendaftar; prestasi sesuai yang diajukan.", "Beri skor 0–100 sesuai tingkat & peringkat menurut pedoman sekolah."],
+  };
+  return [umum, ...(perJalur[a.jalur_jenis] || [])];
+}
+
 function keteranganSkor(a) {
   if (JALUR_JARAK.includes(a.jalur_jenis)) return "dari jarak";
   if (a.jalur_jenis === "prestasi_nonakademik") return a.skor_nonakademik != null ? "skor sertifikat" : "belum diberi skor";
@@ -242,6 +276,9 @@ function renderDetail() {
       <div><dt>Nilai rapor</dt><dd>${a.nilai_rapor ?? "-"}${a.nilai_rapor_dikoreksi_oleh ? ` <small>(dikoreksi dari ${esc(a.nilai_rapor_awal ?? "-")})</small>` : ""}
         <button type="button" class="link-btn" style="margin:0 0 0 6px" onclick="koreksiNilai(${a.pendaftar_id})">${ikon("pensil")} Koreksi</button></dd></div>
     </dl>
+
+    <h4 class="laci-bagian">Jalur ${esc(a.jalur_nama)}${kategoriSingkat(a) ? ` · ${esc(kategoriSingkat(a))}` : ""}</h4>
+    <ul class="laci-panduan">${panduanVerifikasi(a).map((x) => `<li>${ikon("daftarCek")}<span>${esc(x)}</span></li>`).join("")}</ul>
 
     <h4 class="laci-bagian">Berkas</h4>
     <div class="berkas-daftar">${dokumenHTML}</div>

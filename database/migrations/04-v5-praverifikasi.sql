@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v5 — Pra-Verifikasi Berkas & NIK Otomatis (FR-09)
--- Jalankan ini SETELAH migration-v4.2-email.sql
+-- Jalankan ini SETELAH 03-v4.2-email.sql
 -- Aman dijalankan berulang kali.
 --
 -- (Disusun ulang dari kode: file patch v5 aslinya kosong. Kolom ini

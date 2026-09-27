@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { hitungJarakKm, skorDariJarak } = require("../zonasi");
+const { hitungJarakKm, skorDariJarak } = require("../lib/zonasi");
 
 test("jarak titik yang sama adalah 0 km", () => {
   assert.equal(hitungJarakKm(-7.7829, 110.3671, -7.7829, 110.3671), 0);

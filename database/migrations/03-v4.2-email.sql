@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v4.2 — Notifikasi Email
--- Jalankan ini SETELAH migration-v4.1-sesi.sql
+-- Jalankan ini SETELAH 02-v4.1-sesi.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

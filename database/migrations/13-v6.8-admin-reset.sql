@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.8 — Admin Dinas + Lupa Password Pendaftar
--- Jalankan ini SETELAH migration-v6.7-tahapan.sql
+-- Jalankan ini SETELAH 12-v6.7-tahapan.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

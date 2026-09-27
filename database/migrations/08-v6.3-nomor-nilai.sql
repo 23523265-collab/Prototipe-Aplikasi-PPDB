@@ -1,6 +1,6 @@
 -- =========================================================
 -- MIGRASI v6.3 — Nomor Pendaftaran via Sequence + Koreksi Nilai Rapor
--- Jalankan ini SETELAH migration-v6.2-cek-alamat.sql
+-- Jalankan ini SETELAH 07-v6.2-cek-alamat.sql
 -- Aman dijalankan berulang kali.
 -- =========================================================
 

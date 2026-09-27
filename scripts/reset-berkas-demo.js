@@ -1,14 +1,14 @@
 /**
  * RESET BERKAS DEMO — hapus semua file berkas pendaftar di Supabase Storage.
- * Pasangan dari reset-data-demo.sql (Supabase tidak mengizinkan hapus file storage lewat SQL).
+ * Pasangan dari database/reset-data-demo.sql (Supabase tidak mengizinkan hapus file storage lewat SQL).
  *
  * ⚠ TIDAK BISA DIBATALKAN.
- * Pakai:  node reset-berkas-demo.js         -> hanya menampilkan jumlah file (tidak menghapus)
- *         node reset-berkas-demo.js --ya    -> benar-benar menghapus
+ * Pakai:  node scripts/reset-berkas-demo.js         -> hanya menampilkan jumlah file (tidak menghapus)
+ *         node scripts/reset-berkas-demo.js --ya    -> benar-benar menghapus
  */
 require("dotenv").config({ quiet: true });
-const supabase = require("./supabase");
-const { BUCKET } = require("./storage");
+const supabase = require("../lib/supabase");
+const { BUCKET } = require("../lib/storage");
 
 async function daftarSemuaFile() {
   const paths = [];
