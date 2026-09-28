@@ -94,6 +94,7 @@ async function renderPanitiaView() {
   renderTahapan(tahapan);
   renderStatistik(statistik);
   document.getElementById("btn-export").href = `/api/sekolah/${sekolahId}/export.csv`;
+  if (document.getElementById("log-panitia").open) muatLogSekolah();
   const seleksiTerkunci = tahapan.aktif && tahapan.dibuka;
 
   const jalurSekolah = jalurList.filter((j) => j.sekolah_id === Number(sekolahId));
@@ -290,7 +291,11 @@ function renderDetail() {
 
     <h4 class="laci-bagian">Alamat &amp; lokasi rumah</h4>
     <p class="laci-alamat">${esc(a.alamat) || '<span class="muted" style="margin:0">Alamat tidak diisi</span>'}</p>
-    <button type="button" class="btn btn-outline" style="width:100%" onclick="bukaLokasi(${a.pendaftar_id})">${ikon("lokasi")} Lihat di peta & cocokkan dengan KK</button>`;
+    <button type="button" class="btn btn-outline" style="width:100%" onclick="bukaLokasi(${a.pendaftar_id})">${ikon("lokasi")} Lihat di peta & cocokkan dengan KK</button>
+
+    <h4 class="laci-bagian">Riwayat keputusan</h4>
+    <div id="laci-log"><div class="kerangka" style="height:44px"></div></div>`;
+  muatLogPendaftar(a.pendaftar_id);
 
   document.getElementById("laci-kaki").innerHTML = `
     ${belumAda.length ? `<p class="laci-catatan">${ikon("info")} Tombol Lengkap aktif setelah ${esc(belumAda.join(", "))} diunggah.</p>` : ""}
@@ -300,6 +305,39 @@ function renderDetail() {
       <button type="button" class="btn btn-peringatan" onclick="tandaiKurang(${a.pendaftar_id})">${ikon("peringatan")} Kurang</button>
       <button type="button" class="btn btn-bahaya-garis" onclick="tolakBerkas(${a.pendaftar_id})">${ikon("silang")} Tolak</button>
     </div>`;
+}
+
+/* =========================================================
+   LOG AKTIVITAS (jejak audit, migration v7.3)
+   ========================================================= */
+function logHTML(daftar, { tampilPendaftar = true, tampilSekolah = false } = {}) {
+  if (!daftar.length) return '<p class="muted" style="margin:0;font-size:13px">Belum ada aktivitas tercatat.</p>';
+  return `<ul class="log-daftar">${daftar.map((l) => `
+    <li>
+      <div class="log-waktu">${esc(formatWaktuWIB(l.waktu))}</div>
+      <div class="log-isi">
+        <strong>${esc(l.aksi)}</strong>${l.detail ? ` <span class="log-detail">· ${esc(l.detail)}</span>` : ""}
+        <div class="log-meta">${esc(l.aktor)}${tampilPendaftar && l.pendaftar_nomor ? ` · ${esc(l.pendaftar_nomor)} ${esc(l.pendaftar_nama || "")}` : ""}${tampilSekolah && l.sekolah_nama ? ` · ${esc(l.sekolah_nama)}` : ""}</div>
+      </div>
+    </li>`).join("")}</ul>`;
+}
+
+async function muatLogSekolah() {
+  const kotak = document.getElementById("log-panitia-isi");
+  kotak.innerHTML = '<div class="kerangka" style="height:60px"></div>';
+  const res = await fetch(`/api/sekolah/${sesi.panitia.sekolahId}/log-aktivitas`);
+  const data = await res.json().catch(() => ({}));
+  kotak.innerHTML = res.ok ? logHTML(data) : `<p class="muted" style="margin:0;font-size:13px">${esc(data.error || "Gagal memuat log.")}</p>`;
+}
+document.getElementById("log-panitia").addEventListener("toggle", (e) => { if (e.target.open) muatLogSekolah(); });
+
+// Riwayat keputusan satu pendaftar, termasuk di sekolah pilihan sebelumnya (alasan ditolak/dialihkan)
+async function muatLogPendaftar(pendaftarId) {
+  const res = await fetch(`/api/sekolah/${sesi.panitia.sekolahId}/log-aktivitas?pendaftar=${pendaftarId}`);
+  const data = await res.json().catch(() => ({}));
+  const kotak = document.getElementById("laci-log");
+  if (!kotak || detailId !== pendaftarId) return; // laci sudah ditutup/berpindah pendaftar
+  kotak.innerHTML = res.ok ? logHTML(data, { tampilPendaftar: false, tampilSekolah: true }) : `<p class="muted" style="margin:0;font-size:13px">${esc(data.error || "Gagal memuat riwayat.")}</p>`;
 }
 
 /* =========================================================

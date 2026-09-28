@@ -65,7 +65,16 @@
         </table>
       </div>
 
-      <details class="panel-card" style="margin-top:28px" id="tambah-sekolah">
+      <details class="panel-card" style="margin-top:28px" id="log-admin">
+        <summary class="sub-heading" style="margin:0;cursor:pointer"><i data-ikon="daftarCek"></i> Log Aktivitas Panitia &amp; Admin</summary>
+        <div class="log-alat">
+          <p class="muted" style="margin:0;font-size:12.5px">Jejak audit semua keputusan: verifikasi berkas, koreksi nilai, seleksi, perubahan kuota, dan tahapan. Log tidak dapat diubah atau dihapus.</p>
+          <select id="log-filter-sekolah" aria-label="Saring log per sekolah"><option value="">Semua sekolah</option></select>
+        </div>
+        <div id="log-admin-isi"></div>
+      </details>
+
+      <details class="panel-card" style="margin-top:16px" id="tambah-sekolah">
         <summary class="sub-heading" style="margin:0;cursor:pointer"><i data-ikon="tambah"></i> Tambah Sekolah Baru</summary>
         <div id="tambah-info" class="alert" style="display:none;margin-top:14px"></div>
         <form id="form-tambah-sekolah" class="form-grid">

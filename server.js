@@ -75,6 +75,18 @@ const TIPE_FILE_DIIZINKAN = ["application/pdf", "image/jpeg", "image/png"];
 const { validasiUmur, samarkanNama } = aturan;
 
 // Escape teks sebelum dimasukkan ke HTML email
+/**
+ * Log aktivitas (migration v7.3): jejak audit keputusan panitia & Admin Dinas -- siapa, kapan, terhadap siapa.
+ * Gagal mencatat (mis. migration belum dijalankan) tidak boleh menggagalkan aksi utamanya.
+ */
+async function catatAktivitas(req, aksi, { sekolahId, pendaftarId = null, detail = null } = {}) {
+  const aktor = req.panitia
+    ? { aktor_tipe: "panitia", aktor: `${req.panitia.nama} (${req.panitia.username})`, sekolah_id: sekolahId ?? req.panitia.sekolahId }
+    : { aktor_tipe: "admin", aktor: `${req.admin?.nama} (${req.admin?.username})`, sekolah_id: sekolahId ?? null };
+  const { error } = await supabase.from("log_aktivitas").insert({ ...aktor, pendaftar_id: pendaftarId, aksi, detail });
+  if (error) console.warn("[log] Gagal mencatat aktivitas (sudah jalankan migration v7.3?):", error.message);
+}
+
 /** Alamat utama situs: APP_BASE_URL (.env) > domain produksi Vercel (otomatis) > localhost. */
 function alamatSitus() {
   if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/+$/, "");
@@ -198,6 +210,7 @@ app.patch("/api/tahapan", auth.requireAdminLogin, async (req, res) => {
     diubah_at: new Date().toISOString(),
   });
   if (error) return res.status(500).json({ error: `Gagal mengubah tahapan (sudah jalankan migration v6.7?): ${error.message}` });
+  await catatAktivitas(req, req.body.dibuka ? "Membuka pendaftaran" : "Menutup pendaftaran");
   res.json(await statusTahapan());
 });
 
@@ -237,6 +250,35 @@ app.get("/api/pendaftar", async (req, res) => {
   res.json(rows);
 });
 
+/**
+ * FR-11: posisi sementara pendaftar di jalur pilihan aktifnya. Pesaing = pendaftar yang sedang diproses
+ * di jalur yang sama (belum diputuskan); kuota = sisa kursi setelah seleksi sebelumnya. Hanya angka ringkas
+ * yang dikembalikan -- data pendaftar lain tidak pernah dikirim ke browser.
+ */
+const STATUS_BERSAING = ["Menunggu Verifikasi Berkas", "Menunggu Seleksi"];
+async function hitungEstimasi(pendaftar, pilihanAktif, jalur) {
+  if (!jalur || !STATUS_BERSAING.includes(pilihanAktif.status)) return null;
+  const jenis = aturan.jenisJalur(jalur);
+  if (jenis === "prestasi_nonakademik" && pendaftar.skor_nonakademik == null) return { menungguSkor: true, jenis };
+
+  const [{ data: kandidatRaw }, { count: sudahDiterima }] = await Promise.all([
+    supabase.from("pilihan").select("pendaftar_id, urutan_prioritas, skor, jarak_km, catatan_skor")
+      .eq("jalur_id", jalur.id).in("status", STATUS_BERSAING),
+    supabase.from("pilihan").select("id", { count: "exact", head: true }).eq("jalur_id", jalur.id).eq("status", "Diterima"),
+  ]);
+  const { data: infoList } = await supabase.from("pendaftar")
+    .select("id, status_global, prioritas_aktif, tanggal_lahir, created_at")
+    .in("id", [...new Set(kandidatRaw.map((k) => k.pendaftar_id))]);
+  const info = (id) => infoList.find((x) => x.id === id);
+  // sama seperti seleksi: hanya pendaftar Aktif yang memang sedang diproses di pilihan ini
+  const pesaing = kandidatRaw.filter((k) => {
+    const p = info(k.pendaftar_id);
+    return p && p.status_global === "Aktif" && p.prioritas_aktif === k.urutan_prioritas;
+  });
+  const hasil = aturan.estimasiPeringkat(pendaftar.id, pesaing, jalur, info, aturan.hitungSisaKuota(jalur.kuota, sudahDiterima));
+  return hasil && { ...hasil, jenis, kuota: jalur.kuota };
+}
+
 app.get("/api/pendaftar/nomor/:nomor", auth.requirePendaftarLogin, async (req, res) => {
   if (req.pendaftar.nomor !== req.params.nomor) {
     return res.status(403).json({ error: "Anda hanya dapat melihat status pendaftaran milik sendiri." });
@@ -264,9 +306,17 @@ app.get("/api/pendaftar/nomor/:nomor", auth.requirePendaftarLogin, async (req, r
   }));
   const riwayat = riwayatRaw.map((r) => ({ ...r, dari_nama: namaSekolah(r.dari_sekolah_id), ke_nama: namaSekolah(r.ke_sekolah_id) }));
 
+  // FR-11: estimasi posisi sementara di pilihan yang sedang diproses (gagal dihitung = tidak ditampilkan saja)
+  let estimasi = null;
+  const pilihanAktif = pilihanRaw.find((p) => p.urutan_prioritas === pendaftar.prioritas_aktif);
+  if (pendaftar.status_global === "Aktif" && pilihanAktif) {
+    estimasi = await hitungEstimasi(pendaftar, pilihanAktif, jalurDari(pilihanAktif.jalur_id))
+      .catch((err) => { console.error("[estimasi]", err.message); return null; });
+  }
+
   const { password_hash, ...pendaftarAman } = pendaftar;
   res.json({
-    pendaftar: pendaftarAman, pilihan, riwayat, notifikasi,
+    pendaftar: pendaftarAman, pilihan, riwayat, notifikasi, estimasi,
     dokumen: await storage.tandatanganiDokumen(dokumen),
     // semua berkas yang mungkin dibutuhkan di pilihan mana pun (bisa diunggah sejak awal)
     jenisDokumen: berkasUntukJalur(pilihanRaw.map((p) => jalurDari(p.jalur_id))),
@@ -518,6 +568,7 @@ app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res
   }
   const catatan = typeof req.body.catatan === "string" ? req.body.catatan.trim().slice(0, 500) : null;
   await engine.verifikasiBerkas(pendaftarId, req.body.status, catatan || null);
+  await catatAktivitas(req, `Verifikasi berkas: ${req.body.status}`, { pendaftarId, detail: catatan || null });
   res.json({ ok: true });
 });
 
@@ -563,6 +614,7 @@ app.patch("/api/pendaftar/:id/nilai-rapor", auth.requirePanitiaLogin, async (req
     .select("id");
 
   const nilaiLama = pendaftar.nilai_rapor ?? "-";
+  await catatAktivitas(req, "Koreksi nilai rapor", { pendaftarId, detail: pendaftar.nilai_rapor == null ? `diisi ${nilaiBaru}` : `${nilaiLama} → ${nilaiBaru}` });
   await engine.tambahNotifikasi(
     pendaftarId,
     `Nilai rapor Anda dikoreksi panitia dari ${nilaiLama} menjadi ${nilaiBaru} sesuai berkas rapor yang diunggah.`
@@ -600,6 +652,7 @@ app.patch("/api/pendaftar/:id/skor-nonakademik", auth.requirePanitiaLogin, async
   // Skor berlaku untuk pilihan aktif (jalur prestasi nonakademik di sekolah ini)
   await supabase.from("pilihan").update({ skor: Math.round(skor), catatan_skor: null })
     .eq("pendaftar_id", pendaftarId).eq("urutan_prioritas", pendaftar.prioritas_aktif);
+  await catatAktivitas(req, "Skor prestasi nonakademik", { pendaftarId, detail: pendaftar.skor_nonakademik == null ? `diberi ${skor}` : `${pendaftar.skor_nonakademik} → ${skor}` });
   await engine.tambahNotifikasi(pendaftarId, `Panitia memberi skor prestasi nonakademik ${skor} berdasarkan sertifikat yang Anda unggah.`);
   res.json({ ok: true });
 });
@@ -668,7 +721,7 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
 app.post("/api/jalur/:id/jalankan-seleksi", auth.requirePanitiaLogin, async (req, res) => {
   const jalurId = Number(req.params.id);
 
-  const { data: jalur } = await supabase.from("jalur").select("sekolah_id").eq("id", jalurId).single();
+  const { data: jalur } = await supabase.from("jalur").select("sekolah_id, nama").eq("id", jalurId).single();
   if (!jalur || jalur.sekolah_id !== req.panitia.sekolahId) {
     return res.status(403).json({ error: "Jalur ini bukan milik sekolah Anda." });
   }
@@ -688,6 +741,9 @@ app.post("/api/jalur/:id/jalankan-seleksi", auth.requirePanitiaLogin, async (req
   try {
     await engine.prosesRevisiKedaluwarsa();
     const hasil = await engine.jalankanSeleksiJalur(jalurId);
+    await catatAktivitas(req, `Menjalankan seleksi jalur ${jalur.nama}`, {
+      detail: `${hasil.jumlahDiproses} diproses: ${hasil.diterima} diterima, ${hasil.ditolakKuota} tidak masuk kuota, ${hasil.ditolakSyarat} tidak memenuhi syarat`,
+    });
     res.json({ ok: true, ...hasil });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -813,6 +869,46 @@ function keCsv(baris) {
   return "﻿" + baris.map((r) => r.map(sel).join(";")).join("\r\n");
 }
 
+/**
+ * Log aktivitas untuk panitia. Tanpa ?pendaftar: semua aktivitas di sekolah ini.
+ * Dengan ?pendaftar=ID: riwayat keputusan pendaftar itu di semua sekolah (mis. alasan ditolak di pilihan 1),
+ * hanya boleh untuk pendaftar yang sedang aktif di sekolah panitia.
+ */
+app.get("/api/sekolah/:id/log-aktivitas", auth.requirePanitiaLogin, async (req, res) => {
+  const sekolahId = Number(req.params.id);
+  if (sekolahId !== req.panitia.sekolahId) return res.status(403).json({ error: "Hanya untuk sekolah Anda sendiri." });
+
+  let query = supabase.from("log_aktivitas").select("*").order("waktu", { ascending: false });
+  if (req.query.pendaftar) {
+    const pendaftarId = Number(req.query.pendaftar);
+    const { data: p } = await supabase.from("pendaftar").select("sekolah_aktif_id").eq("id", pendaftarId).single();
+    if (!p || p.sekolah_aktif_id !== sekolahId) return res.status(403).json({ error: "Pendaftar ini tidak sedang aktif di sekolah Anda." });
+    query = query.eq("pendaftar_id", pendaftarId).limit(50);
+  } else {
+    query = query.eq("sekolah_id", sekolahId).limit(100);
+  }
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: `Log belum tersedia (sudah jalankan migration v7.3?): ${error.message}` });
+  res.json(await lengkapiLog(data));
+});
+
+/** Tambahkan nama sekolah & nomor pendaftar ke baris log (untuk ditampilkan) */
+async function lengkapiLog(baris) {
+  const idPendaftar = [...new Set(baris.map((l) => l.pendaftar_id).filter(Boolean))];
+  const [{ data: sekolahList }, { data: pendaftarList }] = await Promise.all([
+    supabase.from("sekolah").select("id, nama"),
+    idPendaftar.length ? supabase.from("pendaftar").select("id, nomor, nama").in("id", idPendaftar) : { data: [] },
+  ]);
+  return baris.map((l) => {
+    const p = pendaftarList.find((x) => x.id === l.pendaftar_id);
+    return {
+      ...l,
+      sekolah_nama: sekolahList.find((s) => s.id === l.sekolah_id)?.nama || null,
+      pendaftar_nomor: p?.nomor || null, pendaftar_nama: p?.nama || null,
+    };
+  });
+}
+
 app.get("/api/sekolah/:id/export.csv", auth.requirePanitiaLogin, async (req, res) => {
   const sekolahId = Number(req.params.id);
   if (sekolahId !== req.panitia.sekolahId) return res.status(403).json({ error: "Hanya untuk sekolah Anda sendiri." });
@@ -847,6 +943,7 @@ app.get("/api/sekolah/:id/export.csv", auth.requirePanitiaLogin, async (req, res
   const namaFile = `pendaftar-${String(sekolah?.nama || "sekolah").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`;
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${namaFile}"`);
+  await catatAktivitas(req, "Mengunduh data pendaftar (CSV)", { detail: `${baris.length} baris` });
   res.send(keCsv([header, ...baris]));
 });
 
@@ -905,6 +1002,14 @@ app.get("/api/admin/ringkasan", auth.requireAdminLogin, async (req, res) => {
 
 const angkaAtauNull = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
 
+app.get("/api/admin/log-aktivitas", auth.requireAdminLogin, async (req, res) => {
+  let query = supabase.from("log_aktivitas").select("*").order("waktu", { ascending: false }).limit(150);
+  if (req.query.sekolah) query = query.eq("sekolah_id", Number(req.query.sekolah));
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: `Log belum tersedia (sudah jalankan migration v7.3?): ${error.message}` });
+  res.json(await lengkapiLog(data));
+});
+
 app.patch("/api/admin/jalur/:id", auth.requireAdminLogin, async (req, res) => {
   const kuota = Number(req.body.kuota);
   const radius = angkaAtauNull(req.body.syarat_radius_km);
@@ -925,6 +1030,11 @@ app.patch("/api/admin/jalur/:id", auth.requireAdminLogin, async (req, res) => {
 
   const { error } = await supabase.from("jalur").update(perubahan).eq("id", jalur.id);
   if (error) return res.status(500).json({ error: error.message });
+  const ringkas = (j) => [`kuota ${j.kuota}`, j.syarat_radius_km != null && `radius ${j.syarat_radius_km} km`, j.syarat_nilai_minimum != null && `min ${j.syarat_nilai_minimum}`].filter(Boolean).join(", ");
+  const sesudah = { ...jalur, ...perubahan };
+  if (ringkas(jalur) !== ringkas(sesudah)) {
+    await catatAktivitas(req, `Mengubah jalur ${jalur.nama}`, { sekolahId: jalur.sekolah_id, detail: `${ringkas(jalur)} → ${ringkas(sesudah)}` });
+  }
   res.json({ ok: true });
 });
 
@@ -974,6 +1084,7 @@ app.post("/api/admin/sekolah", auth.requireAdminLogin, async (req, res) => {
     username, password_hash: auth.hashPassword(passwordPanitia), nama: `Panitia ${nama}`, sekolah_id: sekolah.id,
   });
   if (e2 || e3) return res.status(500).json({ error: (e2 || e3).message });
+  await catatAktivitas(req, "Menambah sekolah", { sekolahId: sekolah.id, detail: `${nama} + akun panitia ${username}` });
   res.status(201).json({ ok: true, id: sekolah.id });
 });
 
@@ -989,6 +1100,7 @@ app.post("/api/admin/panitia/:id/reset-password", auth.requireAdminLogin, async 
   if (error) return res.status(500).json({ error: error.message });
   if (!data.length) return res.status(404).json({ error: "Akun panitia tidak ditemukan." });
   await supabase.from("sesi").delete().eq("tipe", "panitia").eq("panitia_id", panitiaId); // paksa login ulang
+  await catatAktivitas(req, "Reset password panitia", { detail: data[0].username });
   res.json({ ok: true, username: data[0].username });
 });
 

@@ -804,6 +804,33 @@ document.getElementById("btn-logout-pendaftar").addEventListener("click", async 
   renderStatusView();
 });
 
+/** FR-11: kotak estimasi posisi sementara di kartu pilihan yang sedang diproses */
+function estimasiHTML(e) {
+  if (!e) return "";
+  const catatan = `<div class="est-catatan">Estimasi sementara, dapat berubah karena pendaftar baru, hasil verifikasi berkas, dan koreksi nilai. Hasil resmi ditentukan saat seleksi setelah pendaftaran ditutup.</div>`;
+  if (e.menungguSkor) {
+    return `<div class="pj-estimasi"><div class="est-judul">Estimasi peringkat</div>Muncul setelah panitia memberi skor dari sertifikat prestasi Anda.</div>`;
+  }
+  if (!e.memenuhiSyarat) {
+    return `<div class="pj-estimasi luar"><div class="est-judul">${ikon("peringatan")} Saat ini belum memenuhi syarat jalur</div>${esc(e.alasan)}. Jika tetap begitu saat seleksi, pendaftaran otomatis dialihkan ke pilihan berikutnya.${catatan}</div>`;
+  }
+  const dasar = e.jenis === "prestasi_akademik" || e.jenis === "prestasi_nonakademik" ? "skor tertinggi" : "jarak terdekat";
+  const lebar = e.jumlahPesaing ? Math.max(6, Math.round(((e.jumlahPesaing - e.posisi + 1) / e.jumlahPesaing) * 100)) : 0;
+  const kalimat = e.sisaKuota === 0
+    ? "Kuota jalur ini sudah penuh dari seleksi sebelumnya."
+    : e.masukKuota
+      ? `Posisi Anda saat ini <strong>masih di dalam kuota</strong> (${e.sisaKuota} kursi tersisa).`
+      : `Posisi Anda saat ini <strong>di luar kuota</strong> (${e.sisaKuota} kursi tersisa). Jika tidak masuk saat seleksi, pendaftaran otomatis dialihkan ke pilihan berikutnya.`;
+  return `<div class="pj-estimasi ${e.masukKuota ? "masuk" : "luar"}">
+      <div class="est-atas">
+        <div><div class="est-judul">Estimasi peringkat sementara</div><div class="est-dasar">diurutkan berdasarkan ${dasar}</div></div>
+        <div class="est-angka">#${e.posisi}<span> dari ${e.jumlahPesaing}</span></div>
+      </div>
+      <div class="est-batang" aria-hidden="true"><span style="width:${lebar}%"></span></div>
+      <div>${kalimat}</div>${catatan}
+    </div>`;
+}
+
 async function renderStatusView() {
   await muatSesi();
   const loggedIn = !!sesi.pendaftar;
@@ -821,7 +848,7 @@ async function renderStatusView() {
     container.innerHTML = `<p style="color:#b91c1c;font-size:14px">Gagal memuat data.</p>`;
     return;
   }
-  const { pendaftar, pilihan, riwayat, notifikasi, dokumen, jenisDokumen: jenisDariServer } = await res.json();
+  const { pendaftar, pilihan, riwayat, notifikasi, dokumen, estimasi, jenisDokumen: jenisDariServer } = await res.json();
   const jenisDokumen = Array.isArray(jenisDariServer) && jenisDariServer.length ? jenisDariServer : DOKUMEN_DASAR;
   const jumlahBerkas = (dokumen || []).filter((d) => jenisDokumen.includes(d.jenis)).length;
 
@@ -876,6 +903,7 @@ async function renderStatusView() {
               <span>Skor <strong>${p.skor}</strong> <span style="font-size:11px">(${asalSkor(p)})</span></span>
             </div>
             ${p.alasan_penolakan ? `<div class="pj-alasan">Alasan: ${esc(p.alasan_penolakan)}</div>` : ""}
+            ${kelas === "aktif" ? estimasiHTML(estimasi) : ""}
           </div>
           ${pengalihan && pengalihan.ke_sekolah_id ? `<div class="pj-alih">↓ Dialihkan otomatis ke ${esc(pengalihan.ke_nama)} · ${esc(formatWaktuWIB(pengalihan.waktu))}</div>` : ""}
         </div>

@@ -1,6 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
+const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, estimasiPeringkat, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
 
 describe("kategori jalur khusus", () => {
   test("wajib diisi sesuai jalur yang dipilih", () => {
@@ -167,5 +167,36 @@ describe("tentukanHasilSeleksi", () => {
   test("tidak ada kandidat -> hasil kosong", () => {
     const hasil = tentukanHasilSeleksi([], { syarat_radius_km: 3 }, info, 3);
     assert.deepEqual(hasil, { diterima: [], ditolakKuota: [], tidakMemenuhi: [] });
+  });
+});
+
+describe("estimasiPeringkat (FR-11)", () => {
+  const info = (id) => ({ tanggal_lahir: "2010-01-01", created_at: `2026-06-0${id}T08:00:00` });
+  const jalur = { jenis: "domisili", syarat_radius_km: 3 };
+  const pesaing = [
+    { pendaftar_id: 1, jarak_km: 2.8 },
+    { pendaftar_id: 2, jarak_km: 0.9 },
+    { pendaftar_id: 3, jarak_km: 1.5 },
+    { pendaftar_id: 4, jarak_km: 4.2 }, // di luar radius
+  ];
+
+  test("posisi sesuai urutan seleksi dan status masuk/tidak masuk kuota", () => {
+    assert.deepEqual(estimasiPeringkat(3, pesaing, jalur, info, 2),
+      { memenuhiSyarat: true, alasan: null, posisi: 2, jumlahPesaing: 3, sisaKuota: 2, masukKuota: true });
+    const ketiga = estimasiPeringkat(1, pesaing, jalur, info, 2);
+    assert.equal(ketiga.posisi, 3);
+    assert.equal(ketiga.masukKuota, false);
+  });
+
+  test("tidak memenuhi syarat jalur -> tanpa posisi, dengan alasan yang sama seperti saat seleksi", () => {
+    const hasil = estimasiPeringkat(4, pesaing, jalur, info, 2);
+    assert.equal(hasil.memenuhiSyarat, false);
+    assert.equal(hasil.posisi, null);
+    assert.match(hasil.alasan, /Di luar radius domisili/);
+  });
+
+  test("pendaftar tidak ada di daftar pesaing -> null; kuota habis -> tidak masuk kuota", () => {
+    assert.equal(estimasiPeringkat(99, pesaing, jalur, info, 2), null);
+    assert.equal(estimasiPeringkat(2, pesaing, jalur, info, 0).masukKuota, false);
   });
 });

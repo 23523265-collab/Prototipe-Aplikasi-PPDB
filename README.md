@@ -161,6 +161,7 @@ Semua file ada di folder `database/` (migration di `database/migrations/`, nomor
 17. `database/ganti-password-staf.sql` — **wajib**: ganti password bawaan Admin Dinas & panitia
 18. `16-v7.1-jalur-spmb.sql` — 4 jalur SPMB 2026 (Domisili, Afirmasi, Mutasi, Prestasi akademik/nonakademik)
 19. `17-v7.2-kategori-jalur.sql` — kategori afirmasi (KIP/PKH/DTKS/disabilitas), mutasi, dan keterangan prestasi nonakademik
+20. `18-v7.3-log-aktivitas.sql` — log aktivitas panitia & Admin Dinas (jejak audit)
 
 Semua file migration aman dijalankan ulang.
 
