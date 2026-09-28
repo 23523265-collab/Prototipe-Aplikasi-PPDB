@@ -317,7 +317,7 @@ function logHTML(daftar, { tampilPendaftar = true, tampilSekolah = false } = {})
       <div class="log-waktu">${esc(formatWaktuWIB(l.waktu))}</div>
       <div class="log-isi">
         <strong>${esc(l.aksi)}</strong>${l.detail ? ` <span class="log-detail">· ${esc(l.detail)}</span>` : ""}
-        <div class="log-meta">${esc(l.aktor)}${tampilPendaftar && l.pendaftar_nomor ? ` · ${esc(l.pendaftar_nomor)} ${esc(l.pendaftar_nama || "")}` : ""}${tampilSekolah && l.sekolah_nama ? ` · ${esc(l.sekolah_nama)}` : ""}</div>
+        <div class="log-meta">${l.aktor_tipe === "pendaftar" ? "Pendaftar · " : ""}${esc(l.aktor)}${tampilPendaftar && l.pendaftar_nomor ? ` · ${esc(l.pendaftar_nomor)} ${esc(l.pendaftar_nama || "")}` : ""}${tampilSekolah && l.sekolah_nama ? ` · ${esc(l.sekolah_nama)}` : ""}</div>
       </div>
     </li>`).join("")}</ul>`;
 }

@@ -79,12 +79,14 @@ const { validasiUmur, samarkanNama } = aturan;
  * Log aktivitas (migration v7.3): jejak audit keputusan panitia & Admin Dinas -- siapa, kapan, terhadap siapa.
  * Gagal mencatat (mis. migration belum dijalankan) tidak boleh menggagalkan aksi utamanya.
  */
-async function catatAktivitas(req, aksi, { sekolahId, pendaftarId = null, detail = null } = {}) {
+async function catatAktivitas(req, aksi, { sekolahId, pendaftarId = null, detail = null, namaPendaftar = null } = {}) {
   const aktor = req.panitia
     ? { aktor_tipe: "panitia", aktor: `${req.panitia.nama} (${req.panitia.username})`, sekolah_id: sekolahId ?? req.panitia.sekolahId }
-    : { aktor_tipe: "admin", aktor: `${req.admin?.nama} (${req.admin?.username})`, sekolah_id: sekolahId ?? null };
+    : req.admin
+      ? { aktor_tipe: "admin", aktor: `${req.admin.nama} (${req.admin.username})`, sekolah_id: sekolahId ?? null }
+      : { aktor_tipe: "pendaftar", aktor: `${namaPendaftar} (${req.pendaftar?.nomor})`, sekolah_id: sekolahId ?? null }; // butuh migration v7.4
   const { error } = await supabase.from("log_aktivitas").insert({ ...aktor, pendaftar_id: pendaftarId, aksi, detail });
-  if (error) console.warn("[log] Gagal mencatat aktivitas (sudah jalankan migration v7.3?):", error.message);
+  if (error) console.warn("[log] Gagal mencatat aktivitas (sudah jalankan migration v7.3 & v7.4?):", error.message);
 }
 
 /** Alamat utama situs: APP_BASE_URL (.env) > domain produksi Vercel (otomatis) > localhost. */
@@ -476,6 +478,68 @@ app.post("/api/pendaftar", async (req, res) => {
           })
           .eq("id", pendaftarBaru.id)
       )
+      .catch((err) => console.error("[alamat] Cek alamat gagal:", err.message)));
+  }
+});
+
+/**
+ * Pendaftar memperbaiki isian data diri (mis. NIK salah ketik) selama berkas belum dinyatakan Lengkap --
+ * aturan yang sama dengan penggantian berkas. Bila berstatus Kurang Lengkap, pendaftar kembali ke antrean
+ * verifikasi panitia. Setiap perubahan dicatat (log aktivitas + notifikasi) supaya panitia tahu apa yang diubah.
+ */
+const LABEL_DATA_DIRI = { nama: "Nama", nik: "NIK", tanggal_lahir: "Tanggal lahir", alamat: "Alamat" };
+app.patch("/api/pendaftar/:id/data-diri", auth.requirePendaftarLogin, async (req, res) => {
+  const pendaftarId = Number(req.params.id);
+  if (pendaftarId !== req.pendaftar.id) return res.status(403).json({ error: "Anda hanya dapat mengubah data milik sendiri." });
+  const { data: p } = await supabase.from("pendaftar").select("*").eq("id", pendaftarId).single();
+  if (!p) return res.status(404).json({ error: "Pendaftar tidak ditemukan." });
+  if (p.status_global !== "Aktif" || p.status_berkas === "Lengkap") {
+    return res.status(409).json({ error: "Data diri tidak dapat diubah lagi karena berkas sudah diverifikasi Lengkap atau pendaftaran sudah selesai. Hubungi panitia bila ada kesalahan." });
+  }
+  if (p.status_berkas === "Kurang Lengkap" && p.batas_revisi_at && new Date(p.batas_revisi_at) < new Date()) {
+    return res.status(409).json({ error: "Masa revisi sudah berakhir." });
+  }
+
+  const baru = {
+    nama: req.body.nama === undefined ? p.nama : String(req.body.nama).trim().replace(/\s+/g, " "),
+    nik: req.body.nik === undefined ? p.nik : String(req.body.nik).replace(/\s+/g, ""),
+    tanggal_lahir: req.body.tanggalLahir === undefined ? p.tanggal_lahir : String(req.body.tanggalLahir).slice(0, 10),
+    alamat: req.body.alamat === undefined ? p.alamat : String(req.body.alamat).trim() || null,
+  };
+  if (baru.nama.length < 3 || baru.nama.length > 100) return res.status(400).json({ error: "Nama lengkap 3–100 karakter." });
+  if (!/^\d{16}$/.test(baru.nik)) return res.status(400).json({ error: "NIK harus 16 digit angka, sesuai Kartu Keluarga." });
+  const cekUmur = validasiUmur(baru.tanggal_lahir);
+  if (cekUmur) return res.status(400).json({ error: cekUmur });
+  if (baru.alamat && baru.alamat.length > 300) return res.status(400).json({ error: "Alamat maksimal 300 karakter." });
+
+  const berubah = Object.keys(LABEL_DATA_DIRI).filter((k) => String(baru[k] ?? "") !== String(p[k] ?? ""));
+  if (!berubah.length) return res.status(400).json({ error: "Tidak ada data yang berubah." });
+  if (berubah.includes("nik")) {
+    const { data: dipakai } = await supabase.from("pendaftar").select("id").eq("nik", baru.nik).neq("id", p.id).limit(1);
+    if (dipakai?.length) return res.status(409).json({ error: PESAN_NIK_TERDAFTAR });
+  }
+
+  const perubahan = { ...baru, catatan_validasi_nik: validasi.validasiNIK(baru.nik) };
+  if (berubah.includes("alamat")) Object.assign(perubahan, { alamat_latitude: null, alamat_longitude: null, alamat_presisi: null, catatan_validasi_alamat: null });
+  const { error } = await supabase.from("pendaftar").update(perubahan).eq("id", p.id);
+  if (error) {
+    if (error.code === "23505" && /nik/i.test(error.message)) return res.status(409).json({ error: PESAN_NIK_TERDAFTAR });
+    return res.status(500).json({ error: error.message });
+  }
+
+  const ringkas = berubah.map((k) => (k === "alamat" ? "alamat diperbarui" : `${LABEL_DATA_DIRI[k]}: ${p[k] ?? "-"} → ${baru[k]}`)).join("; ");
+  await catatAktivitas(req, "Pendaftar memperbaiki data diri", { sekolahId: p.sekolah_aktif_id, pendaftarId: p.id, detail: ringkas, namaPendaftar: baru.nama });
+  await engine.tambahNotifikasi(p.id, `Data diri diperbarui (${ringkas}).`);
+  await engine.tandaiSudahRevisi(p.id); // hanya berpengaruh bila berstatus Kurang Lengkap
+  res.json({ ok: true, berubah });
+
+  // Alamat baru dicek ulang terhadap titik GPS di latar belakang (sama seperti saat mendaftar)
+  if (berubah.includes("alamat") && baru.alamat && p.latitude != null && p.longitude != null) {
+    waitUntil(validasi.validasiAlamat(baru.alamat, Number(p.latitude), Number(p.longitude))
+      .then((cek) => supabase.from("pendaftar").update({
+        alamat_latitude: cek.latitude ?? null, alamat_longitude: cek.longitude ?? null,
+        alamat_presisi: cek.presisi ?? null, catatan_validasi_alamat: cek.catatan ?? null,
+      }).eq("id", p.id))
       .catch((err) => console.error("[alamat] Cek alamat gagal:", err.message)));
   }
 });

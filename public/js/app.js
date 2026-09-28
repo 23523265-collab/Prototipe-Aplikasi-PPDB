@@ -1179,6 +1179,76 @@ document.getElementById("btn-logout-pendaftar").addEventListener("click", async 
   renderStatusView();
 });
 
+/* ---------- Data diri di halaman Status: bisa diperbaiki selama berkas belum Lengkap ---------- */
+const bisaUbahDataDiri = (p) => p.status_global === "Aktif" && p.status_berkas !== "Lengkap";
+
+function dataDiriHTML(p) {
+  const tglLahir = p.tanggal_lahir ? new Date(p.tanggal_lahir + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-";
+  const perluPerbaiki = p.status_berkas === "Kurang Lengkap";
+  return `
+    <div class="data-diri ${perluPerbaiki ? "perlu" : ""}" id="data-diri">
+      <div class="data-diri-kepala">
+        <strong>Data diri</strong>
+        ${bisaUbahDataDiri(p) ? `<button type="button" class="btn ${perluPerbaiki ? "btn-accent" : "btn-outline"}" id="btn-ubah-data">${ikon("pensil")} Perbaiki data diri</button>` : ""}
+      </div>
+      <dl class="data-diri-isi" id="data-diri-lihat">
+        <div><dt>NIK</dt><dd>${esc(p.nik)}</dd></div>
+        <div><dt>Tanggal lahir</dt><dd>${esc(tglLahir)}</dd></div>
+        <div class="penuh"><dt>Alamat</dt><dd>${esc(p.alamat || "-")}</dd></div>
+      </dl>
+      <form class="data-diri-form" id="form-data-diri" hidden novalidate>
+        <label>Nama lengkap (sesuai akta)<input name="nama" required minlength="3" maxlength="100" value="${esc(p.nama)}" autocomplete="name" /></label>
+        <label>NIK (16 digit, sesuai KK)<input name="nik" required inputmode="numeric" maxlength="20" value="${esc(p.nik)}" /></label>
+        <label>Tanggal lahir<input name="tanggalLahir" type="date" required value="${esc(String(p.tanggal_lahir || "").slice(0, 10))}" /></label>
+        <label class="penuh">Alamat rumah (sesuai KK)<textarea name="alamat" rows="2" maxlength="300">${esc(p.alamat || "")}</textarea></label>
+        <p class="data-diri-info penuh">${ikon("info")} Perubahan dicatat dan diperiksa ulang panitia. Lokasi GPS dan pilihan sekolah tidak berubah.</p>
+        <div class="data-diri-tombol penuh">
+          <button type="button" class="btn btn-outline" id="btn-batal-data">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan perbaikan</button>
+        </div>
+      </form>
+    </div>`;
+}
+
+function pasangDataDiri(p) {
+  const form = document.getElementById("form-data-diri");
+  const lihat = document.getElementById("data-diri-lihat");
+  const tombol = document.getElementById("btn-ubah-data");
+  if (!form || !tombol) return;
+  const tampilForm = (buka) => {
+    form.hidden = !buka; lihat.hidden = buka; tombol.hidden = buka;
+    if (buka) form.nik.focus();
+  };
+  tombol.addEventListener("click", () => tampilForm(true));
+  document.getElementById("btn-batal-data").addEventListener("click", () => { form.reset(); tampilForm(false); });
+  form.nik.addEventListener("input", () => {
+    const n = form.nik.value.replace(/\s+/g, "");
+    form.nik.setCustomValidity(/^\d{16}$/.test(n) ? "" : "NIK harus 16 digit angka.");
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    form.nik.dispatchEvent(new Event("input"));
+    if (!form.reportValidity()) return;
+    const kirim = form.querySelector('button[type="submit"]');
+    kirim.disabled = true; kirim.innerText = "Menyimpan…";
+    try {
+      const res = await fetch(`/api/pendaftar/${p.id}/data-diri`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama: form.nama.value, nik: form.nik.value, tanggalLahir: form.tanggalLahir.value, alamat: form.alamat.value }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Gagal menyimpan perbaikan.");
+      Dialog.toast(p.status_berkas === "Kurang Lengkap"
+        ? "Perbaikan tersimpan. Pendaftaran kembali ke antrean verifikasi panitia."
+        : "Perbaikan data diri tersimpan.");
+      await renderStatusView();
+    } catch (err) {
+      Dialog.toast(err instanceof TypeError ? "Tidak dapat terhubung ke server." : err.message, "peringatan");
+      kirim.disabled = false; kirim.innerText = "Simpan perbaikan";
+    }
+  });
+}
+
 /** FR-11: kotak estimasi posisi sementara di kartu pilihan yang sedang diproses */
 function estimasiHTML(e) {
   if (!e) return "";
@@ -1240,7 +1310,7 @@ async function renderStatusView() {
     statusBanner = `<div class="alert alert-error" style="background:#fff7ed;color:#c2410c;border-color:#fed7aa">
       <strong>${ikon("peringatan")} Berkas Anda Kurang Lengkap</strong> di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}.
       ${pendaftar.catatan_revisi ? `<br/>Catatan panitia: <em>${esc(pendaftar.catatan_revisi)}</em>` : ""}
-      ${pendaftar.batas_revisi_at ? `<br/>Unggah ulang berkas di bagian <strong>Berkas Pendaftaran</strong> di bawah paling lambat <strong>${esc(formatWaktuWIB(pendaftar.batas_revisi_at))}</strong>. Jika lewat batas waktu, pendaftaran otomatis dialihkan ke pilihan berikutnya.` : ""}
+      ${pendaftar.batas_revisi_at ? `<br/>Perbaiki paling lambat <strong>${esc(formatWaktuWIB(pendaftar.batas_revisi_at))}</strong>: jika yang salah isian data (mis. NIK), tekan <strong>Perbaiki data diri</strong> di atas; jika berkasnya, unggah ulang di bagian <strong>Berkas Pendaftaran</strong>. Jika lewat batas waktu, pendaftaran otomatis dialihkan ke pilihan berikutnya.` : ""}
     </div>`;
   } else {
     statusBanner = `<div class="alert alert-success" style="background:#fffbeb;color:#b45309;border-color:#fde68a">Sedang diproses di Pilihan ${pendaftar.prioritas_aktif}: <strong>${esc(sekolahNama(pendaftar.sekolah_aktif_id))}</strong> · Status berkas: ${esc(pendaftar.status_berkas)}</div>`;
@@ -1294,6 +1364,7 @@ async function renderStatusView() {
         <span style="color:var(--muted);font-size:13px">${esc(pendaftar.nomor)}</span>
       </div>
       ${statusBanner}
+      ${dataDiriHTML(pendaftar)}
     </div>
     ${renderProgres(pendaftar, jumlahBerkas, jenisDokumen.length)}
     <h3 class="sub-heading" style="margin-top:4px">Perjalanan Pilihan Sekolah</h3>
@@ -1305,6 +1376,7 @@ async function renderStatusView() {
     <ul class="timeline">${notifItems || '<li class="timeline-item">Belum ada notifikasi.</li>'}</ul>
   `;
 
+  pasangDataDiri(pendaftar);
   renderUploadList("status-upload-list", "status", pendaftar.id, dokumen || [], {
     jenisDokumen,
     keteranganKhusus: keteranganBerkasKhusus(pilihan.map((p) => ({ urutan: p.urutan_prioritas, sekolah: p.sekolah_nama, jenis: p.jalur_jenis }))),

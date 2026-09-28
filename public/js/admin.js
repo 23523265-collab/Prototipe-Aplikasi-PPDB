@@ -86,7 +86,7 @@ async function muatLogAdmin() {
         <div class="log-waktu">${esc(formatWaktuWIB(l.waktu))}</div>
         <div class="log-isi">
           <strong>${esc(l.aksi)}</strong>${l.detail ? ` <span class="log-detail">· ${esc(l.detail)}</span>` : ""}
-          <div class="log-meta">${l.aktor_tipe === "admin" ? "Admin Dinas · " : ""}${esc(l.aktor)}${l.sekolah_nama ? ` · ${esc(l.sekolah_nama)}` : ""}${l.pendaftar_nomor ? ` · ${esc(l.pendaftar_nomor)}` : ""}</div>
+          <div class="log-meta">${l.aktor_tipe === "admin" ? "Admin Dinas · " : l.aktor_tipe === "pendaftar" ? "Pendaftar · " : ""}${esc(l.aktor)}${l.sekolah_nama ? ` · ${esc(l.sekolah_nama)}` : ""}${l.pendaftar_nomor ? ` · ${esc(l.pendaftar_nomor)}` : ""}</div>
         </div>
       </li>`).join("")}</ul>` : '<p class="muted" style="margin:0;font-size:13px">Belum ada aktivitas tercatat.</p>';
   } catch (err) {
