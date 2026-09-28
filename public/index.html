@@ -345,11 +345,12 @@
   <!-- ===================== PROFIL SEKOLAH (klik kartu sekolah di Beranda) ===================== -->
   <div id="profil-latar" class="profil-latar" hidden></div>
   <section id="profil-sekolah" class="profil-lembar" role="dialog" aria-modal="true" aria-labelledby="profil-nama" hidden>
+    <!-- dipakai bersama: profil sekolah & detail jalur pendaftaran -->
     <div class="profil-pegangan" aria-hidden="true"></div>
     <header class="profil-kepala">
-      <span class="profil-ikon"><i data-ikon="sekolah"></i></span>
+      <span class="profil-ikon" id="profil-ikon"><i data-ikon="sekolah"></i></span>
       <div style="min-width:0">
-        <div class="profil-label">Profil sekolah</div>
+        <div class="profil-label" id="profil-label">Profil sekolah</div>
         <h2 id="profil-nama"></h2>
         <p id="profil-alamat"></p>
       </div>

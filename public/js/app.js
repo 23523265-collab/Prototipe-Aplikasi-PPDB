@@ -47,7 +47,7 @@ window.addEventListener("scroll", () => {
 
 /* Efek sentuh: riak (ripple) di titik yang ditekan + getaran halus di HP (jika didukung).
    Tanpa efek bila pengguna memilih "kurangi gerakan". */
-const SASARAN_SENTUH = ".btn, .nav-item, .strip-cta, .sekolah-kartu, .tab-filter button, .profil-jalur, .brand";
+const SASARAN_SENTUH = ".btn, .nav-item, .strip-cta, .sekolah-kartu, .jalur-info, .tab-filter button, .profil-jalur, .profil-sekolah-baris, .brand";
 document.addEventListener("pointerdown", (e) => {
   const el = e.target.closest(SASARAN_SENTUH);
   if (!el || el.disabled || kurangiGerak || e.button > 0) return;
@@ -200,6 +200,7 @@ function isiJalur(sel) {
     if (j.syarat_radius_km && jarak != null) info = jarak <= Number(j.syarat_radius_km) ? " — ✓ masuk radius" : " — ✕ di luar radius";
     return `<option value="${j.id}">${esc(j.nama)} (kuota ${j.kuota}${j.syarat_nilai_minimum ? ", min. nilai " + j.syarat_nilai_minimum : ""}${j.syarat_radius_km ? ", radius " + j.syarat_radius_km + " km" : ""})${info}</option>`;
   }).join("");
+  if (typeof terapkanJalurDisukai === "function") terapkanJalurDisukai(sel);
 }
 
 /* ---------- Cek jarak ke sekolah (sebelum mendaftar) ---------- */
@@ -352,7 +353,36 @@ const KET_JALUR = {
   prestasi_akademik: { ikon: "piala", urut: "nilai tertinggi" },
   prestasi_nonakademik: { ikon: "kilau", urut: "skor sertifikat tertinggi", syarat: "Sertifikat prestasi, diberi skor panitia" },
 };
-let profilDibuka = null; // { id, asal } -- asal = elemen yang difokus kembali saat ditutup
+let profilDibuka = null; // { tipe: "sekolah"|"jalur", id | kunci, asal } -- asal = elemen yang difokus kembali saat ditutup
+
+function renderProfil() {
+  if (profilDibuka?.tipe === "jalur") renderDetailJalur();
+  else renderProfilSekolah();
+}
+
+/** Kepala lembar: ikon, label kecil, judul, dan subjudul */
+function kepalaLembar(ikonNama, label, judul, sub) {
+  document.getElementById("profil-ikon").innerHTML = ikon(ikonNama);
+  document.getElementById("profil-label").innerText = label;
+  document.getElementById("profil-nama").innerText = judul;
+  document.getElementById("profil-alamat").innerText = sub;
+}
+
+/** Kotak "Seberapa jauh dari rumahmu?" + tombol cek jarak (id profil-cek-jarak) */
+function kotakCekJarak(teks) {
+  return `<div class="profil-jarak"><span>${ikon("lokasi")}</span><div><strong>Seberapa jauh dari rumahmu?</strong><small>${teks}</small></div>
+      <button type="button" class="btn btn-outline" id="profil-cek-jarak">Cek jarak</button></div>`;
+}
+function pasangCekJarak() {
+  document.getElementById("profil-cek-jarak")?.addEventListener("click", async (e) => {
+    e.currentTarget.disabled = true;
+    e.currentTarget.innerText = "Mengambil lokasi…";
+    const lokasi = await ambilLokasi(true);
+    if (!lokasi) Dialog.toast(pesanGagalLokasi(), "peringatan");
+    renderProfil();
+    renderSekolahBeranda();
+  });
+}
 
 function renderProfilSekolah() {
   const s = sekolahList.find((x) => x.id === profilDibuka?.id);
@@ -366,13 +396,11 @@ function renderProfilSekolah() {
   const lat = Number(s.latitude), lng = Number(s.longitude);
   const adaKoordinat = s.latitude != null && Number.isFinite(lat) && Number.isFinite(lng);
 
-  document.getElementById("profil-nama").innerText = s.nama;
-  document.getElementById("profil-alamat").innerText = s.alamat || "-";
+  kepalaLembar("sekolah", "Profil sekolah", s.nama, s.alamat || "-");
 
   let jarakHTML;
   if (jarak == null) {
-    jarakHTML = `<div class="profil-jarak"><span>${ikon("lokasi")}</span><div><strong>Seberapa jauh dari rumahmu?</strong><small>Izinkan lokasi untuk melihat jarak dan apakah rumahmu masuk radius Domisili.</small></div>
-      <button type="button" class="btn btn-outline" id="profil-cek-jarak">Cek jarak</button></div>`;
+    jarakHTML = kotakCekJarak("Izinkan lokasi untuk melihat jarak dan apakah rumahmu masuk radius Domisili.");
   } else {
     const masuk = domisili && jarak <= Number(domisili.syarat_radius_km);
     jarakHTML = `<div class="profil-jarak ${masuk ? "masuk" : "luar"}"><span>${ikon("lokasi")}</span><div><strong>${jarak.toFixed(1)} km dari lokasimu</strong>
@@ -385,13 +413,15 @@ function renderProfilSekolah() {
       : j.jenis === "prestasi_akademik" ? `Nilai rapor/TKA ≥ ${esc(j.syarat_nilai_minimum ?? "-")}`
       : k.syarat || "-";
     const persen = total ? Math.round((Number(j.kuota) / total) * 100) : 0;
-    return `<div class="profil-jalur">
+    const kunciJalur = j.jenis.startsWith("prestasi") ? "prestasi" : j.jenis;
+    return `<div class="profil-jalur" role="button" tabindex="0" data-buka-jalur="${kunciJalur}" aria-label="Detail jalur ${esc(j.nama)}">
         <span class="profil-jalur-ikon">${ikon(k.ikon)}</span>
         <div class="profil-jalur-isi">
           <div class="profil-jalur-atas"><strong>${esc(j.nama)}</strong><span><b>${j.kuota}</b> kursi · ${persen}%</span></div>
           <div class="profil-batang"><span style="--lebar:${persen}%"></span></div>
           <small>${syarat} · urut ${k.urut}</small>
         </div>
+        <span class="profil-panah">${ikon("panahKanan")}</span>
       </div>`;
   }).join("");
 
@@ -403,7 +433,7 @@ function renderProfilSekolah() {
       <div><strong>${diterima}</strong><span>sudah diterima</span></div>
     </div>
     ${jarakHTML}
-    <h3 class="profil-sub">Kuota & syarat per jalur</h3>
+    <h3 class="profil-sub">Kuota & syarat per jalur <span>ketuk untuk detail</span></h3>
     <div class="profil-jalur-daftar">${jalurHTML}</div>
     ${adaKoordinat ? `<h3 class="profil-sub">Lokasi</h3>
       <iframe class="profil-peta" title="Peta lokasi ${esc(s.nama)}" loading="lazy"
@@ -414,30 +444,176 @@ function renderProfilSekolah() {
     ${adaKoordinat ? `<a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank" rel="noopener">${ikon("lokasi")} Rute</a>` : ""}
     <button type="button" class="btn btn-accent" id="profil-daftar">Daftar di sekolah ini ${ikon("panahKanan")}</button>`;
 
-  document.getElementById("profil-cek-jarak")?.addEventListener("click", async (e) => {
-    e.currentTarget.disabled = true;
-    e.currentTarget.innerText = "Mengambil lokasi…";
-    const lokasi = await ambilLokasi(true);
-    if (!lokasi) Dialog.toast(pesanGagalLokasi(), "peringatan");
-    renderProfilSekolah();
-    renderSekolahBeranda();
-  });
+  pasangCekJarak();
   document.getElementById("profil-daftar").addEventListener("click", () => daftarDiSekolah(s.id));
 }
 
-function bukaProfilSekolah(id, asal = null) {
-  profilDibuka = { id, asal };
-  renderProfilSekolah();
+/* ---------- Detail jalur pendaftaran (Domisili, Afirmasi, Mutasi, Prestasi) ---------- */
+const INFO_JALUR = {
+  domisili: {
+    ikon: "lokasi", judul: "Jalur Domisili", sub: "Berdasarkan jarak tempat tinggal ke sekolah", jenis: ["domisili"], pakaiJarak: true,
+    cocok: ["Calon siswa yang tinggal dekat sekolah (di dalam radius domisili).", "Alamat di Kartu Keluarga sesuai dengan lokasi rumah yang diajukan."],
+    syarat: (r) => [`Jarak rumah ke sekolah <strong>≤ radius domisili</strong> sekolah itu (${r}).`, "Lokasi rumah diambil dari GPS saat mendaftar, lalu dicocokkan panitia dengan alamat di KK."],
+    berkas: [], urut: "Jarak <strong>terdekat</strong> ke sekolah diterima lebih dulu.",
+  },
+  afirmasi: {
+    ikon: "perisai", judul: "Jalur Afirmasi", sub: "Keluarga tidak mampu & penyandang disabilitas", jenis: ["afirmasi"], pakaiJarak: true,
+    cocok: ["Pemegang KIP (Kartu Indonesia Pintar) atau peserta PKH.", "Keluarga yang terdaftar di DTKS.", "Calon siswa penyandang disabilitas."],
+    syarat: () => ["Memilih kategori (KIP/PKH/DTKS/disabilitas) di formulir.", "Kelayakan dibuktikan dengan berkas yang diverifikasi panitia; <strong>tidak ada syarat radius</strong>."],
+    berkas: ["Bukti Afirmasi (kartu KIP/PKH, bukti DTKS, atau surat keterangan disabilitas)"], urut: "Jarak <strong>terdekat</strong> diterima lebih dulu; pendaftar tanpa lokasi ditempatkan paling akhir.",
+  },
+  mutasi: {
+    ikon: "alih", judul: "Jalur Mutasi", sub: "Perpindahan tugas orang tua & anak guru", jenis: ["mutasi"], pakaiJarak: true,
+    cocok: ["Anak dari orang tua/wali yang dipindahtugaskan ke wilayah ini.", "Anak guru atau tenaga kependidikan di sekolah tujuan."],
+    syarat: () => ["Memilih kategori (pindah tugas / anak guru) di formulir.", "Surat penugasan/keterangan diverifikasi panitia; <strong>tidak ada syarat radius</strong>."],
+    berkas: ["Surat Mutasi / surat keterangan anak guru-tenaga kependidikan"], urut: "Jarak <strong>terdekat</strong> diterima lebih dulu; pendaftar tanpa lokasi ditempatkan paling akhir.",
+  },
+  prestasi: {
+    ikon: "piala", judul: "Jalur Prestasi", sub: "Akademik (nilai) & nonakademik (lomba, organisasi)", jenis: ["prestasi_akademik", "prestasi_nonakademik"], pakaiJarak: false,
+    cocok: ["<strong>Akademik:</strong> nilai rapor (atau hasil TKA) tinggi.", "<strong>Nonakademik:</strong> juara lomba, ketua OSIS, pramuka, olahraga, seni, dan sejenisnya."],
+    syarat: (r, n) => [`<strong>Akademik:</strong> rata-rata nilai ≥ ${n}.`, "<strong>Nonakademik:</strong> menuliskan prestasi di formulir; panitia memberi skor 0–100 dari sertifikat."],
+    berkas: ["Sertifikat Prestasi (khusus nonakademik)"], urut: "<strong>Akademik:</strong> nilai tertinggi. <strong>Nonakademik:</strong> skor sertifikat tertinggi.",
+  },
+};
+
+function renderDetailJalur() {
+  const info = INFO_JALUR[profilDibuka?.kunci];
+  if (!info) return;
+  const jalurIni = jalurList.filter((j) => info.jenis.includes(j.jenis));
+  const totalKursi = jalurIni.reduce((n, j) => n + (Number(j.kuota) || 0), 0);
+  const totalSemua = jalurList.reduce((n, j) => n + (Number(j.kuota) || 0), 0);
+  const unik = (arr) => [...new Set(arr.filter((x) => x != null).map(Number))].sort((a, b) => a - b);
+  const radius = unik(jalurIni.map((j) => j.syarat_radius_km));
+  const nilaiMin = unik(jalurIni.filter((j) => j.jenis === "prestasi_akademik").map((j) => j.syarat_nilai_minimum));
+  kepalaLembar(info.ikon, "Jalur pendaftaran", info.judul, info.sub);
+
+  const adaLokasi = !!lokasiTerakhir;
+  const barisSekolah = sekolahList.map((s) => {
+    const j = jalurIni.filter((x) => x.sekolah_id === s.id);
+    return { s, j, kursi: j.reduce((n, x) => n + (Number(x.kuota) || 0), 0), jarak: jarakKeSekolah(s) };
+  }).filter((x) => x.j.length);
+  barisSekolah.sort(adaLokasi ? (a, b) => a.jarak - b.jarak : (a, b) => b.kursi - a.kursi || a.s.nama.localeCompare(b.s.nama));
+  const masukRadius = barisSekolah.filter((x) => { const d = x.j.find((y) => y.jenis === "domisili"); return d && x.jarak != null && x.jarak <= Number(d.syarat_radius_km); });
+
+  const daftarSekolahHTML = barisSekolah.map((x) => {
+    const dom = x.j.find((y) => y.jenis === "domisili");
+    const rinci = profilDibuka.kunci === "prestasi"
+      ? x.j.map((y) => `${y.jenis === "prestasi_akademik" ? "Akademik" : "Nonakademik"} ${y.kuota}`).join(" · ")
+      : dom ? `radius ${esc(dom.syarat_radius_km)} km` : "";
+    let tanda = "";
+    if (x.jarak != null) {
+      const cocok = dom ? x.jarak <= Number(dom.syarat_radius_km) : null;
+      tanda = `<span class="ps-jarak ${cocok === true ? "masuk" : cocok === false ? "luar" : ""}">${cocok === true ? "✓ " : cocok === false ? "✕ " : ""}${x.jarak.toFixed(1)} km</span>`;
+    }
+    return `<div class="profil-sekolah-baris" role="button" tabindex="0" data-buka-sekolah="${x.s.id}" aria-label="Profil ${esc(x.s.nama)}">
+        <div class="ps-isi"><strong>${esc(x.s.nama)}</strong><small>${rinci}</small></div>
+        ${tanda}
+        <span class="ps-kursi"><b>${x.kursi}</b> kursi</span>
+        <span class="profil-panah">${ikon("panahKanan")}</span>
+      </div>`;
+  }).join("");
+
+  const daftar = (arr) => `<ul class="profil-poin">${arr.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+  let jarakHTML = "";
+  if (info.pakaiJarak) {
+    jarakHTML = !adaLokasi
+      ? kotakCekJarak(profilDibuka.kunci === "domisili" ? "Izinkan lokasi untuk melihat sekolah mana saja yang masuk radius dari rumahmu." : "Peringkat jalur ini memakai jarak; izinkan lokasi untuk melihat sekolah terdekat.")
+      : profilDibuka.kunci === "domisili"
+        ? `<div class="profil-jarak ${masukRadius.length ? "masuk" : "luar"}"><span>${ikon("lokasi")}</span><div><strong>${masukRadius.length ? `${masukRadius.length} sekolah masuk radius dari rumahmu` : "Belum ada sekolah dalam radius dari rumahmu"}</strong>
+            <small>${masukRadius.length ? masukRadius.map((x) => esc(x.s.nama)).join(", ") : "Jalur Afirmasi, Mutasi, dan Prestasi tidak memakai syarat radius."}</small></div></div>`
+        : `<div class="profil-jarak masuk"><span>${ikon("lokasi")}</span><div><strong>Sekolah diurutkan dari yang terdekat</strong><small>Makin dekat, makin tinggi peringkatmu di jalur ini.</small></div></div>`;
+  }
+
+  document.getElementById("profil-isi").innerHTML = `
+    <div class="profil-angka">
+      <div><strong>${totalKursi}</strong><span>kursi di semua sekolah</span></div>
+      <div><strong>${totalSemua ? Math.round((totalKursi / totalSemua) * 100) : 0}%</strong><span>dari total kursi</span></div>
+      <div><strong>${barisSekolah.length}</strong><span>sekolah membuka</span></div>
+      <div><strong>${info.pakaiJarak ? "Jarak" : "Nilai"}</strong><span>dasar peringkat</span></div>
+    </div>
+    <h3 class="profil-sub">Siapa yang cocok</h3>${daftar(info.cocok)}
+    <h3 class="profil-sub">Syarat</h3>${daftar(info.syarat(radius.length ? radius.join(" atau ") + " km" : "-", nilaiMin.length ? nilaiMin.join(" / ") : "-"))}
+    <h3 class="profil-sub">Berkas yang diunggah</h3>
+    <div class="profil-berkas">${DOKUMEN_DASAR.map((b) => `<span>${ikon("berkas")} ${esc(b)}</span>`).join("")}${info.berkas.map((b) => `<span class="khusus">${ikon("berkas")} ${b}</span>`).join("")}</div>
+    <h3 class="profil-sub">Cara peringkat</h3>
+    <p class="profil-teks">${info.urut} Jika sama, <strong>usia lebih tua</strong> didahulukan, lalu yang <strong>mendaftar lebih awal</strong>.</p>
+    ${jarakHTML}
+    <h3 class="profil-sub">Kursi jalur ini per sekolah <span>${adaLokasi && info.pakaiJarak ? "urut terdekat" : "ketuk untuk profil"}</span></h3>
+    <div class="profil-jalur-daftar">${daftarSekolahHTML}</div>
+    <p class="profil-catatan">Setiap pilihan sekolah boleh memakai jalur berbeda. Kuota ditetapkan Admin Dinas dan dapat berubah sebelum pendaftaran ditutup.</p>`;
+
+  document.getElementById("profil-kaki").innerHTML = `
+    <button type="button" class="btn btn-accent" id="profil-daftar">Daftar lewat jalur ini ${ikon("panahKanan")}</button>`;
+  pasangCekJarak();
+  document.getElementById("profil-daftar").addEventListener("click", () => daftarLewatJalur(profilDibuka.kunci));
+}
+
+/** Jalur yang dipilih dari detail jalur: dipasang otomatis saat pendaftar memilih sekolah di formulir */
+let jenisJalurDisukai = null;
+function daftarLewatJalur(kunci) {
+  const info = INFO_JALUR[kunci];
+  jenisJalurDisukai = info.jenis[0];
+  tutupProfilSekolah();
+  showView("daftar");
+  document.querySelectorAll(".select-sekolah").forEach((sel) => { if (sel.value) terapkanJalurDisukai(sel); });
+  perbaruiInfoJalur();
+  Dialog.toast(`${info.judul} dipilih. Di langkah Pilihan Sekolah, jalur ini otomatis terpasang untuk sekolah yang kamu pilih (bisa diubah).`);
+}
+function terapkanJalurDisukai(sel) {
+  if (!jenisJalurDisukai) return;
+  const jalurSel = document.querySelector(`.select-jalur[data-index="${sel.dataset.index}"]`);
+  const cocok = jalurOptionsForSekolah(sel.value).find((j) => j.jenis === jenisJalurDisukai);
+  if (cocok) jalurSel.value = String(cocok.id);
+}
+
+/** Tampilkan lembar (dipakai profil sekolah & detail jalur). Bila sudah terbuka, cukup ganti isinya. */
+function tampilkanLembar(isi) {
+  const sudahBuka = !!profilDibuka;
+  const asal = sudahBuka ? profilDibuka.asal : isi.asal;
+  profilDibuka = { ...isi, asal };
+  renderProfil();
   const lembar = document.getElementById("profil-sekolah");
+  lembar.querySelector(".profil-isi").scrollTop = 0;
+  if (sudahBuka) { lembar.classList.remove("ganti"); void lembar.offsetWidth; lembar.classList.add("ganti"); return; }
   const latar = document.getElementById("profil-latar");
+  clearTimeout(timerTutupLembar);
   lembar.hidden = false;
   latar.hidden = false;
   document.body.classList.add("profil-terbuka");
   requestAnimationFrame(() => { lembar.classList.add("buka"); latar.classList.add("buka"); });
-  lembar.querySelector(".profil-isi").scrollTop = 0;
   setTimeout(() => document.getElementById("profil-tutup").focus(), 60);
 }
+function bukaProfilJalur(kunci, asal = null) { tampilkanLembar({ tipe: "jalur", kunci, asal }); }
 
+// Klik/Enter di dalam lembar: baris jalur -> detail jalur, baris sekolah -> profil sekolah
+(function navigasiDalamLembar() {
+  const isi = document.getElementById("profil-isi");
+  const buka = (el) => {
+    if (el.dataset.bukaJalur) bukaProfilJalur(el.dataset.bukaJalur);
+    else if (el.dataset.bukaSekolah) bukaProfilSekolah(Number(el.dataset.bukaSekolah));
+  };
+  isi.addEventListener("click", (e) => { const el = e.target.closest("[data-buka-jalur], [data-buka-sekolah]"); if (el) buka(el); });
+  isi.addEventListener("keydown", (e) => {
+    const el = e.target.closest("[data-buka-jalur], [data-buka-sekolah]");
+    if (el && e.target === el && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); buka(el); }
+  });
+})();
+
+// Kartu jalur di Beranda
+(function kartuJalurBisaDiklik() {
+  const wadah = document.getElementById("beranda-jalur");
+  wadah.addEventListener("click", (e) => { const k = e.target.closest("[data-jalur]"); if (k) bukaProfilJalur(k.dataset.jalur, k); });
+  wadah.addEventListener("keydown", (e) => {
+    const k = e.target.closest("[data-jalur]");
+    if (k && e.target === k && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); bukaProfilJalur(k.dataset.jalur, k); }
+  });
+})();
+
+function bukaProfilSekolah(id, asal = null) {
+  tampilkanLembar({ tipe: "sekolah", id, asal });
+}
+
+let timerTutupLembar = null;
 function tutupProfilSekolah() {
   if (!profilDibuka) return;
   const lembar = document.getElementById("profil-sekolah");
@@ -447,7 +623,8 @@ function tutupProfilSekolah() {
   document.body.classList.remove("profil-terbuka");
   const asal = profilDibuka.asal;
   profilDibuka = null;
-  setTimeout(() => { lembar.hidden = true; latar.hidden = true; }, kurangiGerak ? 0 : 280);
+  lembar.classList.remove("ganti");
+  timerTutupLembar = setTimeout(() => { lembar.hidden = true; latar.hidden = true; }, kurangiGerak ? 0 : 280);
   asal?.focus();
 }
 document.getElementById("profil-tutup").addEventListener("click", tutupProfilSekolah);
@@ -456,7 +633,7 @@ document.addEventListener("keydown", (e) => {
   if (!profilDibuka) return;
   if (e.key === "Escape") tutupProfilSekolah();
   if (e.key === "Tab") { // fokus tetap di dalam lembar profil
-    const fokusable = [...document.querySelectorAll("#profil-sekolah button, #profil-sekolah a, #profil-sekolah iframe")].filter((x) => !x.disabled);
+    const fokusable = [...document.querySelectorAll("#profil-sekolah button, #profil-sekolah a, #profil-sekolah iframe, #profil-sekolah [tabindex='0']")].filter((x) => !x.disabled);
     const [pertama, terakhir] = [fokusable[0], fokusable[fokusable.length - 1]];
     if (e.shiftKey && document.activeElement === pertama) { e.preventDefault(); terakhir.focus(); }
     else if (!e.shiftKey && document.activeElement === terakhir) { e.preventDefault(); pertama.focus(); }
@@ -533,11 +710,13 @@ function renderJalurBeranda() {
   const unik = (arr) => [...new Set(arr.filter((x) => x != null).map(Number))].sort((a, b) => a - b);
   const radius = unik(jalurList.filter((j) => j.jenis === "domisili").map((j) => j.syarat_radius_km));
   const nilaiMin = unik(jalurList.filter((j) => j.jenis === "prestasi_akademik").map((j) => j.syarat_nilai_minimum));
+  const kunciDari = { Domisili: "domisili", Afirmasi: "afirmasi", Mutasi: "mutasi", Prestasi: "prestasi" };
   const kartu = (ikonNama, judul, sub, isi, berkas) => `
-    <div class="jalur-info">
+    <div class="jalur-info" role="button" tabindex="0" data-jalur="${kunciDari[judul]}" aria-label="Lihat detail jalur ${judul}">
       <div class="jalur-info-kepala"><span class="stat-ico">${ikon(ikonNama)}</span><div><strong>${judul}</strong><span>${sub}</span></div></div>
       <ul>${isi.map((x) => `<li>${x}</li>`).join("")}</ul>
       ${berkas ? `<p class="jalur-berkas">${ikon("berkas")} Berkas tambahan: <strong>${berkas}</strong></p>` : ""}
+      <span class="jalur-detail">Lihat detail & sekolah ${ikon("panahKanan")}</span>
     </div>`;
   document.getElementById("beranda-jalur").innerHTML =
     kartu("lokasi", "Domisili", "Berdasarkan jarak tempat tinggal", [
