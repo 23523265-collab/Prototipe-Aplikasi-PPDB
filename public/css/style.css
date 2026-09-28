@@ -899,6 +899,113 @@ a.berkas-chip:hover { border-color: var(--navy); background: #f8f9fb; color: var
 .sekolah-kartu:hover .sekolah-ikon { background: var(--navy); color: #fff; }
 .sekolah-ikon { transition: background 0.25s ease, color 0.25s ease; }
 
+/* ---------- Efek sentuh & gulir ---------- */
+* { -webkit-tap-highlight-color: transparent; }
+.punya-riak { position: relative; overflow: hidden; }
+.riak {
+  position: absolute; border-radius: 50%; pointer-events: none; z-index: 0;
+  background: currentColor; opacity: 0.16; transform: scale(0);
+  animation: riak 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+.btn-primary .riak, .btn-accent .riak, .strip-cta .riak, .nav-item.active .riak { background: #fff; opacity: 0.3; }
+@keyframes riak { to { transform: scale(1); opacity: 0; } }
+.btn, .nav-item, .strip-cta, .tab-filter button, .brand { transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease; }
+.btn:active:not(:disabled), .nav-item:active, .strip-cta:active, .tab-filter button:active, .brand:active { transform: scale(0.96); }
+.sekolah-kartu { cursor: pointer; }
+.sekolah-kartu:active { transform: translateY(-1px) scale(0.985); transition-duration: 0.1s; }
+.sekolah-kartu:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.sekolah-aksi { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.sekolah-profil { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--navy); }
+.sekolah-profil svg { width: 14px; height: 14px; transition: transform 0.2s ease; }
+.sekolah-kartu:hover .sekolah-profil svg { transform: translateX(3px); }
+.sekolah-aksi .sekolah-peta { margin-top: 0; display: inline-flex; align-items: center; gap: 4px; }
+.sekolah-aksi .sekolah-peta svg { width: 13px; height: 13px; }
+html.anim .sekolah-grid .sekolah-kartu { animation: kartuMasuk 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes kartuMasuk { from { opacity: 0; transform: translateY(14px) scale(0.98); } }
+.gulir-progres { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none; }
+.gulir-progres span { display: block; height: 100%; background: linear-gradient(90deg, var(--amber), var(--amber-light)); transform: scaleX(0); transform-origin: left; transition: transform 0.1s linear; }
+
+/* ---------- Profil sekolah (lembar dari bawah di HP, panel tengah di laptop) ---------- */
+body.profil-terbuka { overflow: hidden; }
+.profil-latar { position: fixed; inset: 0; background: rgba(18,35,61,0.45); backdrop-filter: blur(3px); z-index: 90; opacity: 0; transition: opacity 0.28s ease; }
+.profil-latar.buka { opacity: 1; }
+.profil-lembar {
+  position: fixed; z-index: 91; left: 50%; top: 50%; width: min(640px, calc(100vw - 32px)); max-height: min(86vh, 820px);
+  display: flex; flex-direction: column; background: #fff; border-radius: 20px; box-shadow: var(--shadow-lg); overflow: hidden;
+  opacity: 0; transform: translate(-50%, -46%) scale(0.97); transition: opacity 0.28s ease, transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.profil-lembar.buka { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.profil-pegangan { display: none; }
+.profil-kepala { display: flex; gap: 14px; align-items: flex-start; padding: 20px 22px 18px; background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; position: relative; }
+.profil-ikon { flex-shrink: 0; width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--amber), var(--amber-dark)); box-shadow: 0 6px 16px -6px rgba(201,138,44,0.7); }
+.profil-ikon svg { width: 22px; height: 22px; }
+.profil-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-light); }
+.profil-kepala h2 { color: #fff; font-size: 22px; margin: 2px 0 2px; }
+.profil-kepala p { margin: 0; font-size: 13px; color: rgba(255,255,255,0.78); }
+.profil-tutup { margin-left: auto; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; border: 0; background: rgba(255,255,255,0.12); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s ease, transform 0.15s ease; }
+.profil-tutup:hover { background: rgba(255,255,255,0.22); }
+.profil-tutup:active { transform: scale(0.92); }
+.profil-tutup:focus-visible { outline: 2px solid var(--amber-light); outline-offset: 2px; }
+.profil-tutup svg { width: 18px; height: 18px; }
+.profil-isi { overflow-y: auto; padding: 18px 22px 8px; overscroll-behavior: contain; }
+.profil-angka { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.profil-angka > div { background: var(--bg); border-radius: 12px; padding: 10px 8px; text-align: center; }
+.profil-angka strong { display: block; font-family: 'Source Serif 4', serif; font-size: 22px; color: var(--navy); line-height: 1.1; }
+.profil-angka span { font-size: 11.5px; color: var(--muted); }
+.profil-jarak { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: #fafaf7; margin-bottom: 4px; }
+.profil-jarak > span { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #f4efe4; color: var(--amber-dark); }
+.profil-jarak > span svg { width: 17px; height: 17px; }
+.profil-jarak > div { flex: 1; min-width: 0; }
+.profil-jarak strong { display: block; font-size: 14px; color: var(--navy); }
+.profil-jarak small { font-size: 12px; color: var(--muted); }
+.profil-jarak .btn { padding: 7px 12px; font-size: 13px; flex-shrink: 0; }
+.profil-jarak.masuk { background: #f0fdf6; border-color: #a7f3d0; }
+.profil-jarak.masuk > span { background: #d1fae5; color: #047857; }
+.profil-jarak.luar { background: #fff7ed; border-color: #fed7aa; }
+.profil-sub { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; font-family: 'Inter', sans-serif; }
+.profil-jalur-daftar { display: grid; gap: 8px; }
+.profil-jalur { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease; }
+.profil-jalur:hover { border-color: var(--amber-light); background: #fffdf8; }
+.profil-jalur:active { transform: scale(0.985); }
+.profil-jalur-ikon { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #eef2f8; color: var(--navy); }
+.profil-jalur-ikon svg { width: 17px; height: 17px; }
+.profil-jalur-isi { flex: 1; min-width: 0; }
+.profil-jalur-atas { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+.profil-jalur-atas strong { color: var(--navy); }
+.profil-jalur-atas span { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.profil-jalur-atas b { color: var(--ink); }
+.profil-jalur small { font-size: 12px; color: var(--muted); }
+.profil-batang { height: 5px; border-radius: 99px; background: rgba(27,51,88,0.08); margin: 6px 0 5px; overflow: hidden; }
+.profil-batang span { display: block; height: 100%; width: var(--lebar); border-radius: 99px; background: linear-gradient(90deg, var(--amber), var(--navy)); transform-origin: left; }
+.profil-lembar.buka .profil-batang span { animation: batangTumbuh 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both; }
+@keyframes batangTumbuh { from { transform: scaleX(0); } }
+.profil-peta { width: 100%; height: 220px; border: 1px solid var(--border); border-radius: 12px; display: block; background: var(--bg); }
+.profil-catatan { font-size: 11.5px; color: var(--muted); margin: 12px 0 8px; }
+.profil-kaki { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 22px calc(14px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); background: #fff; }
+.profil-kaki .btn { display: inline-flex; align-items: center; gap: 6px; }
+.profil-kaki .btn svg { width: 15px; height: 15px; }
+@media (max-width: 640px) {
+  .profil-lembar {
+    left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 90vh; border-radius: 20px 20px 0 0;
+    transform: translateY(100%); opacity: 1;
+  }
+  .profil-lembar.buka { transform: translateY(0); }
+  .profil-pegangan { display: block; position: absolute; top: 7px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: rgba(255,255,255,0.45); z-index: 1; }
+  .profil-kepala { padding: 22px 16px 16px; }
+  .profil-kepala h2 { font-size: 19px; }
+  .profil-isi { padding: 14px 16px 6px; }
+  .profil-angka { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profil-kaki { padding-inline: 16px; }
+  .profil-kaki .btn { justify-content: center; }
+  .profil-kaki .btn-accent { flex: 1; white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .riak { display: none; }
+  html.anim .sekolah-grid .sekolah-kartu { animation: none; }
+  .profil-lembar, .profil-latar { transition: none; }
+  .profil-lembar.buka .profil-batang span { animation: none; }
+}
+
 /* Navbar mendapat bayangan setelah halaman digulir */
 .topnav { transition: box-shadow 0.25s ease, background 0.25s ease; }
 .topnav.tergulir { box-shadow: 0 8px 24px -12px rgba(27,51,88,0.35); background: rgba(255,255,255,0.97); }

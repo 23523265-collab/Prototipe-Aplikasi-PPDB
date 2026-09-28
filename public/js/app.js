@@ -37,9 +37,29 @@ document.documentElement.classList.add("anim"); // CSS efek muncul hanya aktif k
   bagian.forEach((el) => pengamat.observe(el));
 })();
 
-// Navbar mendapat bayangan setelah halaman digulir
+// Navbar mendapat bayangan setelah halaman digulir + garis progres gulir di bawah navbar
+const garisProgres = document.getElementById("gulir-progres");
 window.addEventListener("scroll", () => {
   document.querySelector(".topnav").classList.toggle("tergulir", window.scrollY > 8);
+  const maks = document.documentElement.scrollHeight - window.innerHeight;
+  garisProgres.style.transform = `scaleX(${maks > 0 ? Math.min(1, window.scrollY / maks) : 0})`;
+}, { passive: true });
+
+/* Efek sentuh: riak (ripple) di titik yang ditekan + getaran halus di HP (jika didukung).
+   Tanpa efek bila pengguna memilih "kurangi gerakan". */
+const SASARAN_SENTUH = ".btn, .nav-item, .strip-cta, .sekolah-kartu, .tab-filter button, .profil-jalur, .brand";
+document.addEventListener("pointerdown", (e) => {
+  const el = e.target.closest(SASARAN_SENTUH);
+  if (!el || el.disabled || kurangiGerak || e.button > 0) return;
+  const kotak = el.getBoundingClientRect();
+  const ukuran = Math.max(kotak.width, kotak.height) * 2;
+  const riak = document.createElement("span");
+  riak.className = "riak";
+  riak.style.cssText = `width:${ukuran}px;height:${ukuran}px;left:${e.clientX - kotak.left - ukuran / 2}px;top:${e.clientY - kotak.top - ukuran / 2}px`;
+  el.classList.add("punya-riak");
+  el.appendChild(riak);
+  riak.addEventListener("animationend", () => riak.remove());
+  if (e.pointerType === "touch" && navigator.vibrate) navigator.vibrate(8);
 }, { passive: true });
 
 /** Angka naik dari 0 ke nilai akhir (statistik Beranda) */
@@ -275,7 +295,7 @@ function renderSekolahBeranda() {
     ? `${cocok.length} dari ${sekolahList.length} sekolah`
     : `${sekolahList.length} sekolah`;
 
-  document.getElementById("beranda-sekolah").innerHTML = tampil.length ? tampil.map((s) => {
+  document.getElementById("beranda-sekolah").innerHTML = tampil.length ? tampil.map((s, i) => {
     const jalur = jalurOptionsForSekolah(s.id);
     const domisili = jalur.find((j) => j.jenis === "domisili");
     const kuotaJalur = (jenis) => jalur.find((j) => j.jenis === jenis)?.kuota;
@@ -285,7 +305,7 @@ function renderSekolahBeranda() {
     const totalKursi = jalur.reduce((n, j) => n + (Number(j.kuota) || 0), 0);
     const peta = s.latitude != null ? `https://www.google.com/maps?q=${Number(s.latitude)},${Number(s.longitude)}` : null;
     return `
-      <div class="sekolah-kartu">
+      <div class="sekolah-kartu" role="button" tabindex="0" data-sekolah="${s.id}" style="--i:${i}" aria-label="Lihat profil ${esc(s.nama)}">
         <span class="sekolah-ikon">${ikon("sekolah")}</span>
         <div style="min-width:0">
           <strong>${esc(s.nama)}</strong>
@@ -299,12 +319,188 @@ function renderSekolahBeranda() {
               ? `<span class="rinci-prestasi">Prestasi ${(kuotaJalur("prestasi_akademik") || 0) + (kuotaJalur("prestasi_nonakademik") || 0)}</span>` : ""}
             ${jarakHTML}
           </div>
-          ${peta ? `<a class="sekolah-peta" href="${peta}" target="_blank" rel="noopener">Lihat di peta ${ikon("panahKanan")}</a>` : ""}
+          <div class="sekolah-aksi">
+            <span class="sekolah-profil">Lihat profil ${ikon("panahKanan")}</span>
+            ${peta ? `<a class="sekolah-peta" href="${peta}" target="_blank" rel="noopener">${ikon("lokasi")} Peta</a>` : ""}
+          </div>
         </div>
       </div>`;
   }).join("") : `<p class="muted" style="grid-column:1/-1">Tidak ada sekolah yang cocok dengan "${esc(kata)}".</p>`;
 }
 document.getElementById("cari-sekolah").addEventListener("input", () => renderSekolahBeranda());
+
+// Klik / Enter pada kartu sekolah -> buka profil (tautan peta di dalam kartu tetap berfungsi sendiri)
+const daftarSekolahEl = document.getElementById("beranda-sekolah");
+daftarSekolahEl.addEventListener("click", (e) => {
+  if (e.target.closest("a")) return;
+  const kartu = e.target.closest("[data-sekolah]");
+  if (kartu) bukaProfilSekolah(Number(kartu.dataset.sekolah), kartu);
+});
+daftarSekolahEl.addEventListener("keydown", (e) => {
+  const kartu = e.target.closest("[data-sekolah]");
+  if (kartu && e.target === kartu && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    bukaProfilSekolah(Number(kartu.dataset.sekolah), kartu);
+  }
+});
+
+/* ---------- Profil sekolah: kuota & syarat tiap jalur, jarak dari rumah, peta, dan tombol daftar ---------- */
+const KET_JALUR = {
+  domisili: { ikon: "lokasi", urut: "jarak terdekat" },
+  afirmasi: { ikon: "perisai", urut: "jarak terdekat", syarat: "Bukti KIP/PKH/DTKS/disabilitas" },
+  mutasi: { ikon: "alih", urut: "jarak terdekat", syarat: "Surat pindah tugas / anak guru" },
+  prestasi_akademik: { ikon: "piala", urut: "nilai tertinggi" },
+  prestasi_nonakademik: { ikon: "kilau", urut: "skor sertifikat tertinggi", syarat: "Sertifikat prestasi, diberi skor panitia" },
+};
+let profilDibuka = null; // { id, asal } -- asal = elemen yang difokus kembali saat ditutup
+
+function renderProfilSekolah() {
+  const s = sekolahList.find((x) => x.id === profilDibuka?.id);
+  if (!s) return;
+  const jalur = jalurOptionsForSekolah(s.id);
+  const total = jalur.reduce((n, j) => n + (Number(j.kuota) || 0), 0);
+  const diproses = pendaftarList.filter((p) => p.status_global === "Aktif" && p.sekolah_aktif_nama === s.nama).length;
+  const diterima = pendaftarList.filter((p) => p.status_global === "Diterima Final" && p.sekolah_aktif_nama === s.nama).length;
+  const domisili = jalur.find((j) => j.jenis === "domisili");
+  const jarak = jarakKeSekolah(s);
+  const lat = Number(s.latitude), lng = Number(s.longitude);
+  const adaKoordinat = s.latitude != null && Number.isFinite(lat) && Number.isFinite(lng);
+
+  document.getElementById("profil-nama").innerText = s.nama;
+  document.getElementById("profil-alamat").innerText = s.alamat || "-";
+
+  let jarakHTML;
+  if (jarak == null) {
+    jarakHTML = `<div class="profil-jarak"><span>${ikon("lokasi")}</span><div><strong>Seberapa jauh dari rumahmu?</strong><small>Izinkan lokasi untuk melihat jarak dan apakah rumahmu masuk radius Domisili.</small></div>
+      <button type="button" class="btn btn-outline" id="profil-cek-jarak">Cek jarak</button></div>`;
+  } else {
+    const masuk = domisili && jarak <= Number(domisili.syarat_radius_km);
+    jarakHTML = `<div class="profil-jarak ${masuk ? "masuk" : "luar"}"><span>${ikon("lokasi")}</span><div><strong>${jarak.toFixed(1)} km dari lokasimu</strong>
+      <small>${domisili ? (masuk ? `Masuk radius Domisili (${esc(domisili.syarat_radius_km)} km).` : `Di luar radius Domisili (${esc(domisili.syarat_radius_km)} km); jalur Afirmasi, Mutasi, dan Prestasi tetap bisa dipilih.`) : ""}</small></div></div>`;
+  }
+
+  const jalurHTML = jalur.map((j) => {
+    const k = KET_JALUR[j.jenis] || { ikon: "info", urut: "-" };
+    const syarat = j.jenis === "domisili" ? `Jarak ≤ ${esc(j.syarat_radius_km)} km`
+      : j.jenis === "prestasi_akademik" ? `Nilai rapor/TKA ≥ ${esc(j.syarat_nilai_minimum ?? "-")}`
+      : k.syarat || "-";
+    const persen = total ? Math.round((Number(j.kuota) / total) * 100) : 0;
+    return `<div class="profil-jalur">
+        <span class="profil-jalur-ikon">${ikon(k.ikon)}</span>
+        <div class="profil-jalur-isi">
+          <div class="profil-jalur-atas"><strong>${esc(j.nama)}</strong><span><b>${j.kuota}</b> kursi · ${persen}%</span></div>
+          <div class="profil-batang"><span style="--lebar:${persen}%"></span></div>
+          <small>${syarat} · urut ${k.urut}</small>
+        </div>
+      </div>`;
+  }).join("");
+
+  document.getElementById("profil-isi").innerHTML = `
+    <div class="profil-angka">
+      <div><strong>${total}</strong><span>total kursi</span></div>
+      <div><strong>${jalur.length}</strong><span>jalur SPMB</span></div>
+      <div><strong>${diproses}</strong><span>sedang diproses</span></div>
+      <div><strong>${diterima}</strong><span>sudah diterima</span></div>
+    </div>
+    ${jarakHTML}
+    <h3 class="profil-sub">Kuota & syarat per jalur</h3>
+    <div class="profil-jalur-daftar">${jalurHTML}</div>
+    ${adaKoordinat ? `<h3 class="profil-sub">Lokasi</h3>
+      <iframe class="profil-peta" title="Peta lokasi ${esc(s.nama)}" loading="lazy"
+        src="https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.012},${lat - 0.008},${lng + 0.012},${lat + 0.008}&layer=mapnik&marker=${lat},${lng}"></iframe>` : ""}
+    <p class="profil-catatan">Angka pendaftar diperbarui langsung dari sistem. Kuota ditetapkan Admin Dinas dan dapat berubah sebelum pendaftaran ditutup.</p>`;
+
+  document.getElementById("profil-kaki").innerHTML = `
+    ${adaKoordinat ? `<a class="btn btn-outline" href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}" target="_blank" rel="noopener">${ikon("lokasi")} Rute</a>` : ""}
+    <button type="button" class="btn btn-accent" id="profil-daftar">Daftar di sekolah ini ${ikon("panahKanan")}</button>`;
+
+  document.getElementById("profil-cek-jarak")?.addEventListener("click", async (e) => {
+    e.currentTarget.disabled = true;
+    e.currentTarget.innerText = "Mengambil lokasi…";
+    const lokasi = await ambilLokasi(true);
+    if (!lokasi) Dialog.toast(pesanGagalLokasi(), "peringatan");
+    renderProfilSekolah();
+    renderSekolahBeranda();
+  });
+  document.getElementById("profil-daftar").addEventListener("click", () => daftarDiSekolah(s.id));
+}
+
+function bukaProfilSekolah(id, asal = null) {
+  profilDibuka = { id, asal };
+  renderProfilSekolah();
+  const lembar = document.getElementById("profil-sekolah");
+  const latar = document.getElementById("profil-latar");
+  lembar.hidden = false;
+  latar.hidden = false;
+  document.body.classList.add("profil-terbuka");
+  requestAnimationFrame(() => { lembar.classList.add("buka"); latar.classList.add("buka"); });
+  lembar.querySelector(".profil-isi").scrollTop = 0;
+  setTimeout(() => document.getElementById("profil-tutup").focus(), 60);
+}
+
+function tutupProfilSekolah() {
+  if (!profilDibuka) return;
+  const lembar = document.getElementById("profil-sekolah");
+  const latar = document.getElementById("profil-latar");
+  lembar.classList.remove("buka");
+  latar.classList.remove("buka");
+  document.body.classList.remove("profil-terbuka");
+  const asal = profilDibuka.asal;
+  profilDibuka = null;
+  setTimeout(() => { lembar.hidden = true; latar.hidden = true; }, kurangiGerak ? 0 : 280);
+  asal?.focus();
+}
+document.getElementById("profil-tutup").addEventListener("click", tutupProfilSekolah);
+document.getElementById("profil-latar").addEventListener("click", tutupProfilSekolah);
+document.addEventListener("keydown", (e) => {
+  if (!profilDibuka) return;
+  if (e.key === "Escape") tutupProfilSekolah();
+  if (e.key === "Tab") { // fokus tetap di dalam lembar profil
+    const fokusable = [...document.querySelectorAll("#profil-sekolah button, #profil-sekolah a, #profil-sekolah iframe")].filter((x) => !x.disabled);
+    const [pertama, terakhir] = [fokusable[0], fokusable[fokusable.length - 1]];
+    if (e.shiftKey && document.activeElement === pertama) { e.preventDefault(); terakhir.focus(); }
+    else if (!e.shiftKey && document.activeElement === terakhir) { e.preventDefault(); pertama.focus(); }
+  }
+});
+
+// Geser lembar ke bawah untuk menutup (HP)
+(function geserUntukTutup() {
+  const lembar = document.getElementById("profil-sekolah");
+  let awalY = null, geser = 0;
+  lembar.querySelector(".profil-pegangan").parentElement.addEventListener("touchstart", (e) => {
+    if (!e.target.closest(".profil-kepala, .profil-pegangan")) return;
+    awalY = e.touches[0].clientY; geser = 0;
+    lembar.style.transition = "none";
+  }, { passive: true });
+  lembar.addEventListener("touchmove", (e) => {
+    if (awalY == null) return;
+    geser = Math.max(0, e.touches[0].clientY - awalY);
+    lembar.style.transform = `translateY(${geser}px)`;
+  }, { passive: true });
+  lembar.addEventListener("touchend", () => {
+    if (awalY == null) return;
+    lembar.style.transition = "";
+    lembar.style.transform = "";
+    if (geser > 90) tutupProfilSekolah();
+    awalY = null;
+  });
+})();
+
+/** Tombol "Daftar di sekolah ini": pilih sekolah itu di slot pilihan kosong pertama, lalu buka formulir */
+function daftarDiSekolah(sekolahId) {
+  tutupProfilSekolah();
+  showView("daftar");
+  const slot = [...document.querySelectorAll(".select-sekolah")];
+  const sudah = slot.find((sel) => Number(sel.value) === sekolahId);
+  const kosong = sudah || slot.find((sel) => !sel.value);
+  if (!kosong) return Dialog.toast("Ketiga pilihan sekolah sudah terisi. Ubah salah satu di langkah Pilihan Sekolah.", "peringatan");
+  if (!sudah) {
+    kosong.value = String(sekolahId);
+    isiJalur(kosong);
+    perbaruiInfoJalur();
+  }
+  Dialog.toast(`${sekolahNama(sekolahId)} sudah dipasang sebagai Pilihan ${Number(kosong.dataset.index) + 1}. Lengkapi data diri dulu.`);
+}
 document.getElementById("sekolah-semua").addEventListener("click", () => {
   tampilkanSemuaSekolah = true;
   renderSekolahBeranda();

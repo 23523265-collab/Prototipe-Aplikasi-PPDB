@@ -98,7 +98,7 @@ ppdb-project-v3/
 │  ├─ ganti-password-staf.sql   Wajib setelah memasang database baru
 │  └─ reset-data-demo.sql  Hapus semua pendaftar (sebelum demo)
 ├─ docs/
-│  └─ PRD_Aplikasi_PPDB_v7.2.docx / .pdf   Product Requirements Document (FR-01 s.d. FR-14)
+│  └─ PRD_Aplikasi_PPDB_v7.3.docx / .pdf   Product Requirements Document (FR-01 s.d. FR-14)
 ├─ scripts/
 │  └─ reset-berkas-demo.js Hapus file berkas di Supabase Storage (pasangan reset-data-demo.sql)
 ├─ public/                 Situs pendaftar (index.html, js/app.js), panel panitia (panitia.html),
@@ -180,9 +180,10 @@ Buka http://localhost:3000. Saat pertama jalan, server otomatis membuat bucket `
 ```
 npm test
 ```
-Menjalankan 33 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor jarak, syarat & urutan 5 jalur SPMB, berkas wajib per jalur,
+Menjalankan 36 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor jarak, syarat & urutan 5 jalur SPMB, berkas wajib per jalur,
 syarat radius/nilai minimum, urutan peringkat dan penentu seri (usia lebih tua, lalu daftar lebih awal),
-sisa kuota, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi berkas yang diganti ekstensinya.
+sisa kuota, estimasi peringkat sementara, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi berkas yang diganti ekstensinya.
+Tes yang sama dijalankan otomatis oleh GitHub Actions setiap push (`.github/workflows/test.yml`).
 
 ---
 
