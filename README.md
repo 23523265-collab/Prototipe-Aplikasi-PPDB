@@ -133,7 +133,9 @@ SUPABASE_SERVICE_KEY=...          # service_role key (Settings → API)
 SESSION_SECRET=string-acak-panjang
 EMAIL_USER=alamat@gmail.com       # akun pengirim notifikasi
 EMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx   # App Password Google (16 huruf, tanpa spasi)
+APP_BASE_URL=https://prototipe-aplikasi-ppdb.vercel.app   # opsional: alamat situs untuk link di email
 ```
+`APP_BASE_URL` opsional: jika kosong, di Vercel otomatis memakai domain produksi, dan di laptop memakai `http://localhost:3000`.
 `EMAIL_APP_PASSWORD` dibuat di https://myaccount.google.com/apppasswords (butuh Verifikasi 2 Langkah aktif).
 Untuk Vercel, isi variabel yang sama di **Settings → Environment Variables**.
 

@@ -1,0 +1,19 @@
+# Menjalankan unit test otomatis setiap kali ada push atau pull request.
+# Hasilnya tampil sebagai tanda centang hijau / silang merah di GitHub.
+name: Tes otomatis
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test

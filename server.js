@@ -75,10 +75,30 @@ const TIPE_FILE_DIIZINKAN = ["application/pdf", "image/jpeg", "image/png"];
 const { validasiUmur, samarkanNama } = aturan;
 
 // Escape teks sebelum dimasukkan ke HTML email
+/** Alamat utama situs: APP_BASE_URL (.env) > domain produksi Vercel (otomatis) > localhost. */
+function alamatSitus() {
+  if (process.env.APP_BASE_URL) return process.env.APP_BASE_URL.replace(/\/+$/, "");
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  return `http://localhost:${PORT}`;
+}
+
 const escHtml = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
 
 // Di balik proxy (mis. Vercel), IP asli pengunjung ada di header X-Forwarded-For
 app.set("trust proxy", 1);
+app.disable("x-powered-by"); // jangan beri tahu teknologi server ke pengunjung
+
+// Header keamanan dasar untuk semua respons
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff"); // browser tidak menebak-nebak jenis file
+  res.setHeader("X-Frame-Options", "DENY"); // halaman tidak boleh disematkan di situs lain (clickjacking)
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "geolocation=(self), camera=(), microphone=()");
+  if (req.secure) res.setHeader("Strict-Transport-Security", "max-age=31536000"); // selalu HTTPS
+  next();
+});
+
 app.use(express.json());
 app.use(cookieParser());
 // no-cache: browser tetap boleh menyimpan file, tapi wajib mengecek versi terbaru ke server tiap kali dibuka
@@ -706,7 +726,9 @@ app.post("/api/auth/lupa-password", async (req, res) => {
   });
   if (error) return res.status(500).json({ error: `Gagal membuat link reset (sudah jalankan migration v6.8?): ${error.message}` });
 
-  const link = `${req.protocol}://${req.get("host")}/reset.html?token=${token}`;
+  // Alamat situs diambil dari pengaturan server, BUKAN dari header Host kiriman browser
+  // (header Host bisa dipalsukan sehingga link reset mengarah ke situs penyerang).
+  const link = `${alamatSitus()}/reset.html?token=${token}`;
   const hasil = await email.kirimEmail(
     pendaftar.email,
     `Buat Password Baru — ${pendaftar.nomor} - SiPPDB`,
@@ -778,9 +800,14 @@ app.get("/api/sekolah/:id/statistik", auth.requirePanitiaLogin, async (req, res)
 const desimalId = (v) => (v == null || v === "" ? "" : String(v).replace(".", ","));
 
 /** CSV yang langsung rapi dibuka di Excel versi Indonesia (pemisah titik koma + BOM UTF-8) */
+const LABEL_KATEGORI = { ...aturan.KATEGORI_AFIRMASI, ...aturan.KATEGORI_MUTASI };
+
 function keCsv(baris) {
   const sel = (v) => {
-    const s = v == null ? "" : String(v);
+    let s = v == null ? "" : String(v);
+    // Cegah CSV injection: teks isian yang diawali = + - @ dijalankan Excel sebagai rumus.
+    // Diberi awalan ' supaya tampil sebagai teks biasa. Angka (mis. -7,69) dibiarkan.
+    if (typeof v === "string" && /^[=+\-@\t\r]./s.test(s) && !/^-?\d+([.,]\d+)?$/.test(s)) s = "'" + s;
     return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return "﻿" + baris.map((r) => r.map(sel).join(";")).join("\r\n");
@@ -802,13 +829,16 @@ app.get("/api/sekolah/:id/export.csv", auth.requirePanitiaLogin, async (req, res
 
   const header = [
     "Nomor", "Nama", "NIK", "Tanggal Lahir", "Email", "Alamat", "Pilihan Ke-", "Jalur", "Jarak (km)", "Skor",
-    "Nilai Rapor", "Status di Sekolah Ini", "Alasan Penolakan", "Status Berkas", "Status Akhir", "Waktu Daftar",
+    "Nilai Rapor", "Kategori Afirmasi", "Kategori Mutasi", "Keterangan Prestasi", "Skor Nonakademik",
+    "Status di Sekolah Ini", "Alasan Penolakan", "Status Berkas", "Status Akhir", "Waktu Daftar",
   ];
   const baris = pilihan.map((pl) => {
     const p = pendaftarList.find((x) => x.id === pl.pendaftar_id) || {};
     return [
       p.nomor, p.nama, p.nik, p.tanggal_lahir, p.email, p.alamat, pl.urutan_prioritas,
       jalurList.find((j) => j.id === pl.jalur_id)?.nama, desimalId(pl.jarak_km), pl.skor, desimalId(p.nilai_rapor),
+      LABEL_KATEGORI[p.kategori_afirmasi] || p.kategori_afirmasi, LABEL_KATEGORI[p.kategori_mutasi] || p.kategori_mutasi,
+      p.keterangan_prestasi, p.skor_nonakademik,
       pl.status, pl.alasan_penolakan, p.status_berkas, p.status_global,
       p.created_at ? String(p.created_at).slice(0, 19).replace("T", " ") : "",
     ];
@@ -960,6 +990,27 @@ app.post("/api/admin/panitia/:id/reset-password", auth.requireAdminLogin, async 
   if (!data.length) return res.status(404).json({ error: "Akun panitia tidak ditemukan." });
   await supabase.from("sesi").delete().eq("tipe", "panitia").eq("panitia_id", panitiaId); // paksa login ulang
   res.json({ ok: true, username: data[0].username });
+});
+
+/* =========================================================
+   PENANGANAN ERROR TERPUSAT -- balasan selalu JSON berbahasa Indonesia,
+   tanpa membocorkan detail teknis (stack trace) ke pengguna.
+   ========================================================= */
+
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "Alamat API tidak ditemukan." });
+});
+
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  if (err instanceof multer.MulterError) {
+    const pesan = err.code === "LIMIT_FILE_SIZE" ? "Ukuran file maksimal 5 MB." : `Unggahan gagal: ${err.message}`;
+    return res.status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ error: pesan });
+  }
+  if (err.type === "entity.parse.failed") return res.status(400).json({ error: "Format data yang dikirim tidak valid." });
+  if (err.type === "entity.too.large") return res.status(413).json({ error: "Data yang dikirim terlalu besar." });
+  console.error(`[error] ${req.method} ${req.originalUrl}:`, err);
+  res.status(500).json({ error: "Terjadi kesalahan di server. Silakan coba lagi beberapa saat lagi." });
 });
 
 storage.pastikanBucketAda();
