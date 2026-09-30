@@ -163,6 +163,7 @@ Semua file ada di folder `database/` (migration di `database/migrations/`, nomor
 19. `17-v7.2-kategori-jalur.sql` — kategori afirmasi (KIP/PKH/DTKS/disabilitas), mutasi, dan keterangan prestasi nonakademik
 20. `18-v7.3-log-aktivitas.sql` — log aktivitas panitia & Admin Dinas (jejak audit)
 21. `19-v7.4-log-pendaftar.sql` — log mencatat perbaikan data diri oleh pendaftar
+22. `20-v7.5-persetujuan-data.sql` — bukti persetujuan orang tua/wali atas pengolahan data pribadi (UU PDP)
 
 Semua file migration aman dijalankan ulang.
 

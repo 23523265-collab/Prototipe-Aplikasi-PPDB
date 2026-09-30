@@ -908,6 +908,7 @@ formDaftar.addEventListener("submit", async (e) => {
       akurasiLokasi: lokasi ? lokasi.akurasi : null,
       latitude: lokasi ? lokasi.latitude : null,
       longitude: lokasi ? lokasi.longitude : null,
+      persetujuanData: form.persetujuanData.checked,
       pilihan,
     };
     const res = await fetch("/api/pendaftar", {

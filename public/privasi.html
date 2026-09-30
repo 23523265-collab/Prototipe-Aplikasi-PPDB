@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kebijakan Privasi — SiPPDB</title>
+  <meta name="description" content="Kebijakan privasi SiPPDB: data apa yang dikumpulkan, untuk apa, siapa yang dapat melihat, berapa lama disimpan, dan hak orang tua/wali." />
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    .privasi { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+    .privasi-kartu { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 30px; box-shadow: var(--shadow-sm); }
+    .privasi h1 { font-size: 30px; margin: 6px 0 4px; }
+    .privasi h2 { font-size: 19px; margin: 28px 0 8px; }
+    .privasi p, .privasi li { font-size: 14.5px; line-height: 1.7; color: #374151; }
+    .privasi ul { padding-left: 20px; margin: 6px 0; }
+    .privasi-label { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber-dark); }
+    .privasi-meta { font-size: 13px; color: var(--muted); margin: 0; }
+    .privasi-ringkas { background: #f0f4fa; border-radius: 12px; padding: 14px 18px; margin: 18px 0 4px; }
+    .privasi-ringkas p { margin: 0; font-size: 14px; color: var(--navy); }
+    .privasi table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 8px 0; }
+    .privasi th, .privasi td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .privasi th { background: var(--bg); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+    .privasi-kembali { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 13.5px; font-weight: 600; color: var(--navy); text-decoration: none; }
+    @media (max-width: 560px) { .privasi-kartu { padding: 20px 16px; } .privasi h1 { font-size: 25px; } .privasi table { font-size: 12.5px; } }
+  </style>
+</head>
+<body>
+  <main class="privasi">
+    <a class="privasi-kembali" href="/">← Kembali ke SiPPDB</a>
+    <article class="privasi-kartu">
+      <div class="privasi-label">SiPPDB · Pelindungan Data Pribadi</div>
+      <h1>Kebijakan Privasi</h1>
+      <p class="privasi-meta">Versi 2026-09-30 · mengacu pada Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi</p>
+
+      <div class="privasi-ringkas">
+        <p><strong>Ringkasnya:</strong> data calon siswa hanya dipakai untuk proses penerimaan murid baru, hanya dilihat panitia sekolah yang sedang memproses dan Dinas Pendidikan, tidak dijual atau dibagikan untuk keperluan lain, dan dihapus setelah masa penyimpanan berakhir.</p>
+      </div>
+
+      <h2>1. Siapa yang mengelola data</h2>
+      <p>Data dikelola oleh <strong>Dinas Pendidikan</strong> selaku penyelenggara penerimaan murid baru, bersama <strong>panitia SPMB</strong> di sekolah yang dipilih. SiPPDB adalah sistem yang dipakai untuk mengolah pendaftaran tersebut.</p>
+
+      <h2>2. Data yang dikumpulkan dan kegunaannya</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Untuk apa</th></tr></thead>
+        <tbody>
+          <tr><td>Nama, NIK, tanggal lahir</td><td>Identitas calon siswa, memastikan satu anak hanya mendaftar sekali, memeriksa batas usia</td></tr>
+          <tr><td>Alamat rumah dan lokasi GPS saat mendaftar</td><td>Menghitung jarak rumah ke sekolah untuk jalur Domisili, Afirmasi, dan Mutasi</td></tr>
+          <tr><td>Nilai rapor/TKA, kategori jalur, keterangan prestasi</td><td>Syarat dan peringkat sesuai jalur yang dipilih</td></tr>
+          <tr><td>Berkas: KK, akta kelahiran, rapor, dan berkas khusus jalur</td><td>Verifikasi kebenaran data oleh panitia</td></tr>
+          <tr><td>Email dan password (disimpan terenkripsi)</td><td>Login ke akun dan pengiriman notifikasi status</td></tr>
+        </tbody>
+      </table>
+      <p>Data <strong>tidak</strong> dipakai untuk iklan, tidak dijual, dan tidak diberikan kepada pihak lain di luar keperluan penerimaan murid baru, kecuali diwajibkan oleh peraturan perundang-undangan.</p>
+
+      <h2>3. Dasar pengolahan: persetujuan orang tua/wali</h2>
+      <p>Karena calon siswa umumnya masih anak, pengolahan datanya dilakukan atas <strong>persetujuan orang tua atau wali</strong> (calon siswa yang telah berusia 18 tahun dapat memberikan persetujuannya sendiri). Persetujuan diberikan dengan mencentang pernyataan pada langkah terakhir formulir pendaftaran; sistem mencatat waktu persetujuan dan versi kebijakan ini.</p>
+
+      <h2>4. Siapa yang dapat melihat data</h2>
+      <ul>
+        <li><strong>Calon siswa/orang tua</strong>: seluruh data miliknya sendiri, setelah login.</li>
+        <li><strong>Panitia sekolah</strong>: hanya pendaftar yang sedang diproses di sekolahnya (pilihan yang aktif). Panitia sekolah lain tidak dapat melihatnya.</li>
+        <li><strong>Admin Dinas Pendidikan</strong>: rekap dan pengaturan untuk seluruh sekolah.</li>
+        <li><strong>Publik</strong>: hanya hasil pengumuman dengan <strong>nama yang disamarkan</strong> (mis. "Mu***** Ag** Mu*****"), tanpa NIK, alamat, atau nilai.</li>
+      </ul>
+
+      <h2>5. Cara data dilindungi</h2>
+      <ul>
+        <li>Koneksi terenkripsi (HTTPS) dan password disimpan dalam bentuk hash, sehingga tidak dapat dibaca siapa pun.</li>
+        <li>Berkas disimpan di penyimpanan tertutup dan hanya dapat dibuka lewat tautan sementara yang berlaku 1 jam.</li>
+        <li>Akses database dibatasi hanya untuk server aplikasi; setiap keputusan panitia dan Dinas tercatat di log aktivitas.</li>
+        <li>Data disimpan pada layanan cloud (Supabase, pusat data Singapura).</li>
+      </ul>
+
+      <h2>6. Berapa lama data disimpan</h2>
+      <p>Data disimpan selama proses penerimaan murid baru tahun berjalan dan <strong>paling lama 1 (satu) tahun setelah pengumuman akhir</strong> untuk keperluan pelaporan dan penanganan pengaduan. Setelah itu data dan berkas dihapus. Data siswa yang diterima diserahkan kepada sekolah tujuan sebagai data peserta didik.</p>
+
+      <h2>7. Hak orang tua/wali dan calon siswa</h2>
+      <ul>
+        <li><strong>Melihat data</strong>: melalui menu Cek Status.</li>
+        <li><strong>Memperbaiki data</strong>: tombol "Perbaiki data diri" selama berkas belum dinyatakan Lengkap; setelah itu melalui panitia sekolah.</li>
+        <li><strong>Menarik persetujuan atau meminta penghapusan data</strong>: menghubungi panitia sekolah atau Dinas Pendidikan. Penarikan persetujuan berarti pendaftaran tidak dapat diproses lebih lanjut.</li>
+        <li><strong>Mengajukan keberatan</strong> atas pengolahan data kepada Dinas Pendidikan.</li>
+      </ul>
+
+      <h2>8. Perubahan kebijakan</h2>
+      <p>Bila kebijakan ini berubah, versi dan tanggalnya diperbarui di halaman ini. Persetujuan yang tercatat selalu merujuk pada versi yang berlaku saat mendaftar.</p>
+
+      <p class="privasi-meta" style="margin-top:28px">SiPPDB adalah prototipe penelitian skripsi (Universitas Islam Indonesia). Untuk penerapan nyata, kebijakan ini perlu disahkan oleh Dinas Pendidikan setempat.</p>
+    </article>
+  </main>
+</body>
+</html>

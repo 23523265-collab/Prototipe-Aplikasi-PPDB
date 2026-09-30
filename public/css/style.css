@@ -507,6 +507,10 @@ body.dlg-terbuka { overflow: hidden; }
 .log-alat select { width: auto; min-width: 220px; margin: 0; }
 .laci .log-daftar li { grid-template-columns: 1fr; gap: 2px; }
 @media (max-width: 640px) { .log-daftar li { grid-template-columns: 1fr; gap: 2px; } }
+.setuju-kotak { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 10px; padding: 12px 14px; border: 1px solid var(--amber-light); border-radius: var(--radius-sm); background: #fffbf2; font-weight: 400 !important; font-size: 13px; line-height: 1.55; color: var(--ink); cursor: pointer; }
+.setuju-kotak input { width: 18px; height: 18px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--navy); cursor: pointer; }
+.setuju-kotak a { color: var(--navy); font-weight: 600; }
+.setuju-kotak:has(input:checked) { border-color: #a7f3d0; background: #f0fdf6; }
 .data-diri { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; background: #fcfcfa; }
 .data-diri.perlu { border-color: #fed7aa; background: #fffaf3; }
 .data-diri-kepala { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }

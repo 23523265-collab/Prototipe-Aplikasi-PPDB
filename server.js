@@ -55,6 +55,8 @@ async function lepasKunciSeleksi(jalurId, jenis) {
 // banyak orang sekaligus (WiFi sekolah, lab komputer, hotspot bersama).
 const MAKS_DAFTAR_PER_IP = 20;
 const JENDELA_DAFTAR_MENIT = 60;
+// Versi Kebijakan Privasi (public/privasi.html) yang disetujui saat mendaftar -- ubah bila isi kebijakan berubah
+const VERSI_KEBIJAKAN_PRIVASI = "2026-09-30";
 const PESAN_NIK_TERDAFTAR = "NIK ini sudah terdaftar. Satu calon siswa hanya boleh mendaftar sekali (sudah mencakup 3 pilihan sekolah). "
   + "Gunakan menu Cek Status dengan nomor pendaftaran Anda, atau hubungi panitia jika merasa tidak pernah mendaftar.";
 
@@ -333,6 +335,10 @@ app.post("/api/pendaftar", async (req, res) => {
   if (password.length < 6) {
     return res.status(400).json({ error: "Password minimal 6 karakter." });
   }
+  // UU No. 27/2022 (PDP): data anak diolah atas persetujuan orang tua/wali
+  if (req.body.persetujuanData !== true) {
+    return res.status(400).json({ error: "Centang persetujuan pengolahan data pribadi (Kebijakan Privasi) oleh orang tua/wali terlebih dahulu." });
+  }
   if (!(await statusTahapan()).dibuka) {
     return res.status(403).json({ error: "Pendaftaran sedang ditutup. Silakan pantau pengumuman untuk jadwal berikutnya." });
   }
@@ -432,6 +438,8 @@ app.post("/api/pendaftar", async (req, res) => {
       alamat: alamatBersih,
       nilai_rapor: nilai,
       nilai_rapor_awal: nilai,
+      persetujuan_data_at: new Date().toISOString(), // migration v7.5
+      versi_kebijakan_privasi: VERSI_KEBIJAKAN_PRIVASI,
       ...kolomKategori,
     })
     .select()

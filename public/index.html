@@ -246,6 +246,12 @@
               <label>Buat Password<input required type="password" name="password" placeholder="Minimal 6 karakter, untuk cek status nanti" minlength="6" autocomplete="new-password" /></label>
               <label>Ulangi Password<input required type="password" name="password2" minlength="6" autocomplete="new-password" /></label>
               <div class="ringkasan" id="ringkasan-daftar"></div>
+              <label class="setuju-kotak">
+                <input type="checkbox" name="persetujuanData" required />
+                <span>Saya <strong>orang tua/wali</strong> calon peserta didik (atau calon peserta didik yang telah berusia 18 tahun) telah membaca
+                  <a href="/privasi.html" target="_blank" rel="noopener">Kebijakan Privasi</a> dan <strong>menyetujui</strong> pengolahan data pribadi di atas,
+                  termasuk NIK, lokasi rumah, dan berkas, untuk keperluan penerimaan murid baru.</span>
+              </label>
             </fieldset>
 
             <div class="langkah-aksi">
@@ -335,6 +341,7 @@
           <button type="button" data-goto="daftar">Pendaftaran</button>
           <button type="button" data-goto="status">Cek Status</button>
           <button type="button" data-goto="pengumuman">Pengumuman</button>
+          <a href="/privasi.html"><i data-ikon="perisai"></i> Kebijakan Privasi</a>
           <a href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
         </nav>
       </div>

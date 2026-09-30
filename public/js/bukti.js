@@ -40,6 +40,7 @@ async function muat() {
         <tr><td>Nama Lengkap</td><td><strong>${esc(p.nama)}</strong></td></tr>
         <tr><td>NIK</td><td>${esc(p.nik)}</td></tr>
         <tr><td>Tanggal Lahir</td><td>${tanggal(p.tanggal_lahir)}</td></tr>
+        ${p.persetujuan_data_at ? `<tr><td>Persetujuan Data</td><td>Disetujui orang tua/wali, ${tanggal(String(p.persetujuan_data_at).slice(0, 10))} (Kebijakan Privasi v${esc(p.versi_kebijakan_privasi || "-")})</td></tr>` : ""}
         <tr><td>Email</td><td>${esc(p.email)}</td></tr>
         <tr><td>Alamat</td><td>${esc(p.alamat || "-")}</td></tr>
         <tr><td>Nilai Rapor</td><td>${p.nilai_rapor != null ? esc(p.nilai_rapor) : "-"}</td></tr>
