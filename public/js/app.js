@@ -1122,20 +1122,28 @@ document.getElementById("form-login-pendaftar").addEventListener("submit", async
   e.preventDefault();
   const form = e.target;
   const errBox = document.getElementById("status-login-error");
-  const res = await fetch("/api/auth/pendaftar/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nomor: form.nomor.value, password: form.password.value }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
+  const pulih = Dialog.sibuk(form.querySelector("button[type=submit]"), "Masuk…");
+  try {
+    const res = await fetch("/api/auth/pendaftar/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nomor: form.nomor.value, password: form.password.value }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      errBox.style.display = "block";
+      errBox.innerText = data.error || "Gagal masuk.";
+      return;
+    }
+    errBox.style.display = "none";
+    await muatSesi();
+    await renderStatusView();
+  } catch {
     errBox.style.display = "block";
-    errBox.innerText = data.error;
-    return;
+    errBox.innerText = "Tidak dapat terhubung ke server. Periksa koneksi internet.";
+  } finally {
+    pulih();
   }
-  errBox.style.display = "none";
-  await muatSesi();
-  await renderStatusView();
 });
 
 /* ---------- Lupa password ---------- */

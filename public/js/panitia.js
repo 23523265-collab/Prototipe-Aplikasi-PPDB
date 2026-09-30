@@ -50,19 +50,27 @@ document.getElementById("form-login-panitia").addEventListener("submit", async (
   e.preventDefault();
   const form = e.target;
   const errBox = document.getElementById("panitia-login-error");
-  const res = await fetch("/api/auth/panitia/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: form.username.value, password: form.password.value }),
-  });
-  const data = await res.json();
-  if (!res.ok) {
+  const pulih = Dialog.sibuk(form.querySelector("button[type=submit]"), "Masuk…");
+  try {
+    const res = await fetch("/api/auth/panitia/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: form.username.value.trim().toLowerCase(), password: form.password.value }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      errBox.style.display = "block";
+      errBox.innerText = data.error || "Gagal masuk.";
+      return;
+    }
+    errBox.style.display = "none";
+    await renderPanitiaView();
+  } catch {
     errBox.style.display = "block";
-    errBox.innerText = data.error;
-    return;
+    errBox.innerText = "Tidak dapat terhubung ke server. Periksa koneksi internet.";
+  } finally {
+    pulih();
   }
-  errBox.style.display = "none";
-  await renderPanitiaView();
 });
 
 document.getElementById("btn-logout-panitia").addEventListener("click", async () => {
@@ -586,6 +594,11 @@ const PESAN_VERIFIKASI = {
 
 async function verifikasi(pendaftarId, status, catatan = null) {
   const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
+  // Semua tombol keputusan langsung terkunci & tombol yang dipilih menampilkan proses (cegah klik ganda)
+  const tombolKaki = [...document.querySelectorAll("#laci-kaki button")];
+  tombolKaki.forEach((b) => (b.disabled = true));
+  const tombolDipilih = tombolKaki.find((b) => b.getAttribute("onclick")?.includes(status === "Lengkap" ? "'Lengkap'" : status === "Ditolak" ? "tolakBerkas" : "tandaiKurang"));
+  Dialog.sibuk(tombolDipilih, "Menyimpan…");
   const res = await fetch(`/api/pendaftar/${pendaftarId}/berkas`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

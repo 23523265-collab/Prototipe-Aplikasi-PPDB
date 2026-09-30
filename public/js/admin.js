@@ -24,6 +24,7 @@ document.getElementById("form-login-admin").addEventListener("submit", async (e)
   e.preventDefault();
   const form = e.target;
   const errBox = document.getElementById("admin-login-error");
+  const pulih = Dialog.sibuk(form.querySelector("button[type=submit]"), "Masuk…");
   try {
     await api("/api/auth/admin/login", {
       method: "POST",
@@ -34,6 +35,8 @@ document.getElementById("form-login-admin").addEventListener("submit", async (e)
   } catch (err) {
     errBox.style.display = "block";
     errBox.innerText = pesanKoneksi(err);
+  } finally {
+    pulih();
   }
 });
 

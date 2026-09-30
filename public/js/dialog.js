@@ -101,7 +101,18 @@ const Dialog = (() => {
     setTimeout(() => { el.classList.remove("tampil"); setTimeout(() => el.remove(), 250); }, 4200);
   }
 
+  /** Tombol langsung terlihat memproses begitu diklik (mencegah klik ganda). Mengembalikan fungsi pemulih. */
+  function sibuk(tombol, teks = "Memproses…") {
+    if (!tombol) return () => {};
+    const asli = tombol.innerHTML;
+    tombol.disabled = true;
+    tombol.setAttribute("aria-busy", "true");
+    tombol.innerHTML = `<span class="spinner"></span>${escD(teks)}`;
+    return () => { tombol.disabled = false; tombol.removeAttribute("aria-busy"); tombol.innerHTML = asli; };
+  }
+
   return {
+    sibuk,
     info: (pesan, o = {}) => buka({ judul: "Informasi", ...o, pesan }),
     galat: (pesan, o = {}) => buka({ judul: "Tidak dapat diproses", jenis: "bahaya", ...o, pesan }),
     konfirmasi: (pesan, o = {}) => buka({ judul: "Konfirmasi", tombolOk: "Ya, lanjutkan", tombolBatal: "Batal", ...o, pesan }),

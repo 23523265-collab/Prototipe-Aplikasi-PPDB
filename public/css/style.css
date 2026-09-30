@@ -563,6 +563,7 @@ a:hover { color: var(--amber-dark); text-decoration-color: currentColor; }
 .baris-kerangka:hover { background: none; }
 .memuat-halaman { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: calc(100vh - 64px); color: var(--muted); font-size: 14px; }
 .spinner-gelap { border-color: rgba(27,51,88,0.2); border-top-color: var(--navy); }
+.btn-outline .spinner, .btn-peringatan .spinner, .btn-bahaya-garis .spinner { border-color: rgba(27,51,88,0.2); border-top-color: currentColor; }
 
 /* ===================== ANTREAN PANITIA: baris ringkas + panel detail ===================== */
 .baris-klik { cursor: pointer; }
