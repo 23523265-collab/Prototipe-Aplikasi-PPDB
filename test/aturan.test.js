@@ -1,6 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, estimasiPeringkat, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
+const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, estimasiPeringkat, batasDaftarUlang, statusDaftarUlang, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
 
 describe("kategori jalur khusus", () => {
   test("wajib diisi sesuai jalur yang dipilih", () => {
@@ -198,5 +198,28 @@ describe("estimasiPeringkat (FR-11)", () => {
   test("pendaftar tidak ada di daftar pesaing -> null; kuota habis -> tidak masuk kuota", () => {
     assert.equal(estimasiPeringkat(99, pesaing, jalur, info, 2), null);
     assert.equal(estimasiPeringkat(2, pesaing, jalur, info, 0).masukKuota, false);
+  });
+});
+
+describe("daftar ulang (K2)", () => {
+  const diterima = new Date("2026-07-10T08:00:00Z");
+  const batas = batasDaftarUlang(diterima).toISOString();
+
+  test("batas daftar ulang 3x24 jam sejak diterima", () => {
+    assert.equal(batas, "2026-07-13T08:00:00.000Z");
+  });
+
+  test("belum / sudah / lewat batas", () => {
+    const p = { status_global: "Diterima Final", daftar_ulang_batas_at: batas, daftar_ulang_at: null };
+    assert.equal(statusDaftarUlang(p, new Date("2026-07-13T07:59:00Z")), "belum");
+    assert.equal(statusDaftarUlang(p, new Date("2026-07-13T08:01:00Z")), "lewat");
+    assert.equal(statusDaftarUlang({ ...p, daftar_ulang_at: "2026-07-11T09:00:00Z" }, new Date("2026-07-20T00:00:00Z")), "sudah");
+  });
+
+  test("hanya berlaku untuk siswa yang diterima; kursi yang sudah dilepas tetap lewat", () => {
+    assert.equal(statusDaftarUlang({ status_global: "Aktif" }), null);
+    assert.equal(statusDaftarUlang({ status_global: "Tidak Diterima Final" }), null);
+    assert.equal(statusDaftarUlang({ status_global: "Tidak Daftar Ulang" }), "lewat");
+    assert.equal(statusDaftarUlang({ status_global: "Diterima Final", daftar_ulang_batas_at: null }), "belum"); // data lama tanpa batas
   });
 });

@@ -164,6 +164,7 @@ Semua file ada di folder `database/` (migration di `database/migrations/`, nomor
 20. `18-v7.3-log-aktivitas.sql` — log aktivitas panitia & Admin Dinas (jejak audit)
 21. `19-v7.4-log-pendaftar.sql` — log mencatat perbaikan data diri oleh pendaftar
 22. `20-v7.5-persetujuan-data.sql` — bukti persetujuan orang tua/wali atas pengolahan data pribadi (UU PDP)
+23. `21-v7.6-daftar-ulang.sql` — daftar ulang 3×24 jam, pelepasan kursi otomatis, surat keterangan diterima
 
 Semua file migration aman dijalankan ulang.
 

@@ -108,6 +108,7 @@ function pillHTML(status) {
     "Aktif": ["pill-amber", "jam"],
     "Diterima Final": ["pill-green", "centang"],
     "Tidak Diterima Final": ["pill-red", "silang"],
+    "Tidak Daftar Ulang": ["pill-orange", "jam"],
   };
   const [cls, icon] = map[status] || ["pill-gray", "strip"];
   return `<span class="pill ${cls}">${ikon(icon)} ${esc(status)}</span>`;
@@ -1015,8 +1016,10 @@ function renderProgres(pendaftar, jumlahBerkas, totalBerkas = DOKUMEN_DASAR.leng
     final ? { label: "Seleksi", status: "selesai", ket: "Selesai" }
       : lengkap ? { label: "Seleksi", status: "berjalan", ket: `Menunggu seleksi${diPilihan}` }
       : { label: "Seleksi", status: "", ket: "Sesuai jalur" },
-    pendaftar.status_global === "Diterima Final" ? { label: "Hasil", status: "selesai", ket: "Diterima ✓" }
+    pendaftar.status_global === "Diterima Final"
+      ? (pendaftar.daftar_ulang_at ? { label: "Hasil", status: "selesai", ket: "Diterima · daftar ulang ✓" } : { label: "Hasil", status: "masalah", ket: "Diterima · konfirmasi daftar ulang" })
       : pendaftar.status_global === "Tidak Diterima Final" ? { label: "Hasil", status: "gagal", ket: "Tidak diterima" }
+      : pendaftar.status_global === "Tidak Daftar Ulang" ? { label: "Hasil", status: "gagal", ket: "Tidak daftar ulang" }
       : { label: "Hasil", status: "", ket: "Pengumuman" },
   ];
   const ikon = { selesai: "✓", masalah: "!", gagal: "✕" };
@@ -1188,6 +1191,48 @@ document.getElementById("btn-logout-pendaftar").addEventListener("click", async 
   renderStatusView();
 });
 
+/* ---------- K2: Daftar ulang (konfirmasi kursi) + surat keterangan diterima ---------- */
+function daftarUlangHTML(p) {
+  if (p.daftar_ulang_at) {
+    return `<div class="daftar-ulang selesai">
+      <div class="du-ikon">${ikon("diterima")}</div>
+      <div class="du-isi"><strong>Daftar ulang terkonfirmasi</strong>
+        <small>${esc(formatWaktuWIB(p.daftar_ulang_at))}. Bawa Surat Keterangan Diterima dan berkas asli (KK, akta, rapor) ke sekolah sesuai jadwal dari sekolah.</small></div>
+      <a class="btn btn-accent" href="/surat.html" target="_blank" rel="noopener">${ikon("cetak")} Surat Keterangan Diterima</a>
+    </div>`;
+  }
+  const sisaJam = p.daftar_ulang_batas_at ? Math.max(0, Math.floor((new Date(p.daftar_ulang_batas_at) - Date.now()) / 3600000)) : null;
+  return `<div class="daftar-ulang">
+    <div class="du-ikon">${ikon("jam")}</div>
+    <div class="du-isi"><strong>Konfirmasi daftar ulang${sisaJam != null ? ` · sisa ${sisaJam >= 24 ? `${Math.floor(sisaJam / 24)} hari ${sisaJam % 24} jam` : `${sisaJam} jam`}` : ""}</strong>
+      <small>${p.daftar_ulang_batas_at ? `Paling lambat <b>${esc(formatWaktuWIB(p.daftar_ulang_batas_at))}</b>. ` : ""}Jika tidak dikonfirmasi, kursi dilepas untuk pendaftar lain.</small></div>
+    <button type="button" class="btn btn-accent" id="btn-daftar-ulang">${ikon("centang")} Konfirmasi daftar ulang</button>
+  </div>`;
+}
+
+function pasangDaftarUlang(p) {
+  const btn = document.getElementById("btn-daftar-ulang");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const ok = await Dialog.konfirmasi(
+      `Dengan mengonfirmasi, Anda menyatakan akan bersekolah di ${sekolahNama(p.sekolah_aktif_id)}. Kursi ini menjadi milik Anda dan Surat Keterangan Diterima dapat dicetak.`,
+      { judul: "Konfirmasi daftar ulang", tombolOk: "Ya, konfirmasi" });
+    if (!ok) return;
+    const pulih = Dialog.sibuk(btn, "Menyimpan…");
+    try {
+      const res = await fetch(`/api/pendaftar/${p.id}/daftar-ulang`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Gagal mengonfirmasi daftar ulang.");
+      Dialog.toast("Daftar ulang terkonfirmasi. Surat Keterangan Diterima sudah bisa dicetak.");
+      await renderStatusView();
+    } catch (err) {
+      pulih();
+      Dialog.galat(err instanceof TypeError ? "Tidak dapat terhubung ke server." : err.message);
+      await renderStatusView();
+    }
+  });
+}
+
 /* ---------- Data diri di halaman Status: bisa diperbaiki selama berkas belum Lengkap ---------- */
 const bisaUbahDataDiri = (p) => p.status_global === "Aktif" && p.status_berkas !== "Lengkap";
 
@@ -1312,7 +1357,9 @@ async function renderStatusView() {
 
   let statusBanner = "";
   if (pendaftar.status_global === "Diterima Final") {
-    statusBanner = `<div class="badge-final-accept">Diterima di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}</div>`;
+    statusBanner = `<div class="badge-final-accept">Diterima di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}</div>${daftarUlangHTML(pendaftar)}`;
+  } else if (pendaftar.status_global === "Tidak Daftar Ulang") {
+    statusBanner = `<div class="badge-final-reject">Kursi di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))} dilepas karena daftar ulang tidak dikonfirmasi${pendaftar.daftar_ulang_batas_at ? ` sampai ${esc(formatWaktuWIB(pendaftar.daftar_ulang_batas_at))}` : ""}.</div>`;
   } else if (pendaftar.status_global === "Tidak Diterima Final") {
     statusBanner = `<div class="badge-final-reject">Tidak diterima di seluruh pilihan sekolah</div>`;
   } else if (pendaftar.status_berkas === "Kurang Lengkap") {
@@ -1386,6 +1433,7 @@ async function renderStatusView() {
   `;
 
   pasangDataDiri(pendaftar);
+  pasangDaftarUlang(pendaftar);
   renderUploadList("status-upload-list", "status", pendaftar.id, dokumen || [], {
     jenisDokumen,
     keteranganKhusus: keteranganBerkasKhusus(pilihan.map((p) => ({ urutan: p.urutan_prioritas, sekolah: p.sekolah_nama, jenis: p.jalur_jenis }))),
@@ -1401,7 +1449,7 @@ const FILTER_PENGUMUMAN = [
   { kunci: "semua", label: "Semua", cocok: () => true },
   { kunci: "Aktif", label: "Masih diproses", cocok: (p) => p.status_global === "Aktif" },
   { kunci: "Diterima Final", label: "Diterima", cocok: (p) => p.status_global === "Diterima Final" },
-  { kunci: "Tidak Diterima Final", label: "Tidak diterima", cocok: (p) => p.status_global === "Tidak Diterima Final" },
+  { kunci: "Tidak Diterima Final", label: "Tidak diterima", cocok: (p) => p.status_global === "Tidak Diterima Final" || p.status_global === "Tidak Daftar Ulang" },
 ];
 let filterPengumuman = "semua";
 

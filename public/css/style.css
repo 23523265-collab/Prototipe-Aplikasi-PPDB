@@ -511,6 +511,25 @@ body.dlg-terbuka { overflow: hidden; }
 .setuju-kotak input { width: 18px; height: 18px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--navy); cursor: pointer; }
 .setuju-kotak a { color: var(--navy); font-weight: 600; }
 .setuju-kotak:has(input:checked) { border-color: #a7f3d0; background: #f0fdf6; }
+.daftar-ulang { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid #fde68a; background: #fffbeb; }
+.daftar-ulang.selesai { border-color: #a7f3d0; background: #f0fdf6; }
+.du-ikon { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #fef3c7; color: #b45309; }
+.daftar-ulang.selesai .du-ikon { background: #d1fae5; color: #047857; }
+.du-ikon svg { width: 18px; height: 18px; }
+.du-isi { flex: 1; min-width: 200px; }
+.du-isi strong { display: block; color: var(--navy); font-size: 14px; }
+.du-isi small { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.daftar-ulang .btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.daftar-ulang .btn svg { width: 15px; height: 15px; }
+.du-ringkas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
+.du-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 5px 11px; border-radius: 99px; background: #eef2f8; color: var(--navy); }
+.du-chip svg { width: 13px; height: 13px; }
+.du-chip.sudah { background: #d1fae5; color: #047857; }
+.du-chip.belum { background: #fef3c7; color: #b45309; }
+.du-chip.lewat { background: #ffedd5; color: #c2410c; }
+.du-saran { flex-basis: 100%; display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; color: #c2410c; }
+.du-saran svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; }
+@media (max-width: 560px) { .daftar-ulang .btn { width: 100%; justify-content: center; } }
 .data-diri { margin-top: 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; background: #fcfcfa; }
 .data-diri.perlu { border-color: #fed7aa; background: #fffaf3; }
 .data-diri-kepala { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }

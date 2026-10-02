@@ -148,7 +148,7 @@ function renderTotal(t) {
   document.getElementById("admin-total").innerHTML = `
     <div class="stat-card"><span class="stat-ico">${ikon("orang")}</span><div class="stat-num">${t.pendaftar}</div><div class="stat-label">Total pendaftar</div></div>
     <div class="stat-card"><span class="stat-ico">${ikon("jam")}</span><div class="stat-num" style="color:var(--amber)">${t.aktif}</div><div class="stat-label">Masih diproses</div></div>
-    <div class="stat-card"><span class="stat-ico">${ikon("diterima")}</span><div class="stat-num" style="color:#047857">${t.diterima}</div><div class="stat-label">Diterima</div></div>
+    <div class="stat-card"><span class="stat-ico">${ikon("diterima")}</span><div class="stat-num" style="color:#047857">${t.diterima}</div><div class="stat-label">Diterima${t.sudahDaftarUlang != null ? ` · ${t.sudahDaftarUlang} sudah daftar ulang` : ""}${t.tidakDaftarUlang ? ` · ${t.tidakDaftarUlang} kursi dilepas` : ""}</div></div>
     <div class="stat-card"><span class="stat-ico">${ikon("sekolah")}</span><div class="stat-num">${t.sekolah}</div><div class="stat-label">Sekolah</div></div>`;
 }
 

@@ -27,6 +27,7 @@ function pillHTML(status) {
     "Aktif": ["pill-amber", "jam"],
     "Diterima Final": ["pill-green", "centang"],
     "Tidak Diterima Final": ["pill-red", "silang"],
+    "Tidak Daftar Ulang": ["pill-orange", "jam"],
   };
   const [cls, icon] = map[status] || ["pill-gray", "strip"];
   return `<span class="pill ${cls}">${ikon(icon)} ${esc(status)}</span>`;
@@ -102,6 +103,7 @@ async function renderPanitiaView() {
   renderTahapan(tahapan);
   renderStatistik(statistik);
   document.getElementById("btn-export").href = `/api/sekolah/${sekolahId}/export.csv`;
+  muatDaftarUlang(sekolahId);
   if (document.getElementById("log-panitia").open) muatLogSekolah();
   const seleksiTerkunci = tahapan.aktif && tahapan.dibuka;
 
@@ -313,6 +315,32 @@ function renderDetail() {
       <button type="button" class="btn btn-peringatan" onclick="tandaiKurang(${a.pendaftar_id})">${ikon("peringatan")} Kurang</button>
       <button type="button" class="btn btn-bahaya-garis" onclick="tolakBerkas(${a.pendaftar_id})">${ikon("silang")} Tolak</button>
     </div>`;
+}
+
+/* =========================================================
+   DAFTAR ULANG (K2): siapa yang sudah/belum mengonfirmasi kursi
+   ========================================================= */
+async function muatDaftarUlang(sekolahId) {
+  const wrap = document.getElementById("daftar-ulang-wrap");
+  const res = await fetch(`/api/sekolah/${sekolahId}/daftar-ulang`).catch(() => null);
+  const daftar = res && res.ok ? await res.json() : [];
+  wrap.hidden = !daftar.length;
+  if (!daftar.length) return;
+  const n = (s) => daftar.filter((d) => d.status === s).length;
+  const lewat = n("lewat");
+  document.getElementById("daftar-ulang-ringkas").innerHTML = `
+    <span class="du-chip sudah">${ikon("centang")} Sudah <b>${n("sudah")}</b></span>
+    <span class="du-chip belum">${ikon("jam")} Belum <b>${n("belum")}</b></span>
+    <span class="du-chip lewat">${ikon("silang")} Kursi dilepas <b>${lewat}</b></span>
+    ${lewat ? `<span class="du-saran">${ikon("info")} ${lewat} siswa tidak daftar ulang sehingga kursinya dilepas. Bila di Statistik Sekolah masih ada sisa kursi, jalankan seleksi lagi pada jalurnya (seleksi tahap 2) untuk mengisinya dari pendaftar yang masih aktif di sekolah ini.</span>` : ""}`;
+  document.querySelector("#tabel-daftar-ulang tbody").innerHTML = daftar.map((d) => `
+    <tr>
+      <td><strong>${esc(d.nama)}</strong><br><span class="muted" style="margin:0;font-size:12px">${esc(d.nomor)}</span></td>
+      <td>${esc(d.jalur_nama)}</td>
+      <td>${d.status === "sudah" ? `<span class="pill pill-green">${ikon("centang")} Sudah</span> <small class="muted">${esc(formatWaktuWIB(d.waktu))}</small>`
+        : d.status === "lewat" ? `<span class="pill pill-orange">${ikon("silang")} Tidak daftar ulang</span> <small class="muted">kursi dilepas</small>`
+        : `<span class="pill pill-amber">${ikon("jam")} Belum</span> ${d.batas ? `<small class="muted">batas ${esc(formatWaktuWIB(d.batas))}</small>` : ""}`}</td>
+    </tr>`).join("");
 }
 
 /* =========================================================
