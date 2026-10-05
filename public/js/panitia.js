@@ -571,10 +571,10 @@ function bukaLokasi(pendaftarId) {
   const titik = [];
   if (adaSekolah) {
     const pos = [Number(sekolah.latitude), Number(sekolah.longitude)];
-    L.circleMarker(pos, { radius: 9, color: "#b67a22", fillColor: "#C98A2C", fillOpacity: 1 })
+    L.circleMarker(pos, { radius: 9, color: "#166534", fillColor: "#16a34a", fillOpacity: 1 })
       .addTo(petaLokasi).bindTooltip(sekolah.nama, { permanent: true, direction: "top" });
     if (a.syarat_radius_km != null) {
-      L.circle(pos, { radius: Number(a.syarat_radius_km) * 1000, color: "#C98A2C", weight: 2, dashArray: "6 6", fillOpacity: 0.05 }).addTo(petaLokasi);
+      L.circle(pos, { radius: Number(a.syarat_radius_km) * 1000, color: "#16a34a", weight: 2, dashArray: "6 6", fillOpacity: 0.05 }).addTo(petaLokasi);
     }
     titik.push(pos);
   }
@@ -585,7 +585,7 @@ function bukaLokasi(pendaftarId) {
     if (akurasi) L.circle(pos, { radius: Number(akurasi), color: "#3b82f6", weight: 1, fillOpacity: 0.12 }).addTo(petaLokasi);
     titik.push(pos);
   }
-  if (titik.length === 2) L.polyline(titik, { color: "#1B3358", weight: 2, dashArray: "4 6" }).addTo(petaLokasi);
+  if (titik.length === 2) L.polyline(titik, { color: "#0f6cbd", weight: 2, dashArray: "4 6" }).addTo(petaLokasi);
 
   // Titik hasil pencarian alamat (tidak ikut garis jarak)
   const semuaTitik = [...titik];

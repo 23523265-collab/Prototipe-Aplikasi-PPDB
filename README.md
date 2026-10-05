@@ -85,7 +85,8 @@ ppdb-project-v3/
 ├─ lib/                    Modul backend
 │  ├─ aturan.js            Aturan murni yang diuji otomatis: jalur SPMB, syarat & peringkat seleksi,
 │  │                       sisa kuota, berkas wajib, kategori jalur, batas usia, penyamaran nama
-│  ├─ engine.js            Verifikasi berkas, seleksi, auto-transfer, masa revisi, notifikasi
+│  ├─ engine.js            Verifikasi berkas, seleksi, auto-transfer, masa revisi, daftar ulang, notifikasi
+│  │                       (perubahan status inti lewat fungsi transaksi PostgreSQL, migration 22)
 │  ├─ auth.js              Login, sesi (disimpan di database), batas percobaan
 │  ├─ storage.js           Upload berkas, signed URL, bucket private
 │  ├─ validasi.js          Pra-verifikasi otomatis: NIK, berkas, alamat vs GPS
@@ -94,32 +95,22 @@ ppdb-project-v3/
 │  └─ supabase.js          Koneksi Supabase (service key dari .env)
 ├─ database/
 │  ├─ schema.sql           Tabel dasar + data contoh
-│  ├─ migrations/          01-… s.d. 17-… — jalankan berurutan sesuai nomor
+│  ├─ migrations/          01-… s.d. 22-… — jalankan berurutan sesuai nomor
 │  ├─ ganti-password-staf.sql   Wajib setelah memasang database baru
 │  └─ reset-data-demo.sql  Hapus semua pendaftar (sebelum demo)
 ├─ docs/
-│  └─ PRD_Aplikasi_PPDB_v7.3.docx / .pdf   Product Requirements Document (FR-01 s.d. FR-14)
+│  └─ PRD_Aplikasi_PPDB_v7.7.docx / .pdf   Product Requirements Document (FR-01 s.d. FR-16)
 ├─ scripts/
 │  └─ reset-berkas-demo.js Hapus file berkas di Supabase Storage (pasangan reset-data-demo.sql)
 ├─ public/                 Situs pendaftar (index.html, js/app.js), panel panitia (panitia.html),
-│                          Admin Dinas (admin.html), dialog & ikon bersama (js/dialog.js, js/ikon.js)
+│                          Admin Dinas (admin.html), bukti pendaftaran (bukti.html), Surat Keterangan
+│                          Diterima (surat.html), Kebijakan Privasi (privasi.html), reset password (reset.html),
+│                          dialog & ikon bersama (js/dialog.js, js/ikon.js)
+├─ .github/workflows/      GitHub Actions: npm test otomatis setiap push
+├─ vercel.json             Region server (Singapura, sin1) + header keamanan
 └─ test/                   Unit test (npm test)
 ```
 
----|---|
-| `server.js` | Semua endpoint API |
-| `engine.js` | Verifikasi berkas, seleksi, auto-transfer, masa revisi, notifikasi |
-| `aturan.js` | Aturan murni yang diuji otomatis: syarat & peringkat seleksi, sisa kuota, batas usia, penyamaran nama |
-| `zonasi.js` | Rumus Haversine dan konversi jarak → skor (nama file historis; dipakai semua jalur berbasis jarak) |
-| `validasi.js` | Pra-verifikasi otomatis: NIK, berkas, alamat vs GPS |
-| `auth.js` | Login, sesi (disimpan di database), batas percobaan login |
-| `storage.js` | Upload berkas, signed URL, bucket private |
-| `email.js` | Pengiriman email notifikasi |
-| `public/index.html`, `public/js/app.js` | Situs pendaftar |
-| `public/panitia.html`, `public/js/panitia.js` | Panel panitia |
-| `public/admin.html`, `public/js/admin.js` | Panel Admin Dinas |
-| `public/js/dialog.js`, `public/js/ikon.js` | Dialog/toast & ikon SVG yang dipakai semua halaman |
-| `test/` | Unit test (`npm test`) |
 
 ---
 
@@ -184,9 +175,9 @@ Buka http://localhost:3000. Saat pertama jalan, server otomatis membuat bucket `
 ```
 npm test
 ```
-Menjalankan 36 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor jarak, syarat & urutan 5 jalur SPMB, berkas wajib per jalur,
+Menjalankan 39 unit test (bawaan Node.js, tanpa database) untuk: rumus jarak Haversine & skor jarak, syarat & urutan 5 jalur SPMB, berkas wajib per jalur,
 syarat radius/nilai minimum, urutan peringkat dan penentu seri (usia lebih tua, lalu daftar lebih awal),
-sisa kuota, estimasi peringkat sementara, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi berkas yang diganti ekstensinya.
+sisa kuota, estimasi peringkat sementara, batas daftar ulang, batas usia 12–21 tahun, penyamaran nama, validasi NIK, dan deteksi berkas yang diganti ekstensinya.
 Tes yang sama dijalankan otomatis oleh GitHub Actions setiap push (`.github/workflows/test.yml`).
 
 ---

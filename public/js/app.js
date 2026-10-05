@@ -293,10 +293,10 @@ function renderBeranda() {
   const totalDiterima = pendaftarList.filter((p) => p.status_global === "Diterima Final").length;
   const totalTidakDiterima = pendaftarList.filter((p) => p.status_global === "Tidak Diterima Final").length;
   document.getElementById("stat-grid").innerHTML = `
-    <div class="strip-item"><strong data-angka="${sekolahList.length}">${sekolahList.length}</strong><span><b>Sekolah</b>SMA Negeri peserta</span></div>
-    <div class="strip-item"><strong data-angka="${pendaftarList.length}">${pendaftarList.length}</strong><span><b>Pendaftar</b>total saat ini</span></div>
-    <div class="strip-item"><strong data-angka="${totalAktif}" style="color:var(--amber-dark)">${totalAktif}</strong><span><b>Diproses</b>verifikasi &amp; seleksi</span></div>
-    <div class="strip-item"><strong data-angka="${totalDiterima}" style="color:#047857">${totalDiterima}</strong><span><b>Diterima</b>${totalTidakDiterima ? `${totalTidakDiterima} tidak diterima` : "di salah satu pilihan"}</span></div>
+    <div class="strip-item"><span class="strip-ikon">${ikon("sekolah")}</span><strong data-angka="${sekolahList.length}">${sekolahList.length}</strong><span><b>Sekolah</b>SMA Negeri peserta</span></div>
+    <div class="strip-item"><span class="strip-ikon hijau">${ikon("orang")}</span><strong data-angka="${pendaftarList.length}">${pendaftarList.length}</strong><span><b>Pendaftar</b>total saat ini</span></div>
+    <div class="strip-item"><span class="strip-ikon oranye">${ikon("jam")}</span><strong data-angka="${totalAktif}" style="color:#b45309">${totalAktif}</strong><span><b>Diproses</b>verifikasi &amp; seleksi</span></div>
+    <div class="strip-item"><span class="strip-ikon hijau">${ikon("diterima")}</span><strong data-angka="${totalDiterima}" style="color:var(--amber)">${totalDiterima}</strong><span><b>Diterima</b>${totalTidakDiterima ? `${totalTidakDiterima} tidak diterima` : "di salah satu pilihan"}</span></div>
     <button type="button" class="strip-cta" onclick="showView('daftar')">Daftar Sekarang ${ikon("panahKanan")}</button>
   `;
   document.querySelectorAll("#stat-grid [data-angka]").forEach(hitungNaik);
@@ -722,7 +722,7 @@ async function renderTahapanBeranda(adaHasil) {
   ];
   document.getElementById("beranda-tahapan").innerHTML = tahap.map((x, i) => `
     <li class="jadwal-item ${x.status}">
-      <span class="jadwal-no">${x.status === "selesai" ? ikon("centang") : i + 1}</span>
+      <span class="jadwal-kepala"><span class="jadwal-no">${x.status === "selesai" ? ikon("centang") : i + 1}</span><span class="jadwal-ikon">${ikon(["formulir", "daftarCek", "orang", "perisai"][i])}</span></span>
       <div>
         <div class="jadwal-atas"><strong>${x.judul}</strong><span class="jadwal-label">${x.label}</span></div>
         <p>${x.ket}</p>

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 400" role="img" aria-label="Ilustrasi dua siswa SMA">
+  <!-- Ilustrasi dua siswa SMA berseragam putih-abu (dibuat untuk SiPPDB, bebas dipakai) -->
+  <!-- latar: lingkaran lembut & siluet kota -->
+  <circle cx="180" cy="190" r="160" fill="#e8f2fc"/>
+  <g fill="#d3e4f5">
+    <rect x="40" y="150" width="34" height="150" rx="3"/><rect x="80" y="110" width="28" height="190" rx="3"/>
+    <rect x="252" y="120" width="30" height="180" rx="3"/><rect x="288" y="160" width="34" height="140" rx="3"/>
+  </g>
+  <ellipse cx="180" cy="372" rx="140" ry="16" fill="#cfe1f2"/>
+
+  <!-- ===== Siswa laki-laki (kiri) ===== -->
+  <g>
+    <!-- kaki: celana abu-abu -->
+    <rect x="102" y="270" width="22" height="92" rx="8" fill="#6b7280"/>
+    <rect x="128" y="270" width="22" height="92" rx="8" fill="#6b7280"/>
+    <path d="M98 360 h30 v10 h-34 a4 4 0 0 1 4 -10z M126 360 h30 a4 4 0 0 1 4 10 h-34z" fill="#1f2937"/>
+    <!-- tas punggung -->
+    <rect x="84" y="182" width="26" height="72" rx="10" fill="#0f6cbd"/>
+    <!-- badan: kemeja putih -->
+    <path d="M98 180 q28 -16 56 0 l6 96 h-68 z" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <path d="M118 168 l8 14 l8 -14" fill="#e5e7eb"/>
+    <rect x="124" y="182" width="4" height="40" fill="#9ca3af"/>
+    <rect x="102" y="270" width="48" height="8" fill="#374151"/>
+    <!-- lengan & buku -->
+    <path d="M152 186 q16 30 4 62" stroke="#ffffff" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <path d="M152 186 q16 30 4 62" stroke="#cbd5e1" stroke-width="2" fill="none" stroke-dasharray="0"/>
+    <rect x="140" y="232" width="34" height="40" rx="3" fill="#16a34a" transform="rotate(-8 157 252)"/>
+    <circle cx="156" cy="252" r="8" fill="#f2c9a5"/>
+    <!-- kepala -->
+    <rect x="118" y="150" width="16" height="20" fill="#e9b88f"/>
+    <circle cx="126" cy="132" r="26" fill="#f2c9a5"/>
+    <path d="M100 128 q2 -30 28 -30 q26 0 24 26 q-10 -12 -30 -10 q-14 2 -22 14z" fill="#1f2937"/>
+    <circle cx="117" cy="134" r="2.6" fill="#1f2937"/><circle cx="135" cy="134" r="2.6" fill="#1f2937"/>
+    <path d="M119 145 q7 6 14 0" stroke="#b45309" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- ===== Siswi perempuan (kanan) ===== -->
+  <g>
+    <!-- rok abu-abu panjang -->
+    <path d="M200 262 h56 l10 100 h-76z" fill="#6b7280"/>
+    <path d="M190 360 h28 v10 h-30z M238 360 h30 l2 10 h-32z" fill="#1f2937"/>
+    <!-- badan: kemeja putih -->
+    <path d="M200 182 q28 -16 56 0 l4 84 h-64 z" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <!-- lengan memeluk map -->
+    <path d="M202 192 q-12 34 10 58" stroke="#ffffff" stroke-width="15" stroke-linecap="round" fill="none"/>
+    <rect x="206" y="218" width="40" height="44" rx="4" fill="#f59e0b"/>
+    <rect x="212" y="226" width="28" height="4" rx="2" fill="#fff7ed"/>
+    <circle cx="222" cy="252" r="7.5" fill="#f2c9a5"/>
+    <!-- kerudung putih -->
+    <path d="M198 136 q0 -40 30 -40 q30 0 30 40 v34 q-30 22 -60 0z" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+    <!-- wajah -->
+    <ellipse cx="228" cy="140" rx="20" ry="23" fill="#f2c9a5"/>
+    <circle cx="220" cy="140" r="2.6" fill="#1f2937"/><circle cx="236" cy="140" r="2.6" fill="#1f2937"/>
+    <path d="M221 151 q7 6 14 0" stroke="#b45309" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <circle cx="214" cy="147" r="3.5" fill="#f9a8a8" opacity="0.6"/><circle cx="242" cy="147" r="3.5" fill="#f9a8a8" opacity="0.6"/>
+  </g>
+
+  <!-- ikon topi wisuda melayang -->
+  <g transform="translate(266 70)">
+    <circle r="26" fill="#ffffff" stroke="#bfdbfe" stroke-width="2"/>
+    <path d="M-14 -2 l14 -8 l14 8 l-14 8z" fill="#0f6cbd"/>
+    <path d="M-8 2 v7 q8 6 16 0 v-7" fill="#0f6cbd"/>
+  </g>
+  <g transform="translate(70 92)">
+    <circle r="20" fill="#ffffff" stroke="#bbf7d0" stroke-width="2"/>
+    <path d="M-8 0 l5 5 l10 -11" stroke="#16a34a" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

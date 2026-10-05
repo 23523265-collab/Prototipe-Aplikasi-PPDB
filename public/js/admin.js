@@ -129,7 +129,7 @@ async function ubahTahapan(dibuka, btn) {
   if (!ya) return;
   const teksAsli = btn.innerHTML;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="border-color:rgba(27,51,88,0.25);border-top-color:#1B3358"></span>Memproses…';
+  btn.innerHTML = '<span class="spinner" style="border-color:rgba(15,42,74,0.2);border-top-color:#0f2a4a"></span>Memproses…';
   try {
     await api("/api/tahapan", { method: "PATCH", body: JSON.stringify({ dibuka }) });
     await render();
