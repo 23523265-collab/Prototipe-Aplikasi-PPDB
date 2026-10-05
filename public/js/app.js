@@ -45,6 +45,29 @@ window.addEventListener("scroll", () => {
   garisProgres.style.transform = `scaleX(${maks > 0 ? Math.min(1, window.scrollY / maks) : 0})`;
 }, { passive: true });
 
+/* Menu "Masuk Staf": Panitia Sekolah / Dinas Pendidikan */
+(function menuStaf() {
+  const tombol = document.getElementById("btn-menu-staf");
+  const isi = document.getElementById("daftar-menu-staf");
+  if (!tombol || !isi) return;
+  const item = () => [...isi.querySelectorAll("a")];
+  const atur = (buka, fokusPertama = false) => {
+    isi.hidden = !buka;
+    tombol.setAttribute("aria-expanded", String(buka));
+    tombol.parentElement.classList.toggle("buka", buka);
+    if (buka && fokusPertama) item()[0].focus();
+  };
+  tombol.addEventListener("click", () => atur(isi.hidden));
+  tombol.addEventListener("keydown", (e) => { if (e.key === "ArrowDown") { e.preventDefault(); atur(true, true); } });
+  isi.addEventListener("keydown", (e) => {
+    const daftar = item(), i = daftar.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") { e.preventDefault(); daftar[(i + 1) % daftar.length].focus(); }
+    if (e.key === "ArrowUp") { e.preventDefault(); daftar[(i - 1 + daftar.length) % daftar.length].focus(); }
+  });
+  document.addEventListener("click", (e) => { if (!isi.hidden && !e.target.closest("#menu-staf")) atur(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !isi.hidden) { atur(false); tombol.focus(); } });
+})();
+
 /* Efek sentuh: riak (ripple) di titik yang ditekan + getaran halus di HP (jika didukung).
    Tanpa efek bila pengguna memilih "kurangi gerakan". */
 const SASARAN_SENTUH = ".btn, .nav-item, .strip-cta, .sekolah-kartu, .jalur-info, .tab-filter button, .profil-jalur, .profil-sekolah-baris, .brand";

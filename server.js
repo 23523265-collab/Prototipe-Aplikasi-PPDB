@@ -686,7 +686,10 @@ app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res
     }
   }
   const catatan = typeof req.body.catatan === "string" ? req.body.catatan.trim().slice(0, 500) : null;
-  await engine.verifikasiBerkas(pendaftarId, req.body.status, catatan || null);
+  const hasilVerifikasi = await engine.verifikasiBerkas(pendaftarId, req.body.status, catatan || null);
+  if (hasilVerifikasi?.hasil === "dilewati") {
+    return res.status(409).json({ error: "Status pendaftar baru saja berubah (mis. sudah dialihkan atau selesai diproses). Muat ulang antrean." });
+  }
   await catatAktivitas(req, `Verifikasi berkas: ${req.body.status}`, { pendaftarId, detail: catatan || null });
   res.json({ ok: true });
 });

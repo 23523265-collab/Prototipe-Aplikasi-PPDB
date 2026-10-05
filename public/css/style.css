@@ -860,7 +860,9 @@ a.berkas-chip:hover { border-color: var(--navy); background: #f8f9fb; color: var
 .kaki-bawah { border-top: 1px solid rgba(255,255,255,0.08); padding-block: 16px 22px; font-size: 12px; color: #74849c; }
 
 @media (max-width: 1080px) {
-  .topnav-aksi .btn-outline { display: none; }
+  .topnav-aksi > .btn-outline { display: none; }
+  .menu-staf-teks { display: none; }
+  .menu-staf > .btn::after { content: "Staf"; }
   .hero-teks h1 { font-size: 38px; }
   .strip-stat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .strip-item:nth-child(2) { border-right: none; }
@@ -1081,6 +1083,33 @@ body.profil-terbuka { overflow: hidden; }
   .profil-lembar, .profil-latar { transition: none; }
   .profil-lembar.buka .profil-batang span { animation: none; }
 }
+
+/* ---------- Menu "Masuk Staf" ---------- */
+.menu-staf { position: relative; }
+.menu-staf-panah { font-size: 10px; transition: transform 0.2s ease; order: 2; }
+.menu-staf.buka .menu-staf-panah { transform: rotate(180deg); }
+.menu-staf-isi {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 80; width: 260px; padding: 6px;
+  background: #fff; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg);
+  animation: menuMuncul 0.18s ease;
+}
+@keyframes menuMuncul { from { opacity: 0; transform: translateY(-6px); } }
+.menu-staf-isi a { display: flex; align-items: center; gap: 11px; padding: 10px; border-radius: 10px; text-decoration: none; color: var(--ink); transition: background 0.15s ease; }
+.menu-staf-isi a:hover, .menu-staf-isi a:focus-visible { background: var(--bg); outline: none; }
+.menu-staf-isi strong { display: block; font-size: 13.5px; color: var(--navy); }
+.menu-staf-isi small { font-size: 12px; color: var(--muted); }
+.ms-ikon { width: 34px; height: 34px; flex-shrink: 0; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #eef2f8; color: var(--navy); }
+.ms-ikon.dinas { background: #fdf3e1; color: var(--amber-dark); }
+.ms-ikon svg { width: 17px; height: 17px; }
+@media (max-width: 860px) {
+  /* HP: tombol staf kecil di pojok kanan atas, di sebelah nama aplikasi */
+  .topnav-isi { position: relative; }
+  .topnav-aksi { display: flex; position: absolute; top: 12px; right: 12px; }
+  .topnav-aksi > .btn-accent { display: none; }
+  .menu-staf > .btn, .topnav-aksi .menu-staf > .btn-outline { display: inline-flex; padding: 6px 10px; font-size: 12px; background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.25); }
+  .menu-staf-isi { width: min(260px, calc(100vw - 24px)); }
+}
+@media (prefers-reduced-motion: reduce) { .menu-staf-isi { animation: none; } }
 
 /* Navbar mendapat bayangan setelah halaman digulir */
 .topnav { transition: box-shadow 0.25s ease, background 0.25s ease; }

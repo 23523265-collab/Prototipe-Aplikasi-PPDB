@@ -26,7 +26,15 @@
           <button class="nav-item" data-view="pengumuman"><span class="nav-ico"><i data-ikon="pengumuman"></i></span>Pengumuman</button>
         </nav>
         <div class="topnav-aksi">
-          <a class="btn btn-outline" href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
+          <div class="menu-staf" id="menu-staf">
+            <button type="button" class="btn btn-outline" id="btn-menu-staf" aria-haspopup="menu" aria-expanded="false" aria-controls="daftar-menu-staf">
+              <i data-ikon="gembok"></i> <span class="menu-staf-teks">Masuk Staf</span> <span class="menu-staf-panah" aria-hidden="true">▾</span>
+            </button>
+            <div class="menu-staf-isi" id="daftar-menu-staf" role="menu" aria-label="Masuk sebagai staf" hidden>
+              <a role="menuitem" href="/panitia.html"><span class="ms-ikon"><i data-ikon="sekolah"></i></span><span><strong>Panitia Sekolah</strong><small>Verifikasi berkas &amp; seleksi</small></span></a>
+              <a role="menuitem" href="/admin.html"><span class="ms-ikon dinas"><i data-ikon="dinas"></i></span><span><strong>Dinas Pendidikan</strong><small>Tahapan, kuota &amp; rekap</small></span></a>
+            </div>
+          </div>
           <button class="btn btn-accent" data-goto="daftar">Daftar Sekarang</button>
         </div>
       </div>
@@ -342,7 +350,8 @@
           <button type="button" data-goto="status">Cek Status</button>
           <button type="button" data-goto="pengumuman">Pengumuman</button>
           <a href="/privasi.html"><i data-ikon="perisai"></i> Kebijakan Privasi</a>
-          <a href="/panitia.html"><i data-ikon="gembok"></i> Login Panitia</a>
+          <a href="/panitia.html"><i data-ikon="gembok"></i> Panitia Sekolah</a>
+          <a href="/admin.html"><i data-ikon="dinas"></i> Dinas Pendidikan</a>
         </nav>
       </div>
       <div class="kontainer kaki-bawah">© 2026 SiPPDB · Data sekolah: SMA Negeri Kota Yogyakarta &amp; Kabupaten Sleman · Peta © OpenStreetMap</div>
