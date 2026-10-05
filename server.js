@@ -318,9 +318,13 @@ app.get("/api/pendaftar/nomor/:nomor", auth.requirePendaftarLogin, async (req, r
       .catch((err) => { console.error("[estimasi]", err.message); return null; });
   }
 
+  // K3: sanggahan milik pendaftar (tabel ada sejak migration v7.9; bila belum ada, kosong saja)
+  const { data: sanggahan } = await supabase.from("sanggahan").select("*").eq("pendaftar_id", pendaftar.id).order("id");
+
   const { password_hash, ...pendaftarAman } = pendaftar;
   res.json({
-    pendaftar: pendaftarAman, pilihan, riwayat, notifikasi, estimasi,
+    pendaftar: pendaftarAman, pilihan, riwayat, notifikasi, estimasi, sanggahan: sanggahan || [],
+    jamMasaSanggah: aturan.JAM_MASA_SANGGAH,
     dokumen: await storage.tandatanganiDokumen(dokumen),
     // semua berkas yang mungkin dibutuhkan di pilihan mana pun (bisa diunggah sejak awal)
     jenisDokumen: berkasUntukJalur(pilihanRaw.map((p) => jalurDari(p.jalur_id))),
@@ -573,6 +577,80 @@ app.post("/api/pendaftar/:id/daftar-ulang", auth.requirePendaftarLogin, async (r
   await catatAktivitas(req, "Konfirmasi daftar ulang", { sekolahId: p.sekolah_aktif_id, pendaftarId: p.id, namaPendaftar: p.nama });
   await engine.tambahNotifikasi(p.id, `Daftar ulang di ${sk?.nama || "sekolah tujuan"} berhasil dikonfirmasi. Surat Keterangan Diterima dapat dicetak dari menu Cek Status.`);
   res.json({ ok: true, daftar_ulang_at: sekarang });
+});
+
+/* =========================================================
+   K3: MASA SANGGAH -- pendaftar menyanggah penolakan, panitia sekolah yang menolak menjawab
+   ========================================================= */
+app.post("/api/pendaftar/:id/sanggah", auth.requirePendaftarLogin, async (req, res) => {
+  const pendaftarId = Number(req.params.id);
+  if (pendaftarId !== req.pendaftar.id) return res.status(403).json({ error: "Anda hanya dapat menyanggah keputusan untuk pendaftaran milik sendiri." });
+  const isi = typeof req.body.isi === "string" ? req.body.isi.trim() : "";
+  if (isi.length < 20 || isi.length > 1000) return res.status(400).json({ error: "Isi sanggahan 20–1000 karakter: jelaskan keberatan dan buktinya." });
+  const { data: pl } = await supabase.from("pilihan").select("*").eq("id", Number(req.body.pilihanId)).eq("pendaftar_id", pendaftarId).maybeSingle();
+  if (!pl) return res.status(404).json({ error: "Pilihan sekolah tidak ditemukan." });
+  const { data: ada } = await supabase.from("sanggahan").select("id").eq("pilihan_id", pl.id).limit(1);
+  if (!aturan.bisaSanggah(pl, !!ada?.length)) {
+    return res.status(409).json({ error: ada?.length ? "Sanggahan untuk pilihan ini sudah diajukan." : `Masa sanggah (${aturan.JAM_MASA_SANGGAH / 24}×24 jam sejak keputusan) sudah berakhir atau tidak berlaku untuk pilihan ini.` });
+  }
+  const { data: s, error } = await supabase.from("sanggahan").insert({ pendaftar_id: pendaftarId, pilihan_id: pl.id, sekolah_id: pl.sekolah_id, isi }).select().single();
+  if (error) {
+    if (error.code === "23505") return res.status(409).json({ error: "Sanggahan untuk pilihan ini sudah diajukan." });
+    return res.status(500).json({ error: `Gagal menyimpan sanggahan (sudah jalankan migration v7.9?): ${error.message}` });
+  }
+  const { data: p } = await supabase.from("pendaftar").select("nama").eq("id", pendaftarId).single();
+  const { data: sk } = await supabase.from("sekolah").select("nama").eq("id", pl.sekolah_id).single();
+  await catatAktivitas(req, "Pendaftar mengajukan sanggahan", { sekolahId: pl.sekolah_id, pendaftarId, namaPendaftar: p?.nama, detail: `Pilihan ${pl.urutan_prioritas}: ${isi.slice(0, 120)}` });
+  await engine.tambahNotifikasi(pendaftarId, `Sanggahan atas keputusan di ${sk?.nama || "sekolah"} (Pilihan ${pl.urutan_prioritas}) telah diterima dan akan dijawab panitia.`);
+  res.status(201).json({ ok: true, id: s.id });
+});
+
+app.get("/api/sekolah/:id/sanggah", auth.requirePanitiaLogin, async (req, res) => {
+  const sekolahId = Number(req.params.id);
+  if (sekolahId !== req.panitia.sekolahId) return res.status(403).json({ error: "Hanya untuk sekolah Anda sendiri." });
+  const { data: daftar, error } = await supabase.from("sanggahan").select("*").eq("sekolah_id", sekolahId).order("dibuat_at", { ascending: false });
+  if (error) return res.status(500).json({ error: `Sanggahan belum tersedia (sudah jalankan migration v7.9?): ${error.message}` });
+  if (!daftar.length) return res.json([]);
+  const [{ data: pendaftar }, { data: pilihan }, { data: jalur }] = await Promise.all([
+    supabase.from("pendaftar").select("id, nomor, nama, status_global").in("id", [...new Set(daftar.map((s) => s.pendaftar_id))]),
+    supabase.from("pilihan").select("id, urutan_prioritas, jalur_id, alasan_penolakan, ditolak_at").in("id", daftar.map((s) => s.pilihan_id)),
+    supabase.from("jalur").select("id, nama").eq("sekolah_id", sekolahId),
+  ]);
+  res.json(daftar.map((s) => {
+    const p = pendaftar.find((x) => x.id === s.pendaftar_id) || {};
+    const pl = pilihan.find((x) => x.id === s.pilihan_id) || {};
+    return { ...s, nomor: p.nomor, nama: p.nama, status_global: p.status_global, urutan: pl.urutan_prioritas,
+      jalur_nama: jalur.find((j) => j.id === pl.jalur_id)?.nama || "-", alasan_penolakan: pl.alasan_penolakan, ditolak_at: pl.ditolak_at };
+  }));
+});
+
+app.patch("/api/sanggah/:id", auth.requirePanitiaLogin, async (req, res) => {
+  const id = Number(req.params.id);
+  const keputusan = req.body.keputusan;
+  const jawaban = typeof req.body.jawaban === "string" ? req.body.jawaban.trim().slice(0, 1000) : "";
+  if (!["Dikabulkan", "Ditolak"].includes(keputusan)) return res.status(400).json({ error: "Keputusan harus Dikabulkan atau Ditolak." });
+  if (jawaban.length < 10) return res.status(400).json({ error: "Tuliskan jawaban/alasan keputusan (minimal 10 karakter)." });
+  const { data: s } = await supabase.from("sanggahan").select("*").eq("id", id).maybeSingle();
+  if (!s || s.sekolah_id !== req.panitia.sekolahId) return res.status(403).json({ error: "Sanggahan ini bukan untuk sekolah Anda." });
+  if (s.status !== "Menunggu") return res.status(409).json({ error: "Sanggahan ini sudah dijawab." });
+  const oleh = `${req.panitia.nama} (${req.panitia.username})`;
+
+  if (keputusan === "Dikabulkan") {
+    const { data: h, error } = await supabase.rpc("sippdb_kabulkan_sanggah", { p_sanggah_id: id, p_jawaban: jawaban, p_oleh: oleh });
+    if (error) return res.status(500).json({ error: `Gagal memproses (sudah jalankan migration v7.9?): ${error.message}` });
+    if (h?.hasil === "tidak_bisa") {
+      return res.status(409).json({ error: `Tidak dapat dikabulkan otomatis karena status pendaftar sudah "${h.status}". Tolak sanggahan dengan penjelasan, atau koordinasikan dengan Admin Dinas.` });
+    }
+    if (h?.hasil !== "dikabulkan") return res.status(409).json({ error: "Status sanggahan atau pendaftar baru saja berubah. Muat ulang halaman." });
+    await engine.tambahNotifikasi(s.pendaftar_id, `Sanggahan Anda DIKABULKAN oleh panitia. Pendaftaran dikembalikan ke Pilihan ${h.urutan} untuk diverifikasi ulang. Jawaban panitia: ${jawaban}`);
+  } else {
+    const { data: diubah } = await supabase.from("sanggahan").update({ status: "Ditolak", jawaban, dijawab_oleh: oleh, dijawab_at: new Date().toISOString() })
+      .eq("id", id).eq("status", "Menunggu").select("id");
+    if (!diubah?.length) return res.status(409).json({ error: "Sanggahan ini sudah dijawab." });
+    await engine.tambahNotifikasi(s.pendaftar_id, `Sanggahan Anda tidak dapat dikabulkan. Jawaban panitia: ${jawaban}`);
+  }
+  await catatAktivitas(req, `Sanggahan ${keputusan.toLowerCase()}`, { pendaftarId: s.pendaftar_id, detail: jawaban });
+  res.json({ ok: true });
 });
 
 /* K4: pendaftar mengundurkan diri (masih diproses atau sudah diterima -> kursi dilepas) */

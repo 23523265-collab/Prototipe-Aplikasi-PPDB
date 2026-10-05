@@ -105,6 +105,7 @@ async function renderPanitiaView() {
   renderStatistik(statistik);
   document.getElementById("btn-export").href = `/api/sekolah/${sekolahId}/export.csv`;
   muatDaftarUlang(sekolahId);
+  muatSanggah(sekolahId);
   if (document.getElementById("log-panitia").open) muatLogSekolah();
   const seleksiTerkunci = tahapan.aktif && tahapan.dibuka;
 
@@ -316,6 +317,51 @@ function renderDetail() {
       <button type="button" class="btn btn-peringatan" onclick="tandaiKurang(${a.pendaftar_id})">${ikon("peringatan")} Kurang</button>
       <button type="button" class="btn btn-bahaya-garis" onclick="tolakBerkas(${a.pendaftar_id})">${ikon("silang")} Tolak</button>
     </div>`;
+}
+
+/* =========================================================
+   SANGGAHAN (K3)
+   ========================================================= */
+let sanggahData = [];
+async function muatSanggah(sekolahId) {
+  const wrap = document.getElementById("sanggah-wrap");
+  const res = await fetch(`/api/sekolah/${sekolahId}/sanggah`).catch(() => null);
+  sanggahData = res && res.ok ? await res.json() : [];
+  wrap.hidden = !sanggahData.length;
+  if (!sanggahData.length) return;
+  const menunggu = sanggahData.filter((s) => s.status === "Menunggu").length;
+  document.getElementById("sanggah-jumlah").innerText = menunggu ? `${menunggu} menunggu` : "";
+  document.getElementById("sanggah-daftar").innerHTML = sanggahData.map((s) => `
+    <div class="sanggah-kartu ${s.status === "Menunggu" ? "menunggu" : ""}">
+      <div class="sk-atas">
+        <div><strong>${esc(s.nama)}</strong> <span class="muted" style="margin:0;font-size:12px">${esc(s.nomor)} · Pilihan ${esc(s.urutan)} · ${esc(s.jalur_nama)}</span></div>
+        <span class="pill ${s.status === "Dikabulkan" ? "pill-green" : s.status === "Ditolak" ? "pill-red" : "pill-amber"}">${esc(s.status === "Menunggu" ? "Menunggu jawaban" : s.status)}</span>
+      </div>
+      <div class="sk-alasan">Keputusan awal: ${esc(s.alasan_penolakan || "-")}</div>
+      <div class="sk-isi">“${esc(s.isi)}”<small> · ${esc(formatWaktuWIB(s.dibuat_at))}</small></div>
+      ${s.jawaban ? `<div class="sk-jawab"><b>Jawaban:</b> ${esc(s.jawaban)} <small>· ${esc(s.dijawab_oleh || "")}</small></div>` : ""}
+      ${s.status === "Menunggu" ? `<div class="sk-tombol">
+        <button type="button" class="btn btn-sukses" onclick="jawabSanggah(${s.id}, 'Dikabulkan', this)">${ikon("centang")} Kabulkan</button>
+        <button type="button" class="btn btn-bahaya-garis" onclick="jawabSanggah(${s.id}, 'Ditolak', this)">${ikon("silang")} Tolak</button>
+      </div>` : ""}
+    </div>`).join("");
+}
+
+async function jawabSanggah(id, keputusan, btn) {
+  const s = sanggahData.find((x) => x.id === id);
+  const jawaban = await Dialog.isian(
+    keputusan === "Dikabulkan"
+      ? `${s.nama} akan dikembalikan ke Pilihan ${s.urutan} di sekolah ini untuk diverifikasi ulang; pilihan sesudahnya direset. Tuliskan alasan dikabulkan.`
+      : `Keputusan untuk ${s.nama} tetap. Tuliskan alasan sanggahan tidak dapat dikabulkan.`,
+    { multiline: true, wajib: true, placeholder: "Minimal 10 karakter, akan dibaca pendaftar" },
+    { judul: keputusan === "Dikabulkan" ? "Kabulkan sanggahan" : "Tolak sanggahan", jenis: keputusan === "Dikabulkan" ? "info" : "bahaya", bahaya: keputusan !== "Dikabulkan", tombolOk: keputusan === "Dikabulkan" ? "Kabulkan" : "Tolak sanggahan", tombolBatal: "Batal" });
+  if (!jawaban) return;
+  Dialog.sibuk(btn, "Menyimpan…");
+  const res = await fetch(`/api/sanggah/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keputusan, jawaban }) });
+  const data = await res.json().catch(() => ({}));
+  await renderPanitiaView();
+  if (!res.ok) return Dialog.galat(data.error || "Gagal menyimpan jawaban.");
+  Dialog.toast(keputusan === "Dikabulkan" ? `Sanggahan dikabulkan. ${s.nama} kembali ke antrean verifikasi.` : "Sanggahan ditolak dan jawaban dikirim ke pendaftar.", keputusan === "Dikabulkan" ? "sukses" : "peringatan");
 }
 
 /* =========================================================

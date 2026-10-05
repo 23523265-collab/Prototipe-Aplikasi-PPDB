@@ -1258,6 +1258,44 @@ function pasangDaftarUlang(p) {
   });
 }
 
+/* ---------- K3: Sanggahan atas penolakan ---------- */
+function sanggahHTML(pl, daftar, jamMasa) {
+  const s = daftar.find((x) => x.pilihan_id === pl.id);
+  if (s) {
+    const kelas = s.status === "Dikabulkan" ? "dikabulkan" : s.status === "Ditolak" ? "ditolak" : "menunggu";
+    return `<div class="sanggah-info ${kelas}">
+      <div class="sg-atas"><strong>Sanggahan Anda</strong><span class="pill ${kelas === "dikabulkan" ? "pill-green" : kelas === "ditolak" ? "pill-red" : "pill-amber"}">${esc(s.status === "Menunggu" ? "Menunggu jawaban" : s.status)}</span></div>
+      <div class="sg-isi">“${esc(s.isi)}”</div>
+      ${s.jawaban ? `<div class="sg-jawab"><b>Jawaban panitia:</b> ${esc(s.jawaban)}${s.dijawab_at ? ` <small>· ${esc(formatWaktuWIB(s.dijawab_at))}</small>` : ""}</div>` : ""}
+    </div>`;
+  }
+  if (pl.status !== "Ditolak" || !pl.ditolak_at) return "";
+  const sisaJam = Math.floor((new Date(pl.ditolak_at).getTime() + jamMasa * 3600000 - Date.now()) / 3600000);
+  if (sisaJam < 0) return "";
+  return `<button type="button" class="link-btn btn-sanggah" data-sanggah="${pl.id}" data-sekolah="${esc(pl.sekolah_nama)}">${ikon("pengumuman")} Ajukan sanggahan · sisa ${sisaJam >= 24 ? `${Math.floor(sisaJam / 24)} hari ${sisaJam % 24} jam` : `${sisaJam} jam`}</button>`;
+}
+
+function pasangSanggah(p) {
+  document.querySelectorAll(".btn-sanggah").forEach((btn) => btn.addEventListener("click", async () => {
+    const isi = await Dialog.isian(
+      `Jelaskan keberatan Anda atas keputusan di ${btn.dataset.sekolah} beserta buktinya (mis. "jarak di KK hanya 2,8 km", "KIP sudah diunggah ulang"). Panitia sekolah tersebut akan menjawab.`,
+      { multiline: true, wajib: true, placeholder: "Minimal 20 karakter" },
+      { judul: "Ajukan sanggahan", tombolOk: "Kirim sanggahan", tombolBatal: "Batal" });
+    if (!isi) return;
+    const pulih = Dialog.sibuk(btn, "Mengirim…");
+    try {
+      const res = await fetch(`/api/pendaftar/${p.id}/sanggah`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pilihanId: Number(btn.dataset.sanggah), isi }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Gagal mengirim sanggahan.");
+      Dialog.toast("Sanggahan terkirim. Jawaban panitia akan muncul di sini dan dikirim ke email.");
+    } catch (err) {
+      pulih();
+      Dialog.galat(err instanceof TypeError ? "Tidak dapat terhubung ke server." : err.message);
+    }
+    await renderStatusView();
+  }));
+}
+
 /* ---------- K4: Pengunduran diri ---------- */
 const bisaMundur = (p) => p.status_global === "Aktif" || p.status_global === "Diterima Final";
 
@@ -1417,7 +1455,7 @@ async function renderStatusView() {
     container.innerHTML = `<p style="color:#b91c1c;font-size:14px">Gagal memuat data.</p>`;
     return;
   }
-  const { pendaftar, pilihan, riwayat, notifikasi, dokumen, estimasi, jenisDokumen: jenisDariServer } = await res.json();
+  const { pendaftar, pilihan, riwayat, notifikasi, dokumen, estimasi, sanggahan = [], jamMasaSanggah = 72, jenisDokumen: jenisDariServer } = await res.json();
   const jenisDokumen = Array.isArray(jenisDariServer) && jenisDariServer.length ? jenisDariServer : DOKUMEN_DASAR;
   const jumlahBerkas = (dokumen || []).filter((d) => jenisDokumen.includes(d.jenis)).length;
 
@@ -1454,7 +1492,8 @@ async function renderStatusView() {
     else if (p.status === "Dibatalkan") kelas = "batal";
     else if (pendaftar.status_global === "Aktif" && p.urutan_prioritas === pendaftar.prioritas_aktif) kelas = "aktif";
 
-    const pengalihan = riwayat.find((r) => r.dari_sekolah_id === p.sekolah_id);
+    // tanda "dialihkan" hanya di pilihan yang memang ditolak (bukan setelah sanggahan dikabulkan)
+    const pengalihan = p.status === "Ditolak" ? riwayat.find((r) => r.dari_sekolah_id === p.sekolah_id && r.alasan !== "Sanggahan dikabulkan") : null;
     const rinciJarak = p.jarak_km != null
       ? `<span>${ikon("lokasi")} <strong>${Number(p.jarak_km).toFixed(1)} km</strong> dari rumah</span>`
       : p.catatan_skor ? `<span style="color:#b45309">${ikon("peringatan")} ${esc(p.catatan_skor)}</span>` : "";
@@ -1476,6 +1515,7 @@ async function renderStatusView() {
               <span>Skor <strong>${p.skor}</strong> <span style="font-size:11px">(${asalSkor(p)})</span></span>
             </div>
             ${p.alasan_penolakan ? `<div class="pj-alasan">Alasan: ${esc(p.alasan_penolakan)}</div>` : ""}
+            ${sanggahHTML(p, sanggahan, jamMasaSanggah)}
             ${kelas === "aktif" ? estimasiHTML(estimasi) : ""}
           </div>
           ${pengalihan && pengalihan.ke_sekolah_id ? `<div class="pj-alih">↓ Dialihkan otomatis ke ${esc(pengalihan.ke_nama)} · ${esc(formatWaktuWIB(pengalihan.waktu))}</div>` : ""}
@@ -1508,6 +1548,7 @@ async function renderStatusView() {
   pasangDataDiri(pendaftar);
   pasangDaftarUlang(pendaftar);
   pasangMundur(pendaftar);
+  pasangSanggah(pendaftar);
   renderUploadList("status-upload-list", "status", pendaftar.id, dokumen || [], {
     jenisDokumen,
     keteranganKhusus: keteranganBerkasKhusus(pilihan.map((p) => ({ urutan: p.urutan_prioritas, sekolah: p.sekolah_nama, jenis: p.jalur_jenis }))),

@@ -1,6 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, estimasiPeringkat, batasDaftarUlang, statusDaftarUlang, bisaMundur, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
+const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, estimasiPeringkat, batasDaftarUlang, statusDaftarUlang, bisaMundur, bisaSanggah, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
 
 describe("kategori jalur khusus", () => {
   test("wajib diisi sesuai jalur yang dipilih", () => {
@@ -234,5 +234,18 @@ describe("pengunduran diri (K4)", () => {
   test("siswa diterima yang mundur tercatat mundur di daftar ulang; yang mundur sebelum diterima tidak", () => {
     assert.equal(statusDaftarUlang({ status_global: "Mengundurkan Diri", daftar_ulang_batas_at: "2026-07-13T08:00:00Z" }), "mundur");
     assert.equal(statusDaftarUlang({ status_global: "Mengundurkan Diri", daftar_ulang_batas_at: null }), null);
+  });
+});
+
+describe("masa sanggah (K3)", () => {
+  const ditolak = { status: "Ditolak", ditolak_at: "2026-07-10T08:00:00Z" };
+  test("boleh dalam 3x24 jam sejak ditolak, sekali per pilihan", () => {
+    assert.equal(bisaSanggah(ditolak, false, new Date("2026-07-13T07:59:00Z")), true);
+    assert.equal(bisaSanggah(ditolak, false, new Date("2026-07-13T08:01:00Z")), false);
+    assert.equal(bisaSanggah(ditolak, true, new Date("2026-07-11T00:00:00Z")), false);
+  });
+  test("hanya untuk pilihan yang ditolak dan punya waktu keputusan", () => {
+    assert.equal(bisaSanggah({ status: "Diterima", ditolak_at: "2026-07-10T08:00:00Z" }), false);
+    assert.equal(bisaSanggah({ status: "Ditolak", ditolak_at: null }), false);
   });
 });
