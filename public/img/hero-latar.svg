@@ -31,7 +31,7 @@
   </g>
 
   <!-- ===== Gedung sekolah (kiri), gaya bangunan lama Yogyakarta: dua lantai, atap genteng, beranda bertiang ===== -->
-  <g transform="translate(-34 118) scale(0.82)">
+  <g transform="translate(-78 186) scale(0.71)">
     <!-- sayap samping (perspektif) -->
     <path d="M10 330 L150 300 L150 640 L10 660 Z" fill="url(#dindingSamping)"/>
     <path d="M-10 336 L150 290 L190 312 L30 360 Z" fill="url(#atapGenteng)"/>

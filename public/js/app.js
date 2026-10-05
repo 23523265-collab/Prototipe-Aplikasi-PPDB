@@ -294,11 +294,11 @@ function renderBeranda() {
   const totalDiterima = pendaftarList.filter((p) => p.status_global === "Diterima Final").length;
   const totalTidakDiterima = pendaftarList.filter((p) => p.status_global === "Tidak Diterima Final").length;
   document.getElementById("stat-grid").innerHTML = `
-    <div class="strip-item"><span class="strip-ikon">${ikon("sekolah")}</span><strong data-angka="${sekolahList.length}">${sekolahList.length}</strong><span><b>Sekolah</b>SMA Negeri peserta</span></div>
-    <div class="strip-item"><span class="strip-ikon hijau">${ikon("orang")}</span><strong data-angka="${pendaftarList.length}">${pendaftarList.length}</strong><span><b>Pendaftar</b>total saat ini</span></div>
-    <div class="strip-item"><span class="strip-ikon oranye">${ikon("jam")}</span><strong data-angka="${totalAktif}" style="color:#b45309">${totalAktif}</strong><span><b>Diproses</b>verifikasi &amp; seleksi</span></div>
-    <div class="strip-item"><span class="strip-ikon hijau">${ikon("diterima")}</span><strong data-angka="${totalDiterima}" style="color:var(--amber)">${totalDiterima}</strong><span><b>Diterima</b>${totalTidakDiterima ? `${totalTidakDiterima} tidak diterima` : "di salah satu pilihan"}</span></div>
-    <button type="button" class="strip-cta" onclick="showView('daftar')">Daftar Sekarang ${ikon("panahKanan")}</button>
+    <div class="strip-item"><span class="strip-ikon">${ikon("sekolah")}</span><strong data-angka="${sekolahList.length}">${sekolahList.length}</strong><span><b>Sekolah</b>SMA Negeri</span></div>
+    <div class="strip-item"><span class="strip-ikon hijau">${ikon("orang")}</span><strong data-angka="${pendaftarList.length}">${pendaftarList.length}</strong><span><b>Pendaftar</b>saat ini</span></div>
+    <div class="strip-item"><span class="strip-ikon oranye">${ikon("jam")}</span><strong data-angka="${totalAktif}" style="color:#b45309">${totalAktif}</strong><span><b>Diproses</b>verifikasi</span></div>
+    <div class="strip-item"><span class="strip-ikon hijau">${ikon("diterima")}</span><strong data-angka="${totalDiterima}" style="color:var(--amber)">${totalDiterima}</strong><span><b>Diterima</b>${totalTidakDiterima ? `${totalTidakDiterima} tidak` : "siswa"}</span></div>
+    <button type="button" class="strip-cta sekunder" onclick="document.getElementById('beranda-sekolah').closest('section').scrollIntoView({ behavior: 'smooth' })">${ikon("lokasi")} Lihat sekolah &amp; jarak</button>
   `;
   document.querySelectorAll("#stat-grid [data-angka]").forEach(hitungNaik);
   renderJalurBeranda();

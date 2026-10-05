@@ -1365,3 +1365,15 @@ html.anim [data-muncul].selesai :is(.jadwal, .jalur-info-grid, .cara-kerja) > * 
 }
 .hero-teks h1, .hero-teks .lead { text-shadow: 0 0 14px rgba(246,250,254,0.95), 0 0 3px rgba(246,250,254,0.9); }
 .hero-teks .lead { color: #334155; }
+
+/* v8.3: judul lebih halus, kolom teks digeser agar gedung terlihat, strip lebih lega, CTA strip sekunder */
+h1, h2 { font-weight: 600; }
+.hero-teks h1 { font-weight: 600; letter-spacing: -0.02em; }
+@media (min-width: 1200px) {
+  .hero-teks { padding-left: clamp(0px, 4vw, 72px); }
+  .hero-teks h1 { font-size: 44px; }
+}
+.strip-item span { white-space: nowrap; }
+.strip-cta.sekunder { background: var(--hijau-muda); color: var(--amber-dark); box-shadow: none; border: 1px solid #bbf7d0; }
+.strip-cta.sekunder:hover { background: #bbf7d0; }
+.strip-cta.sekunder svg { width: 18px; height: 18px; }
