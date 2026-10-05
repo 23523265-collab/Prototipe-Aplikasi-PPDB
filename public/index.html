@@ -56,7 +56,7 @@
               <h1>Daftar sekali, pilih hingga <span class="sorot">3 sekolah</span>. Sisanya biar sistem yang urus.</h1>
               <p class="lead">Kalau tidak diterima di Pilihan 1, pendaftaranmu otomatis dialihkan ke Pilihan 2, lalu Pilihan 3, tanpa perlu daftar ulang dari awal.</p>
               <div class="cta-row">
-                <button class="btn btn-accent btn-besar" data-goto="daftar">Daftar Sekarang</button>
+                <button class="btn btn-accent btn-besar" data-goto="daftar">Daftar Sekarang <i data-ikon="panahKanan"></i></button>
                 <button class="btn btn-garis-terang btn-besar" data-goto="status">Cek Status Pendaftaran</button>
               </div>
             </div>
@@ -64,14 +64,34 @@
             <figure class="hero-ilustrasi" aria-label="Ilustrasi auto-transfer: pendaftar di luar radius domisili Pilihan 1 dialihkan otomatis ke Pilihan 2">
               <svg viewBox="0 0 440 360" role="img" aria-hidden="true">
                 <defs>
-                  <pattern id="kisi" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22 0H0V22" fill="none" stroke="#dfe6ef" stroke-width="1"/></pattern>
                   <marker id="panah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#16a34a"/></marker>
                 </defs>
-                <rect x="6" y="6" width="428" height="348" rx="22" fill="#ffffff"/>
-                <rect x="6" y="6" width="428" height="348" rx="22" fill="url(#kisi)"/>
-                <path d="M6 250 C 120 230, 180 120, 300 110 S 420 70, 434 60" fill="none" stroke="#ffffff" stroke-width="14"/>
-                <path d="M6 250 C 120 230, 180 120, 300 110 S 420 70, 434 60" fill="none" stroke="#e3e9f2" stroke-width="10"/>
-                <path d="M140 354 C 150 280, 210 230, 260 200 S 380 160, 434 170" fill="none" stroke="#e3e9f2" stroke-width="8"/>
+                <clipPath id="petaKlip"><rect x="6" y="6" width="428" height="348" rx="22"/></clipPath>
+                <g clip-path="url(#petaKlip)">
+                  <rect x="6" y="6" width="428" height="348" fill="#eef2f6"/>
+                  <!-- blok bangunan -->
+                  <g fill="#e1e7ee">
+                    <rect x="20" y="20" width="70" height="44" rx="5"/><rect x="104" y="20" width="58" height="44" rx="5"/><rect x="176" y="18" width="80" height="40" rx="5"/>
+                    <rect x="300" y="22" width="60" height="46" rx="5"/><rect x="374" y="20" width="54" height="40" rx="5"/>
+                    <rect x="22" y="180" width="64" height="50" rx="5"/><rect x="190" y="150" width="56" height="48" rx="5"/>
+                    <rect x="350" y="96" width="70" height="42" rx="5"/><rect x="24" y="290" width="80" height="54" rx="5"/>
+                    <rect x="180" y="286" width="60" height="58" rx="5"/><rect x="380" y="300" width="50" height="46" rx="5"/>
+                  </g>
+                  <!-- taman -->
+                  <rect x="230" y="70" width="64" height="44" rx="10" fill="#d6ecd6"/>
+                  <!-- sungai -->
+                  <path d="M380 6 C 360 120, 420 200, 360 360" fill="none" stroke="#c7ddf5" stroke-width="16"/>
+                  <!-- jalan kecil -->
+                  <g stroke="#ffffff" stroke-width="7" fill="none">
+                    <path d="M6 76 H434"/><path d="M6 162 H300"/><path d="M6 270 H434"/>
+                    <path d="M96 6 V354"/><path d="M168 6 V354"/><path d="M290 6 V200"/>
+                  </g>
+                  <!-- jalan utama -->
+                  <path d="M6 250 C 120 230, 180 120, 300 110 S 420 70, 434 60" fill="none" stroke="#d5dde8" stroke-width="16"/>
+                  <path d="M6 250 C 120 230, 180 120, 300 110 S 420 70, 434 60" fill="none" stroke="#ffffff" stroke-width="11"/>
+                  <path d="M140 354 C 150 280, 210 230, 260 200 S 380 160, 434 170" fill="none" stroke="#d5dde8" stroke-width="13"/>
+                  <path d="M140 354 C 150 280, 210 230, 260 200 S 380 160, 434 170" fill="none" stroke="#ffffff" stroke-width="9"/>
+                </g>
                 <!-- Pilihan 1: radius kecil, rumah di luar -->
                 <circle class="radius-denyut" cx="110" cy="96" r="62" fill="rgba(185,28,28,0.06)" stroke="#e8a3a3" stroke-width="2" stroke-dasharray="6 6"/>
                 <circle cx="110" cy="96" r="13" fill="#0f6cbd"/>

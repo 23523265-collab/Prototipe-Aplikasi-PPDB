@@ -1323,3 +1323,45 @@ html.anim [data-muncul].selesai :is(.jadwal, .jalur-info-grid, .cara-kerja) > * 
 .kotak-mundur .btn svg { width: 14px; height: 14px; }
 .banner-mundur { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; padding: 12px 16px; border-radius: var(--radius-sm); background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; font-weight: 500; }
 .banner-mundur svg { width: 16px; height: 16px; margin-top: 3px; }
+
+/* Hero v8.1: pemandangan sekolah penuh + kabut lembut di belakang teks */
+.hero-penuh { background: #e6f1fc url("/img/hero-latar.svg") center bottom / cover no-repeat; }
+.hero-penuh::before {
+  left: 0; right: 0; top: 0; bottom: 0; width: auto; aspect-ratio: auto; opacity: 1;
+  -webkit-mask-image: none; mask-image: none;
+  background:
+    radial-gradient(ellipse 46% 62% at 33% 50%, rgba(246,250,254,0.94) 0%, rgba(246,250,254,0.82) 45%, rgba(246,250,254,0) 100%),
+    linear-gradient(180deg, rgba(246,250,254,0) 72%, var(--bg) 100%);
+}
+.orb { display: none; }
+.hero-isi { padding-block: 80px 130px; }
+.hero-teks .btn-accent { display: inline-flex; align-items: center; gap: 8px; }
+.hero-teks .btn-accent svg { width: 17px; height: 17px; }
+.hero-ilustrasi svg { filter: drop-shadow(0 26px 40px rgba(15,42,74,0.22)); }
+@media (max-width: 1080px) {
+  .hero-penuh::before { background:
+    radial-gradient(ellipse 70% 60% at 40% 45%, rgba(246,250,254,0.94) 0%, rgba(246,250,254,0.8) 50%, rgba(246,250,254,0.15) 100%),
+    linear-gradient(180deg, rgba(246,250,254,0) 75%, var(--bg) 100%); }
+}
+@media (max-width: 860px) {
+  .hero-penuh { background-position: 18% bottom; }
+  .hero-penuh::before { opacity: 1; width: auto; left: 0; bottom: 0; background:
+    linear-gradient(180deg, rgba(246,250,254,0.55) 0%, rgba(246,250,254,0.9) 30%, rgba(246,250,254,0.75) 70%, var(--bg) 100%); }
+  .hero-isi { padding-block: 36px 90px; }
+}
+
+/* v8.2: gedung lebih terlihat -- kabut lebih tipis & berpusat di kolom teks */
+.hero-penuh::before { background:
+  radial-gradient(ellipse 36% 58% at 36% 50%, rgba(246,250,254,0.9) 0%, rgba(246,250,254,0.72) 50%, rgba(246,250,254,0) 100%),
+  linear-gradient(180deg, rgba(246,250,254,0) 74%, var(--bg) 100%); }
+@media (max-width: 1080px) {
+  .hero-penuh::before { background:
+    radial-gradient(ellipse 60% 60% at 42% 45%, rgba(246,250,254,0.92) 0%, rgba(246,250,254,0.75) 55%, rgba(246,250,254,0.2) 100%),
+    linear-gradient(180deg, rgba(246,250,254,0) 75%, var(--bg) 100%); }
+}
+@media (max-width: 860px) {
+  .hero-penuh { background-position: 10% bottom; }
+  .hero-penuh::before { background: linear-gradient(180deg, rgba(246,250,254,0.35) 0%, rgba(246,250,254,0.9) 22%, rgba(246,250,254,0.94) 80%, var(--bg) 100%); }
+}
+.hero-teks h1, .hero-teks .lead { text-shadow: 0 0 14px rgba(246,250,254,0.95), 0 0 3px rgba(246,250,254,0.9); }
+.hero-teks .lead { color: #334155; }

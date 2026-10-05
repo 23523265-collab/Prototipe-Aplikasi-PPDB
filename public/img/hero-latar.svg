@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 720" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Pemandangan sekolah dengan pepohonan">
+  <!-- Latar hero SiPPDB: langit, gedung sekolah, pepohonan (ilustrasi vektor buatan sendiri, bebas dipakai) -->
+  <defs>
+    <linearGradient id="langit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bcdcf7"/><stop offset="0.55" stop-color="#e2f0fc"/><stop offset="1" stop-color="#f1f7fd"/>
+    </linearGradient>
+    <linearGradient id="dindingDepan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbf8f1"/><stop offset="1" stop-color="#ece5d6"/></linearGradient>
+    <linearGradient id="dindingSamping" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ddd3bf"/><stop offset="1" stop-color="#e9e1d0"/></linearGradient>
+    <linearGradient id="atapGenteng" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9532c"/><stop offset="1" stop-color="#8e3b1d"/></linearGradient>
+    <linearGradient id="kacaJendela" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9cc6ea"/><stop offset="1" stop-color="#5f95c4"/></linearGradient>
+    <linearGradient id="rumput" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd3a5"/><stop offset="1" stop-color="#7cbf86"/></linearGradient>
+    <radialGradient id="daunTua" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#5fae6a"/><stop offset="1" stop-color="#2f7a43"/></radialGradient>
+    <radialGradient id="daunMuda" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#8fcf8a"/><stop offset="1" stop-color="#4c9a58"/></radialGradient>
+    <radialGradient id="daunJauh" cx="0.5" cy="0.4" r="0.7"><stop offset="0" stop-color="#b9dfb7"/><stop offset="1" stop-color="#8cc28f"/></radialGradient>
+  </defs>
+
+  <!-- langit -->
+  <rect width="1600" height="720" fill="url(#langit)"/>
+  <!-- awan -->
+  <g fill="#ffffff" opacity="0.85">
+    <g transform="translate(260 120)"><ellipse rx="90" ry="26"/><ellipse cx="-50" cy="8" rx="60" ry="20"/><ellipse cx="40" cy="-16" rx="54" ry="28"/></g>
+    <g transform="translate(760 80)" opacity="0.8"><ellipse rx="70" ry="20"/><ellipse cx="44" cy="-12" rx="46" ry="22"/><ellipse cx="-40" cy="6" rx="44" ry="16"/></g>
+    <g transform="translate(1180 150)"><ellipse rx="110" ry="28"/><ellipse cx="-60" cy="10" rx="70" ry="22"/><ellipse cx="50" cy="-18" rx="64" ry="30"/></g>
+    <g transform="translate(1480 70)" opacity="0.7"><ellipse rx="60" ry="18"/><ellipse cx="34" cy="-10" rx="40" ry="20"/></g>
+  </g>
+
+  <!-- pepohonan jauh (siluet lembut) -->
+  <g fill="url(#daunJauh)" opacity="0.9">
+    <ellipse cx="620" cy="560" rx="120" ry="70"/><ellipse cx="760" cy="575" rx="110" ry="60"/><ellipse cx="900" cy="565" rx="130" ry="70"/>
+    <ellipse cx="1050" cy="575" rx="120" ry="62"/><ellipse cx="1200" cy="560" rx="130" ry="72"/>
+  </g>
+
+  <!-- ===== Gedung sekolah (kiri), gaya bangunan lama Yogyakarta: dua lantai, atap genteng, beranda bertiang ===== -->
+  <g transform="translate(-34 118) scale(0.82)">
+    <!-- sayap samping (perspektif) -->
+    <path d="M10 330 L150 300 L150 640 L10 660 Z" fill="url(#dindingSamping)"/>
+    <path d="M-10 336 L150 290 L190 312 L30 360 Z" fill="url(#atapGenteng)"/>
+    <g fill="url(#kacaJendela)" stroke="#b9ae98" stroke-width="3">
+      <path d="M30 380 l36 -8 v56 l-36 8z"/><path d="M90 368 l36 -8 v56 l-36 8z"/>
+      <path d="M30 500 l36 -8 v60 l-36 8z"/><path d="M90 488 l36 -8 v60 l-36 8z"/>
+    </g>
+    <!-- bangunan depan -->
+    <rect x="150" y="300" width="380" height="340" fill="url(#dindingDepan)"/>
+    <path d="M128 312 L340 236 L552 312 Z" fill="url(#atapGenteng)"/>
+    <path d="M128 312 L552 312 L540 326 L140 326 Z" fill="#7a3218"/>
+    <!-- lis lantai -->
+    <rect x="150" y="452" width="380" height="12" fill="#d9cfbb"/>
+    <!-- jendela lantai 2 -->
+    <g>
+      <g fill="url(#kacaJendela)" stroke="#fff" stroke-width="4">
+        <rect x="176" y="350" width="52" height="74" rx="2"/><rect x="250" y="350" width="52" height="74" rx="2"/>
+        <rect x="378" y="350" width="52" height="74" rx="2"/><rect x="452" y="350" width="52" height="74" rx="2"/>
+      </g>
+      <g stroke="#ffffff" stroke-width="3"><path d="M202 350v74M176 386h52M276 350v74M250 386h52M404 350v74M378 386h52M478 350v74M452 386h52"/></g>
+    </g>
+    <!-- papan nama -->
+    <rect x="300" y="352" width="80" height="62" rx="4" fill="#0f6cbd"/>
+    <text x="340" y="378" text-anchor="middle" font-family="Poppins, Inter, sans-serif" font-size="13" font-weight="700" fill="#fff">SMA</text>
+    <text x="340" y="398" text-anchor="middle" font-family="Poppins, Inter, sans-serif" font-size="11" font-weight="600" fill="#e0eefb">NEGERI</text>
+    <!-- beranda bertiang lantai 1 -->
+    <rect x="150" y="464" width="380" height="176" fill="#f3eee3"/>
+    <g fill="url(#kacaJendela)" stroke="#fff" stroke-width="4">
+      <rect x="176" y="500" width="52" height="80" rx="2"/><rect x="452" y="500" width="52" height="80" rx="2"/>
+    </g>
+    <rect x="300" y="510" width="80" height="130" rx="3" fill="#7b4a2c"/>
+    <rect x="338" y="510" width="4" height="130" fill="#5a3420"/>
+    <g fill="#fffdf8" stroke="#ddd3bf" stroke-width="2">
+      <rect x="160" y="470" width="14" height="170"/><rect x="262" y="470" width="14" height="170"/>
+      <rect x="404" y="470" width="14" height="170"/><rect x="506" y="470" width="14" height="170"/>
+    </g>
+    <!-- tangga -->
+    <rect x="280" y="636" width="120" height="10" fill="#d6cdb8"/><rect x="270" y="646" width="140" height="10" fill="#cbc1aa"/>
+    <!-- tiang bendera -->
+    <rect x="600" y="400" width="5" height="250" fill="#94a3b8"/>
+    <rect x="605" y="404" width="52" height="16" fill="#dc2626"/><rect x="605" y="420" width="52" height="16" fill="#fff" stroke="#e5e7eb"/>
+  </g>
+
+  <!-- pohon besar kiri depan -->
+  <g>
+    <rect x="-10" y="380" width="26" height="300" fill="#6b4a32"/>
+    <circle cx="10" cy="300" r="120" fill="url(#daunTua)"/>
+    <circle cx="90" cy="250" r="90" fill="url(#daunMuda)"/>
+    <circle cx="-30" cy="200" r="90" fill="url(#daunTua)"/>
+    <circle cx="60" cy="380" r="80" fill="url(#daunMuda)"/>
+  </g>
+
+  <!-- pepohonan kanan -->
+  <g>
+    <rect x="1490" y="420" width="22" height="260" fill="#6b4a32"/>
+    <circle cx="1500" cy="360" r="120" fill="url(#daunTua)"/>
+    <circle cx="1580" cy="300" r="110" fill="url(#daunMuda)"/>
+    <circle cx="1420" cy="420" r="80" fill="url(#daunMuda)"/>
+    <rect x="1330" y="500" width="16" height="170" fill="#6b4a32"/>
+    <circle cx="1338" cy="470" r="70" fill="url(#daunTua)"/>
+    <circle cx="1290" cy="520" r="54" fill="url(#daunMuda)"/>
+  </g>
+
+  <!-- halaman rumput & jalan setapak -->
+  <path d="M0 640 Q 400 610 800 630 T 1600 625 V720 H0 Z" fill="url(#rumput)"/>
+  <path d="M290 656 L410 656 L560 720 L160 720 Z" fill="#e8e2d4" opacity="0.9"/>
+  <!-- semak depan -->
+  <g fill="url(#daunMuda)">
+    <ellipse cx="180" cy="650" rx="70" ry="26"/><ellipse cx="500" cy="652" rx="70" ry="24"/>
+    <ellipse cx="1180" cy="660" rx="90" ry="26"/><ellipse cx="1400" cy="664" rx="100" ry="28"/>
+  </g>
+</svg>
