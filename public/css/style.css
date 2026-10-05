@@ -1377,3 +1377,16 @@ h1, h2 { font-weight: 600; }
 .strip-cta.sekunder { background: var(--hijau-muda); color: var(--amber-dark); box-shadow: none; border: 1px solid #bbf7d0; }
 .strip-cta.sekunder:hover { background: #bbf7d0; }
 .strip-cta.sekunder svg { width: 18px; height: 18px; }
+/* v8.4 HP: gedung sekolah tampil utuh di atas teks (sebelumnya tertutup kartu peta & kabut) */
+@media (max-width: 860px) {
+  .hero-penuh {
+    background:
+      url("/img/sekolah.svg") center 18px / min(94%, 460px) auto no-repeat,
+      linear-gradient(180deg, #cfe5f9 0%, #e6f1fc 45%, var(--bg) 100%);
+  }
+  .hero-penuh::before {
+    background: linear-gradient(180deg, rgba(246,250,254,0) 0, rgba(246,250,254,0) clamp(150px, 40vw, 200px),
+      rgba(246,250,254,0.85) clamp(200px, 50vw, 250px), rgba(246,250,254,0.6) 80%, var(--bg) 100%);
+  }
+  .hero-isi { padding-top: clamp(185px, 48vw, 240px); }
+}
