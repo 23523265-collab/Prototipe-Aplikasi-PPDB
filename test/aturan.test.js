@@ -1,6 +1,6 @@
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, estimasiPeringkat, batasDaftarUlang, statusDaftarUlang, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
+const { validasiUmur, samarkanNama, hitungSisaKuota, tentukanHasilSeleksi, estimasiPeringkat, batasDaftarUlang, statusDaftarUlang, bisaMundur, jenisJalur, dokumenWajib, validasiKategoriJalur } = require("../lib/aturan");
 
 describe("kategori jalur khusus", () => {
   test("wajib diisi sesuai jalur yang dipilih", () => {
@@ -221,5 +221,18 @@ describe("daftar ulang (K2)", () => {
     assert.equal(statusDaftarUlang({ status_global: "Tidak Diterima Final" }), null);
     assert.equal(statusDaftarUlang({ status_global: "Tidak Daftar Ulang" }), "lewat");
     assert.equal(statusDaftarUlang({ status_global: "Diterima Final", daftar_ulang_batas_at: null }), "belum"); // data lama tanpa batas
+  });
+});
+
+describe("pengunduran diri (K4)", () => {
+  test("boleh saat masih diproses atau sudah diterima; tidak setelah final lain", () => {
+    assert.equal(bisaMundur({ status_global: "Aktif" }), true);
+    assert.equal(bisaMundur({ status_global: "Diterima Final" }), true);
+    for (const st of ["Tidak Diterima Final", "Tidak Daftar Ulang", "Mengundurkan Diri"]) assert.equal(bisaMundur({ status_global: st }), false, st);
+  });
+
+  test("siswa diterima yang mundur tercatat mundur di daftar ulang; yang mundur sebelum diterima tidak", () => {
+    assert.equal(statusDaftarUlang({ status_global: "Mengundurkan Diri", daftar_ulang_batas_at: "2026-07-13T08:00:00Z" }), "mundur");
+    assert.equal(statusDaftarUlang({ status_global: "Mengundurkan Diri", daftar_ulang_batas_at: null }), null);
   });
 });

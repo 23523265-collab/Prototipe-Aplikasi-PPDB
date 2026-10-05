@@ -575,13 +575,31 @@ app.post("/api/pendaftar/:id/daftar-ulang", auth.requirePendaftarLogin, async (r
   res.json({ ok: true, daftar_ulang_at: sekarang });
 });
 
+/* K4: pendaftar mengundurkan diri (masih diproses atau sudah diterima -> kursi dilepas) */
+app.post("/api/pendaftar/:id/mundur", auth.requirePendaftarLogin, async (req, res) => {
+  const pendaftarId = Number(req.params.id);
+  if (pendaftarId !== req.pendaftar.id) return res.status(403).json({ error: "Anda hanya dapat mengundurkan diri untuk pendaftaran milik sendiri." });
+  if (req.body.konfirmasi !== true) return res.status(400).json({ error: "Konfirmasi pengunduran diri diperlukan." });
+  const alasan = typeof req.body.alasan === "string" ? req.body.alasan.trim().slice(0, 300) : "";
+  const { data: p } = await supabase.from("pendaftar").select("nama, status_global").eq("id", pendaftarId).single();
+  if (!aturan.bisaMundur(p)) return res.status(409).json({ error: "Pendaftaran ini sudah selesai diproses sehingga tidak dapat diundurkan lagi." });
+
+  const hasil = await engine.mundur(pendaftarId, alasan);
+  if (hasil?.hasil !== "mundur") return res.status(409).json({ error: "Status pendaftaran baru saja berubah. Muat ulang halaman." });
+  await catatAktivitas(req, "Pendaftar mengundurkan diri", {
+    sekolahId: hasil.sekolah_id, pendaftarId, namaPendaftar: p.nama,
+    detail: [hasil.melepas_kursi ? "kursi dilepas" : "saat masih diproses", alasan].filter(Boolean).join(" · "),
+  });
+  res.json({ ok: true, melepasKursi: hasil.melepas_kursi });
+});
+
 /* K2: daftar siswa diterima di satu sekolah beserta status daftar ulangnya (panel panitia) */
 app.get("/api/sekolah/:id/daftar-ulang", auth.requirePanitiaLogin, async (req, res) => {
   const sekolahId = Number(req.params.id);
   if (sekolahId !== req.panitia.sekolahId) return res.status(403).json({ error: "Hanya untuk sekolah Anda sendiri." });
   await engine.prosesDaftarUlangKedaluwarsa();
   const [{ data: pilihan }, { data: jalurList }] = await Promise.all([
-    supabase.from("pilihan").select("pendaftar_id, jalur_id, status").eq("sekolah_id", sekolahId).in("status", ["Diterima", "Tidak Daftar Ulang"]),
+    supabase.from("pilihan").select("pendaftar_id, jalur_id, status").eq("sekolah_id", sekolahId).in("status", ["Diterima", "Tidak Daftar Ulang", "Mengundurkan Diri"]),
     supabase.from("jalur").select("id, nama").eq("sekolah_id", sekolahId),
   ]);
   const ids = pilihan.map((x) => x.pendaftar_id);
@@ -589,7 +607,7 @@ app.get("/api/sekolah/:id/daftar-ulang", auth.requirePanitiaLogin, async (req, r
     ? await supabase.from("pendaftar").select("id, nomor, nama, status_global, daftar_ulang_batas_at, daftar_ulang_at").in("id", ids)
     : { data: [] };
   if (error) return res.status(500).json({ error: `Data daftar ulang belum tersedia (sudah jalankan migration v7.6?): ${error.message}` });
-  const urut = { belum: 0, lewat: 1, sudah: 2 };
+  const urut = { belum: 0, lewat: 1, mundur: 2, sudah: 3 };
   res.json(pilihan.map((pl) => {
     const p = pendaftar.find((x) => x.id === pl.pendaftar_id) || {};
     return {
@@ -961,6 +979,7 @@ function hitungStatistikJalur(jalur, pilihanJalur) {
     diterima,
     ditolak: hitung("Ditolak"),
     tidak_daftar_ulang: hitung("Tidak Daftar Ulang"),
+    mengundurkan_diri: hitung("Mengundurkan Diri"),
     sisa_kuota: Math.max(0, jalur.kuota - diterima),
   };
 }
@@ -987,6 +1006,7 @@ function teksDaftarUlang(p) {
   const st = aturan.statusDaftarUlang(p);
   if (st === "sudah") return `Sudah (${waktuWIB(p.daftar_ulang_at)})`;
   if (st === "lewat") return "Tidak daftar ulang (kursi dilepas)";
+  if (st === "mundur") return "Mengundurkan diri (kursi dilepas)";
   if (st === "belum") return p.daftar_ulang_batas_at ? `Belum (batas ${waktuWIB(p.daftar_ulang_batas_at)})` : "Belum";
   return "";
 }
@@ -1069,7 +1089,7 @@ app.get("/api/sekolah/:id/export.csv", auth.requirePanitiaLogin, async (req, res
       LABEL_KATEGORI[p.kategori_afirmasi] || p.kategori_afirmasi, LABEL_KATEGORI[p.kategori_mutasi] || p.kategori_mutasi,
       p.keterangan_prestasi, p.skor_nonakademik,
       pl.status, pl.alasan_penolakan, p.status_berkas, p.status_global,
-      pl.status === "Diterima" || pl.status === "Tidak Daftar Ulang" ? teksDaftarUlang(p) : "",
+      ["Diterima", "Tidak Daftar Ulang", "Mengundurkan Diri"].includes(pl.status) ? teksDaftarUlang(p) : "",
       p.created_at ? String(p.created_at).slice(0, 19).replace("T", " ") : "",
     ];
   });
@@ -1126,6 +1146,7 @@ app.get("/api/admin/ringkasan", auth.requireAdminLogin, async (req, res) => {
       tidakDiterima: hitungGlobal("Tidak Diterima Final"),
       sudahDaftarUlang: pendaftar.filter((p) => p.status_global === "Diterima Final" && p.daftar_ulang_at).length,
       tidakDaftarUlang: hitungGlobal("Tidak Daftar Ulang"),
+      mengundurkanDiri: hitungGlobal("Mengundurkan Diri"),
       sekolah: sekolahList.length,
     },
     tahapan: await statusTahapan(),

@@ -95,7 +95,7 @@ ppdb-project-v3/
 │  └─ supabase.js          Koneksi Supabase (service key dari .env)
 ├─ database/
 │  ├─ schema.sql           Tabel dasar + data contoh
-│  ├─ migrations/          01-… s.d. 22-… — jalankan berurutan sesuai nomor
+│  ├─ migrations/          01-… s.d. 23-… — jalankan berurutan sesuai nomor
 │  ├─ ganti-password-staf.sql   Wajib setelah memasang database baru
 │  └─ reset-data-demo.sql  Hapus semua pendaftar (sebelum demo)
 ├─ docs/
@@ -157,6 +157,7 @@ Semua file ada di folder `database/` (migration di `database/migrations/`, nomor
 22. `20-v7.5-persetujuan-data.sql` — bukti persetujuan orang tua/wali atas pengolahan data pribadi (UU PDP)
 23. `21-v7.6-daftar-ulang.sql` — daftar ulang 3×24 jam, pelepasan kursi otomatis, surat keterangan diterima
 24. `22-v7.7-transaksi.sql` — proses inti (tolak & alihkan, terima, verifikasi, lepas kursi) dalam transaksi database
+25. `23-v7.8-pengunduran-diri.sql` — pendaftar mengundurkan diri (kursi dilepas bila sudah diterima)
 
 Semua file migration aman dijalankan ulang.
 

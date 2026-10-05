@@ -132,6 +132,7 @@ function pillHTML(status) {
     "Diterima Final": ["pill-green", "centang"],
     "Tidak Diterima Final": ["pill-red", "silang"],
     "Tidak Daftar Ulang": ["pill-orange", "jam"],
+    "Mengundurkan Diri": ["pill-gray", "strip"],
   };
   const [cls, icon] = map[status] || ["pill-gray", "strip"];
   return `<span class="pill ${cls}">${ikon(icon)} ${esc(status)}</span>`;
@@ -1043,6 +1044,7 @@ function renderProgres(pendaftar, jumlahBerkas, totalBerkas = DOKUMEN_DASAR.leng
       ? (pendaftar.daftar_ulang_at ? { label: "Hasil", status: "selesai", ket: "Diterima · daftar ulang ✓" } : { label: "Hasil", status: "masalah", ket: "Diterima · konfirmasi daftar ulang" })
       : pendaftar.status_global === "Tidak Diterima Final" ? { label: "Hasil", status: "gagal", ket: "Tidak diterima" }
       : pendaftar.status_global === "Tidak Daftar Ulang" ? { label: "Hasil", status: "gagal", ket: "Tidak daftar ulang" }
+      : pendaftar.status_global === "Mengundurkan Diri" ? { label: "Hasil", status: "gagal", ket: "Mengundurkan diri" }
       : { label: "Hasil", status: "", ket: "Pengumuman" },
   ];
   const ikon = { selesai: "✓", masalah: "!", gagal: "✕" };
@@ -1256,6 +1258,51 @@ function pasangDaftarUlang(p) {
   });
 }
 
+/* ---------- K4: Pengunduran diri ---------- */
+const bisaMundur = (p) => p.status_global === "Aktif" || p.status_global === "Diterima Final";
+
+function mundurHTML(p) {
+  if (!bisaMundur(p)) return "";
+  const diterima = p.status_global === "Diterima Final";
+  return `<div class="kotak-mundur">
+    <div><strong>Mengundurkan diri</strong>
+      <small>${diterima
+        ? "Jika Anda memutuskan tidak bersekolah di sini (mis. memilih sekolah lain), lepaskan kursi agar dapat diisi pendaftar lain."
+        : "Jika tidak lagi ingin mengikuti penerimaan ini, seluruh pilihan sekolah Anda akan dibatalkan."} Tindakan ini tidak dapat dibatalkan.</small></div>
+    <button type="button" class="btn btn-bahaya-garis" id="btn-mundur">${ikon("silang")} Mengundurkan diri</button>
+  </div>`;
+}
+
+function pasangMundur(p) {
+  const btn = document.getElementById("btn-mundur");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const diterima = p.status_global === "Diterima Final";
+    const alasan = await Dialog.isian(
+      diterima ? `Kursi Anda di ${sekolahNama(p.sekolah_aktif_id)} akan dilepas untuk pendaftar lain.` : "Seluruh pilihan sekolah Anda akan dibatalkan.",
+      { multiline: true, placeholder: "Alasan (opsional), mis. diterima di sekolah lain / pindah domisili" },
+      { judul: "Mengundurkan diri?", jenis: "bahaya", bahaya: true, tombolOk: "Lanjut", tombolBatal: "Batal" });
+    if (alasan === null) return;
+    const yakin = await Dialog.konfirmasi(
+      `Pendaftaran ${p.nomor} akan berakhir dengan status "Mengundurkan Diri" dan TIDAK dapat dibatalkan. Lanjutkan?`,
+      { judul: "Konfirmasi terakhir", jenis: "bahaya", bahaya: true, tombolOk: "Ya, mengundurkan diri" });
+    if (!yakin) return;
+    const pulih = Dialog.sibuk(btn, "Memproses…");
+    try {
+      const res = await fetch(`/api/pendaftar/${p.id}/mundur`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ konfirmasi: true, alasan }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Gagal memproses pengunduran diri.");
+      Dialog.toast(data.melepasKursi ? "Pengunduran diri tercatat. Kursi Anda dilepas untuk pendaftar lain." : "Pengunduran diri tercatat. Seluruh pilihan dibatalkan.", "peringatan");
+    } catch (err) {
+      pulih();
+      Dialog.galat(err instanceof TypeError ? "Tidak dapat terhubung ke server." : err.message);
+    }
+    await renderStatusView();
+  });
+}
+
 /* ---------- Data diri di halaman Status: bisa diperbaiki selama berkas belum Lengkap ---------- */
 const bisaUbahDataDiri = (p) => p.status_global === "Aktif" && p.status_berkas !== "Lengkap";
 
@@ -1381,6 +1428,8 @@ async function renderStatusView() {
   let statusBanner = "";
   if (pendaftar.status_global === "Diterima Final") {
     statusBanner = `<div class="badge-final-accept">Diterima di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))}</div>${daftarUlangHTML(pendaftar)}`;
+  } else if (pendaftar.status_global === "Mengundurkan Diri") {
+    statusBanner = `<div class="banner-mundur">${ikon("strip")} Anda telah <strong>mengundurkan diri</strong>${pendaftar.mundur_at ? ` pada ${esc(formatWaktuWIB(pendaftar.mundur_at))}` : ""}. Seluruh proses pendaftaran selesai${pendaftar.alasan_mundur ? ` · Alasan: <em>${esc(pendaftar.alasan_mundur)}</em>` : ""}.</div>`;
   } else if (pendaftar.status_global === "Tidak Daftar Ulang") {
     statusBanner = `<div class="badge-final-reject">Kursi di ${esc(sekolahNama(pendaftar.sekolah_aktif_id))} dilepas karena daftar ulang tidak dikonfirmasi${pendaftar.daftar_ulang_batas_at ? ` sampai ${esc(formatWaktuWIB(pendaftar.daftar_ulang_batas_at))}` : ""}.</div>`;
   } else if (pendaftar.status_global === "Tidak Diterima Final") {
@@ -1453,10 +1502,12 @@ async function renderStatusView() {
     <div id="status-upload-list"></div>
     <h3 class="sub-heading">Riwayat Notifikasi</h3>
     <ul class="timeline">${notifItems || '<li class="timeline-item">Belum ada notifikasi.</li>'}</ul>
+    ${mundurHTML(pendaftar)}
   `;
 
   pasangDataDiri(pendaftar);
   pasangDaftarUlang(pendaftar);
+  pasangMundur(pendaftar);
   renderUploadList("status-upload-list", "status", pendaftar.id, dokumen || [], {
     jenisDokumen,
     keteranganKhusus: keteranganBerkasKhusus(pilihan.map((p) => ({ urutan: p.urutan_prioritas, sekolah: p.sekolah_nama, jenis: p.jalur_jenis }))),

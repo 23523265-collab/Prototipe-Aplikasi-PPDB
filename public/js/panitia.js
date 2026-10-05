@@ -28,6 +28,7 @@ function pillHTML(status) {
     "Diterima Final": ["pill-green", "centang"],
     "Tidak Diterima Final": ["pill-red", "silang"],
     "Tidak Daftar Ulang": ["pill-orange", "jam"],
+    "Mengundurkan Diri": ["pill-gray", "strip"],
   };
   const [cls, icon] = map[status] || ["pill-gray", "strip"];
   return `<span class="pill ${cls}">${ikon(icon)} ${esc(status)}</span>`;
@@ -327,18 +328,20 @@ async function muatDaftarUlang(sekolahId) {
   wrap.hidden = !daftar.length;
   if (!daftar.length) return;
   const n = (s) => daftar.filter((d) => d.status === s).length;
-  const lewat = n("lewat");
+  const lewat = n("lewat") + n("mundur");
   document.getElementById("daftar-ulang-ringkas").innerHTML = `
     <span class="du-chip sudah">${ikon("centang")} Sudah <b>${n("sudah")}</b></span>
     <span class="du-chip belum">${ikon("jam")} Belum <b>${n("belum")}</b></span>
-    <span class="du-chip lewat">${ikon("silang")} Kursi dilepas <b>${lewat}</b></span>
-    ${lewat ? `<span class="du-saran">${ikon("info")} ${lewat} siswa tidak daftar ulang sehingga kursinya dilepas. Bila di Statistik Sekolah masih ada sisa kursi, jalankan seleksi lagi pada jalurnya (seleksi tahap 2) untuk mengisinya dari pendaftar yang masih aktif di sekolah ini.</span>` : ""}`;
+    <span class="du-chip lewat">${ikon("silang")} Tidak daftar ulang <b>${n("lewat")}</b></span>
+    <span class="du-chip">${ikon("strip")} Mengundurkan diri <b>${n("mundur")}</b></span>
+    ${lewat ? `<span class="du-saran">${ikon("info")} ${lewat} kursi dilepas (tidak daftar ulang / mengundurkan diri). Bila di Statistik Sekolah masih ada sisa kursi, jalankan seleksi lagi pada jalurnya (seleksi tahap 2) untuk mengisinya dari pendaftar yang masih aktif di sekolah ini.</span>` : ""}`;
   document.querySelector("#tabel-daftar-ulang tbody").innerHTML = daftar.map((d) => `
     <tr>
       <td><strong>${esc(d.nama)}</strong><br><span class="muted" style="margin:0;font-size:12px">${esc(d.nomor)}</span></td>
       <td>${esc(d.jalur_nama)}</td>
       <td>${d.status === "sudah" ? `<span class="pill pill-green">${ikon("centang")} Sudah</span> <small class="muted">${esc(formatWaktuWIB(d.waktu))}</small>`
         : d.status === "lewat" ? `<span class="pill pill-orange">${ikon("silang")} Tidak daftar ulang</span> <small class="muted">kursi dilepas</small>`
+        : d.status === "mundur" ? `<span class="pill pill-gray">${ikon("strip")} Mengundurkan diri</span> <small class="muted">kursi dilepas</small>`
         : `<span class="pill pill-amber">${ikon("jam")} Belum</span> ${d.batas ? `<small class="muted">batas ${esc(formatWaktuWIB(d.batas))}</small>` : ""}`}</td>
     </tr>`).join("");
 }
