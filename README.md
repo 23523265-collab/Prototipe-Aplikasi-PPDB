@@ -95,7 +95,7 @@ ppdb-project-v3/
 │  └─ supabase.js          Koneksi Supabase (service key dari .env)
 ├─ database/
 │  ├─ schema.sql           Tabel dasar + data contoh
-│  ├─ migrations/          01-… s.d. 25-… — jalankan berurutan sesuai nomor
+│  ├─ migrations/          01-… s.d. 26-… — jalankan berurutan sesuai nomor
 │  ├─ ganti-password-staf.sql   Wajib setelah memasang database baru
 │  └─ reset-data-demo.sql  Hapus semua pendaftar (sebelum demo)
 ├─ docs/
@@ -160,6 +160,7 @@ Semua file ada di folder `database/` (migration di `database/migrations/`, nomor
 25. `23-v7.8-pengunduran-diri.sql` — pendaftar mengundurkan diri (kursi dilepas bila sudah diterima)
 26. `24-v7.9-sanggahan.sql` — masa sanggah 3×24 jam; sanggahan dikabulkan mengembalikan pendaftar ke pilihan semula (transaksi)
 27. `25-v8.0-username-panitia.sql` — seragamkan username panitia (panitia_sekolah1/2/3 → panitia_sma2/5/8)
+28. `26-v8.1-data-sekolah-resmi.sql` — koordinat sekolah mengikuti data resmi SPMB DIY 2026 + SMA Negeri 11 Yogyakarta
 
 Semua file migration aman dijalankan ulang.
 
@@ -195,7 +196,7 @@ Panitia dapat login dengan **memilih sekolah** di halaman `/panitia.html` (tanpa
 | Panitia SMA Negeri 1 Yogyakarta | `panitia_sma1` |
 | Panitia SMA Negeri 2 / 5 / 8 Yogyakarta | `panitia_sma2` / `panitia_sma5` / `panitia_sma8` (setelah migration 25) |
 | Panitia SMA Negeri 1 / 2 Ngaglik | `panitia_sma1ngaglik` / `panitia_sma2ngaglik` |
-| Panitia sekolah lain | `panitia_sma3` … `panitia_sma10`, `panitia_sma1depok`, `panitia_sma1mlati`, `panitia_sma1kalasan` |
+| Panitia sekolah lain | `panitia_sma3` … `panitia_sma11`, `panitia_sma1depok`, `panitia_sma1mlati`, `panitia_sma1kalasan` |
 | Pendaftar | Nomor pendaftaran (mis. `PPDB-0001`) + password yang dibuat saat mendaftar |
 
 Password staf **tidak** dicantumkan di repo. Migration membuat akun dengan password bawaan yang sudah diketahui umum,
