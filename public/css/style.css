@@ -1425,3 +1425,9 @@ h1, h2 { font-weight: 600; }
   #pengumuman-container th:nth-child(3), #pengumuman-container td:nth-child(3) { width: 28%; }
   #pengumuman-container .pill { white-space: normal; font-size: 11px; padding: 3px 7px; }
 }
+
+/* v8.6: pernyataan panitia bahwa nilai rapor sudah dicocokkan dengan berkas (jalur Prestasi Akademik) */
+.laci-cocok { display: flex; flex-direction: row; gap: 10px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; font-size: 13px; line-height: 1.45;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; color: var(--ink); cursor: pointer; }
+.laci-cocok input { width: 18px; height: 18px; margin: 1px 0 0; padding: 0; flex-shrink: 0; accent-color: #15803d; }
+.laci-cocok small { display: block; color: var(--muted); font-size: 11.5px; }

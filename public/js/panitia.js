@@ -330,11 +330,14 @@ function renderDetail() {
     <div id="laci-log"><div class="kerangka" style="height:44px"></div></div>`;
   muatLogPendaftar(a.pendaftar_id);
 
+  const akademik = a.jalur_jenis === "prestasi_akademik"; // nilai rapor isian pendaftar wajib dicocokkan panitia
   document.getElementById("laci-kaki").innerHTML = `
     ${belumAda.length ? `<p class="laci-catatan">${ikon("info")} Tombol Lengkap aktif setelah ${esc(belumAda.join(", "))} diunggah.</p>` : ""}
     ${!belumAda.length && nonakademik && a.skor_nonakademik == null ? `<p class="laci-catatan">${ikon("info")} Beri skor prestasi nonakademik dari sertifikat sebelum menandai Lengkap.</p>` : ""}
+    ${akademik ? `<label class="laci-cocok"><input type="checkbox" id="cek-nilai-cocok" ${belumAda.length ? "disabled" : ""} onchange="document.getElementById('btn-lengkap').disabled = !this.checked" />
+      <span>Nilai rapor <strong>${esc(a.nilai_rapor ?? "-")}</strong> sudah saya cocokkan dengan berkas Rapor Terakhir. <small>Bila berbeda, tekan Koreksi di atas dahulu.</small></span></label>` : ""}
     <div class="laci-tombol">
-      <button type="button" class="btn btn-sukses" ${belumAda.length || (nonakademik && a.skor_nonakademik == null) ? "disabled" : ""} onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">${ikon("centang")} Lengkap</button>
+      <button type="button" class="btn btn-sukses" id="btn-lengkap" ${belumAda.length || akademik || (nonakademik && a.skor_nonakademik == null) ? "disabled" : ""} onclick="verifikasi(${a.pendaftar_id}, 'Lengkap')">${ikon("centang")} Lengkap</button>
       <button type="button" class="btn btn-peringatan" onclick="tandaiKurang(${a.pendaftar_id})">${ikon("peringatan")} Kurang</button>
       <button type="button" class="btn btn-bahaya-garis" onclick="tolakBerkas(${a.pendaftar_id})">${ikon("silang")} Tolak</button>
     </div>`;
@@ -693,6 +696,7 @@ const PESAN_VERIFIKASI = {
 async function verifikasi(pendaftarId, status, catatan = null) {
   const a = antreanData.find((x) => x.pendaftar_id === pendaftarId);
   // Semua tombol keputusan langsung terkunci & tombol yang dipilih menampilkan proses (cegah klik ganda)
+  const nilaiDicocokkan = !!document.getElementById("cek-nilai-cocok")?.checked;
   const tombolKaki = [...document.querySelectorAll("#laci-kaki button")];
   tombolKaki.forEach((b) => (b.disabled = true));
   const tombolDipilih = tombolKaki.find((b) => b.getAttribute("onclick")?.includes(status === "Lengkap" ? "'Lengkap'" : status === "Ditolak" ? "tolakBerkas" : "tandaiKurang"));
@@ -700,7 +704,7 @@ async function verifikasi(pendaftarId, status, catatan = null) {
   const res = await fetch(`/api/pendaftar/${pendaftarId}/berkas`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status, catatan }),
+    body: JSON.stringify({ status, catatan, nilaiDicocokkan }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

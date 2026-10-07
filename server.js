@@ -819,8 +819,17 @@ app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res
   if (pendaftar.status_global !== "Aktif") {
     return res.status(409).json({ error: "Pendaftaran ini sudah selesai diproses; status berkas tidak dapat diubah lagi." });
   }
+  let nilaiDicocokkan = false;
   if (req.body.status === "Lengkap") {
     const jalurAktif = await jalurAktifPendaftar(pendaftarId, pendaftar.prioritas_aktif);
+    // Jalur Prestasi Akademik: nilai rapor diisi sendiri oleh pendaftar, jadi panitia WAJIB menyatakan
+    // sudah mencocokkannya dengan berkas rapor (atau mengoreksinya dulu) sebelum berkas dinyatakan Lengkap.
+    if (aturan.jenisJalur(jalurAktif) === "prestasi_akademik") {
+      if (req.body.nilaiDicocokkan !== true) {
+        return res.status(409).json({ error: "Cocokkan nilai rapor dengan berkas Rapor Terakhir terlebih dahulu (centang pernyataan di atas tombol Lengkap), atau koreksi nilainya bila berbeda." });
+      }
+      nilaiDicocokkan = true;
+    }
     const { data: dokumen } = await supabase.from("dokumen").select("jenis").eq("pendaftar_id", pendaftarId);
     const belumAda = berkasUntukJalur([jalurAktif]).filter((j) => !(dokumen || []).some((d) => d.jenis === j));
     if (belumAda.length) {
@@ -839,7 +848,8 @@ app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res
   if (hasilVerifikasi?.hasil === "dilewati") {
     return res.status(409).json({ error: "Status pendaftar baru saja berubah (mis. sudah dialihkan atau selesai diproses). Muat ulang antrean." });
   }
-  await catatAktivitas(req, `Verifikasi berkas: ${req.body.status}`, { pendaftarId, detail: catatan || null });
+  const cocok = nilaiDicocokkan ? `Nilai rapor ${pendaftar.nilai_rapor} dicocokkan dengan berkas rapor` : null;
+  await catatAktivitas(req, `Verifikasi berkas: ${req.body.status}`, { pendaftarId, detail: [cocok, catatan].filter(Boolean).join(" · ") || null });
   res.json({ ok: true });
 });
 
