@@ -99,7 +99,7 @@ ppdb-project-v3/
 │  ├─ ganti-password-staf.sql   Wajib setelah memasang database baru
 │  └─ reset-data-demo.sql  Hapus semua pendaftar (sebelum demo)
 ├─ docs/
-│  └─ PRD_Aplikasi_PPDB_v7.9.docx / .pdf   Product Requirements Document (FR-01 s.d. FR-18)
+│  └─ PRD_Aplikasi_PPDB_v8.0.docx / .pdf   Product Requirements Document (FR-01 s.d. FR-18)
 ├─ scripts/
 │  └─ reset-berkas-demo.js Hapus file berkas di Supabase Storage (pasangan reset-data-demo.sql)
 ├─ public/                 Situs pendaftar (index.html, js/app.js), panel panitia (panitia.html),
