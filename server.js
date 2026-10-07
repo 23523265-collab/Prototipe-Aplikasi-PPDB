@@ -71,6 +71,12 @@ async function jalurAktifPendaftar(pendaftarId, prioritasAktif) {
   const { data: jalur } = await supabase.from("jalur").select("*").eq("id", pil.jalur_id).single();
   return jalur;
 }
+/**
+ * Jalur Prestasi Nonakademik: skor diberi panitia sekolah yang sedang memproses, per pilihan.
+ * Skor dari sekolah pilihan sebelumnya TIDAK berlaku di sekolah berikutnya -- selama catatan
+ * "Menunggu skor dari panitia" masih ada di pilihan itu, skornya dianggap belum diberi.
+ */
+const belumDiskorNonakademik = (pilihan) => !pilihan || pilihan.catatan_skor != null;
 const TIPE_FILE_DIIZINKAN = ["application/pdf", "image/jpeg", "image/png"];
 
 // Aturan usia (12–21 tahun per 1 Juli) dan penyamaran nama ada di aturan.js supaya bisa diuji otomatis
@@ -144,7 +150,9 @@ app.get("/api/auth/me", async (req, res) => {
 });
 
 app.post("/api/auth/pendaftar/login", async (req, res) => {
-  const { nomor, password } = req.body;
+  // "ppdb-0001 " dan "PPDB-0001" dianggap sama
+  const nomor = String(req.body.nomor || "").trim().toUpperCase();
+  const password = typeof req.body.password === "string" ? req.body.password : "";
   if (!nomor || !password) return res.status(400).json({ error: "Nomor dan password wajib diisi." });
 
   const kunci = auth.kunciLogin("pendaftar", nomor, req.ip);
@@ -275,7 +283,7 @@ const STATUS_BERSAING = ["Menunggu Verifikasi Berkas", "Menunggu Seleksi"];
 async function hitungEstimasi(pendaftar, pilihanAktif, jalur) {
   if (!jalur || !STATUS_BERSAING.includes(pilihanAktif.status)) return null;
   const jenis = aturan.jenisJalur(jalur);
-  if (jenis === "prestasi_nonakademik" && pendaftar.skor_nonakademik == null) return { menungguSkor: true, jenis };
+  if (jenis === "prestasi_nonakademik" && belumDiskorNonakademik(pilihanAktif)) return { menungguSkor: true, jenis };
 
   const [{ data: kandidatRaw }, { count: sudahDiterima }] = await Promise.all([
     supabase.from("pilihan").select("pendaftar_id, urutan_prioritas, skor, jarak_km, catatan_skor")
@@ -344,12 +352,24 @@ app.get("/api/pendaftar/nomor/:nomor", auth.requirePendaftarLogin, async (req, r
 });
 
 app.post("/api/pendaftar", async (req, res) => {
-  const { nama, nik, tanggalLahir, email: emailPendaftar, password, pilihan, latitude, longitude, akurasiLokasi, alamat, nilaiRapor } = req.body;
+  const { tanggalLahir, password, pilihan, latitude, longitude, akurasiLokasi, alamat, nilaiRapor } = req.body;
+  // Isian diperiksa lagi di server: form di browser bisa dilewati dengan mengirim data langsung ke API
+  const nama = typeof req.body.nama === "string" ? req.body.nama.trim().replace(/\s+/g, " ") : "";
+  const nik = ["string", "number"].includes(typeof req.body.nik) ? String(req.body.nik) : "";
+  const emailPendaftar = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
   if (!nama || !nik || !tanggalLahir || !emailPendaftar || !password || !Array.isArray(pilihan) || pilihan.length === 0) {
     return res.status(400).json({ error: "Data pendaftaran belum lengkap (termasuk email dan password)." });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: "Password minimal 6 karakter." });
+  if (typeof password !== "string" || password.length < 6 || password.length > 72) {
+    return res.status(400).json({ error: "Password 6–72 karakter." });
+  }
+  if (nama.length < 3 || nama.length > 100) return res.status(400).json({ error: "Nama lengkap 3–100 karakter." });
+  if (emailPendaftar.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPendaftar)) {
+    return res.status(400).json({ error: "Alamat email tidak valid." });
+  }
+  if (typeof alamat === "string" && alamat.trim().length > 300) return res.status(400).json({ error: "Alamat maksimal 300 karakter." });
+  if (!pilihan.every((p) => p && Number.isInteger(p.sekolahId) && Number.isInteger(p.jalurId))) {
+    return res.status(400).json({ error: "Kombinasi sekolah dan jalur tidak valid." });
   }
   // UU No. 27/2022 (PDP): data anak diolah atas persetujuan orang tua/wali
   if (req.body.persetujuanData !== true) {
@@ -371,6 +391,7 @@ app.post("/api/pendaftar", async (req, res) => {
   // Satu NIK hanya boleh mendaftar sekali (sistem sudah memberi 3 pilihan sekolah + auto-transfer).
   // Spasi dibuang supaya "3404 0112..." dan "34040112..." dianggap sama.
   const nikBersih = String(nik).replace(/\s+/g, "");
+  if (!/^\d{16}$/.test(nikBersih)) return res.status(400).json({ error: "NIK harus 16 digit angka, sesuai Kartu Keluarga." });
   const kunciDaftar = `daftar-ip:${req.ip || "tidak-diketahui"}`;
   const [tunggu, { data: nikTerdaftar }] = await Promise.all([
     auth.cekBatasAksi(kunciDaftar, MAKS_DAFTAR_PER_IP, JENDELA_DAFTAR_MENIT),
@@ -478,10 +499,17 @@ app.post("/api/pendaftar", async (req, res) => {
   // Simpan pilihan dan buat sesi login (otomatis login supaya bisa langsung unggah berkas) secara paralel
   const [{ error: err2 }, token] = await Promise.all([
     supabase.from("pilihan").insert(rows),
-    auth.buatSesi("pendaftar", { pendaftarId: pendaftarBaru.id }),
+    auth.buatSesi("pendaftar", { pendaftarId: pendaftarBaru.id }).catch((err) => { console.error("[daftar]", err.message); return null; }),
   ]);
-  if (err2) return res.status(500).json({ error: err2.message });
-  res.cookie("sid", token, auth.opsiCookie(req));
+  if (err2) {
+    // Pilihan gagal disimpan: batalkan pendaftarnya juga. Kalau dibiarkan, NIK itu terkunci
+    // ("sudah terdaftar") padahal pendaftarannya tidak punya pilihan sekolah.
+    await supabase.from("sesi").delete().eq("pendaftar_id", pendaftarBaru.id);
+    await supabase.from("pilihan").delete().eq("pendaftar_id", pendaftarBaru.id);
+    await supabase.from("pendaftar").delete().eq("id", pendaftarBaru.id);
+    return res.status(500).json({ error: `Pendaftaran gagal disimpan, silakan kirim ulang: ${err2.message}` });
+  }
+  if (token) res.cookie("sid", token, auth.opsiCookie(req)); // tanpa sesi pun pendaftar tetap bisa login dari Cek Status
 
   res.status(201).json({ nomor: pendaftarBaru.nomor, id: pendaftarBaru.id, jenisDokumen: berkasUntukJalur(jalurDipilih) });
 
@@ -601,6 +629,11 @@ app.post("/api/pendaftar/:id/sanggah", auth.requirePendaftarLogin, async (req, r
   if (isi.length < 20 || isi.length > 1000) return res.status(400).json({ error: "Isi sanggahan 20–1000 karakter: jelaskan keberatan dan buktinya." });
   const { data: pl } = await supabase.from("pilihan").select("*").eq("id", Number(req.body.pilihanId)).eq("pendaftar_id", pendaftarId).maybeSingle();
   if (!pl) return res.status(404).json({ error: "Pilihan sekolah tidak ditemukan." });
+  const { data: p } = await supabase.from("pendaftar").select("nama, status_global").eq("id", pendaftarId).single();
+  // Sudah diterima di sekolah lain / mengundurkan diri / tidak daftar ulang: sanggahan tidak mungkin dikabulkan lagi
+  if (!p || !["Aktif", "Tidak Diterima Final"].includes(p.status_global)) {
+    return res.status(409).json({ error: `Sanggahan tidak dapat diajukan karena pendaftaran sudah berstatus "${p?.status_global}".` });
+  }
   const { data: ada } = await supabase.from("sanggahan").select("id").eq("pilihan_id", pl.id).limit(1);
   if (!aturan.bisaSanggah(pl, !!ada?.length)) {
     return res.status(409).json({ error: ada?.length ? "Sanggahan untuk pilihan ini sudah diajukan." : `Masa sanggah (${aturan.JAM_MASA_SANGGAH / 24}×24 jam sejak keputusan) sudah berakhir atau tidak berlaku untuk pilihan ini.` });
@@ -610,7 +643,6 @@ app.post("/api/pendaftar/:id/sanggah", auth.requirePendaftarLogin, async (req, r
     if (error.code === "23505") return res.status(409).json({ error: "Sanggahan untuk pilihan ini sudah diajukan." });
     return res.status(500).json({ error: `Gagal menyimpan sanggahan (sudah jalankan migration v7.9?): ${error.message}` });
   }
-  const { data: p } = await supabase.from("pendaftar").select("nama").eq("id", pendaftarId).single();
   const { data: sk } = await supabase.from("sekolah").select("nama").eq("id", pl.sekolah_id).single();
   await catatAktivitas(req, "Pendaftar mengajukan sanggahan", { sekolahId: pl.sekolah_id, pendaftarId, namaPendaftar: p?.nama, detail: `Pilihan ${pl.urutan_prioritas}: ${isi.slice(0, 120)}` });
   await engine.tambahNotifikasi(pendaftarId, `Sanggahan atas keputusan di ${sk?.nama || "sekolah"} (Pilihan ${pl.urutan_prioritas}) telah diterima dan akan dijawab panitia.`);
@@ -654,6 +686,13 @@ app.patch("/api/sanggah/:id", auth.requirePanitiaLogin, async (req, res) => {
       return res.status(409).json({ error: `Tidak dapat dikabulkan otomatis karena status pendaftar sudah "${h.status}". Tolak sanggahan dengan penjelasan, atau koordinasikan dengan Admin Dinas.` });
     }
     if (h?.hasil !== "dikabulkan") return res.status(409).json({ error: "Status sanggahan atau pendaftar baru saja berubah. Muat ulang halaman." });
+    // Nilai rapor bisa saja dikoreksi sekolah lain setelah penolakan: skor pilihan ini disamakan dengan nilai terbaru
+    const { data: plKembali } = await supabase.from("pilihan").select("id, jalur_id").eq("id", s.pilihan_id).maybeSingle();
+    const { data: jalurKembali } = plKembali ? await supabase.from("jalur").select("*").eq("id", plKembali.jalur_id).maybeSingle() : { data: null };
+    if (jalurKembali && aturan.jenisJalur(jalurKembali) === "prestasi_akademik") {
+      const { data: pd } = await supabase.from("pendaftar").select("nilai_rapor").eq("id", s.pendaftar_id).single();
+      if (pd?.nilai_rapor != null) await supabase.from("pilihan").update({ skor: Math.round(Number(pd.nilai_rapor)) }).eq("id", plKembali.id);
+    }
     await engine.tambahNotifikasi(s.pendaftar_id, `Sanggahan Anda DIKABULKAN oleh panitia. Pendaftaran dikembalikan ke Pilihan ${h.urutan} untuk diverifikasi ulang. Jawaban panitia: ${jawaban}`);
   } else {
     const { data: diubah } = await supabase.from("sanggahan").update({ status: "Ditolak", jawaban, dijawab_oleh: oleh, dijawab_at: new Date().toISOString() })
@@ -789,7 +828,9 @@ app.patch("/api/pendaftar/:id/berkas", auth.requirePanitiaLogin, async (req, res
         error: `Belum bisa ditandai Lengkap: ${belumAda.join(", ")} belum diunggah. Gunakan tombol "Kurang" untuk meminta pendaftar melengkapi berkas.`,
       });
     }
-    if (aturan.jenisJalur(jalurAktif) === "prestasi_nonakademik" && pendaftar.skor_nonakademik == null) {
+    const { data: pilAktif } = await supabase.from("pilihan").select("catatan_skor")
+      .eq("pendaftar_id", pendaftarId).eq("urutan_prioritas", pendaftar.prioritas_aktif).maybeSingle();
+    if (aturan.jenisJalur(jalurAktif) === "prestasi_nonakademik" && belumDiskorNonakademik(pilAktif)) {
       return res.status(409).json({ error: "Beri skor prestasi nonakademik (0–100) dari sertifikat terlebih dahulu, lalu tandai Lengkap." });
     }
   }
@@ -920,6 +961,9 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
     const dokumen = dokumenTertanda.filter((d) => d.pendaftar_id === p.id);
     const jalurAktif = jalurList.find((j) => j.id === pil.jalur_id);
     const berkasWajib = berkasUntukJalur([jalurAktif]);
+    // skor nonakademik yang ditampilkan = skor di sekolah INI (bukan skor dari sekolah pilihan sebelumnya)
+    const nonakademik = aturan.jenisJalur(jalurAktif) === "prestasi_nonakademik";
+    const sudahDiskor = nonakademik && !belumDiskorNonakademik(pil);
 
     rows.push({
       pendaftar_id: p.id, nomor: p.nomor, nama: p.nama, nik: p.nik,
@@ -932,7 +976,7 @@ app.get("/api/sekolah/:id/antrean", auth.requirePanitiaLogin, async (req, res) =
       syarat_radius_km: jalurAktif?.syarat_radius_km ?? null,
       syarat_nilai_minimum: jalurAktif?.syarat_nilai_minimum ?? null,
       jalur_jenis: aturan.jenisJalur(jalurAktif),
-      skor_nonakademik: p.skor_nonakademik ?? null, skor_nonakademik_oleh: p.skor_nonakademik_oleh ?? null,
+      skor_nonakademik: sudahDiskor ? pil.skor : null, skor_nonakademik_oleh: sudahDiskor ? p.skor_nonakademik_oleh ?? null : null,
       kategori_afirmasi: p.kategori_afirmasi ?? null, kategori_mutasi: p.kategori_mutasi ?? null,
       keterangan_prestasi: p.keterangan_prestasi ?? null,
       dokumen,
@@ -990,7 +1034,7 @@ const MENIT_BERLAKU_RESET = 30;
 const hashToken = (t) => crypto.createHash("sha256").update(t).digest("hex");
 
 app.post("/api/auth/lupa-password", async (req, res) => {
-  const nomor = String(req.body.nomor || "").trim();
+  const nomor = String(req.body.nomor || "").trim().toUpperCase();
   const emailInput = String(req.body.email || "").trim().toLowerCase();
   if (!nomor || !emailInput) return res.status(400).json({ error: "Nomor pendaftaran dan email wajib diisi." });
 
@@ -1031,7 +1075,7 @@ app.post("/api/auth/lupa-password", async (req, res) => {
 app.post("/api/auth/reset-password", async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) return res.status(400).json({ error: "Data tidak lengkap." });
-  if (String(password).length < 6) return res.status(400).json({ error: "Password minimal 6 karakter." });
+  if (typeof password !== "string" || password.length < 6 || password.length > 72) return res.status(400).json({ error: "Password 6–72 karakter." });
 
   const { data: baris } = await supabase.from("reset_password").select("*").eq("token_hash", hashToken(String(token))).maybeSingle();
   if (!baris || baris.dipakai_at || new Date(baris.kadaluarsa_at) < new Date()) {
@@ -1331,7 +1375,13 @@ app.post("/api/admin/sekolah", auth.requireAdminLogin, async (req, res) => {
   const { error: e3 } = await supabase.from("akun_panitia").insert({
     username, password_hash: auth.hashPassword(passwordPanitia), nama: `Panitia ${nama}`, sekolah_id: sekolah.id,
   });
-  if (e2 || e3) return res.status(500).json({ error: (e2 || e3).message });
+  if (e2 || e3) {
+    // batalkan semuanya supaya tidak ada sekolah tanpa jalur/akun panitia
+    await supabase.from("akun_panitia").delete().eq("sekolah_id", sekolah.id);
+    await supabase.from("jalur").delete().eq("sekolah_id", sekolah.id);
+    await supabase.from("sekolah").delete().eq("id", sekolah.id);
+    return res.status(500).json({ error: `Sekolah gagal ditambahkan: ${(e2 || e3).message}` });
+  }
   await catatAktivitas(req, "Menambah sekolah", { sekolahId: sekolah.id, detail: `${nama} + akun panitia ${username}` });
   res.status(201).json({ ok: true, id: sekolah.id });
 });

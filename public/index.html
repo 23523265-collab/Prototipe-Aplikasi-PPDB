@@ -193,14 +193,14 @@
 
             <fieldset class="langkah" data-langkah="0">
               <p class="langkah-judul">Data Diri Calon Siswa</p>
-              <label>Nama Lengkap<input required name="nama" placeholder="Sesuai akta kelahiran" autocomplete="name" /></label>
-              <label>NIK<input required name="nik" placeholder="16 digit sesuai KK" inputmode="numeric" /></label>
+              <label>Nama Lengkap<input required name="nama" minlength="3" maxlength="100" placeholder="Sesuai akta kelahiran" autocomplete="name" /></label>
+              <label>NIK<input required name="nik" placeholder="16 digit sesuai KK" inputmode="numeric" maxlength="20" pattern="\s*(\d\s*){16}" title="NIK harus 16 digit angka, sesuai Kartu Keluarga" /></label>
               <label>Tanggal Lahir<input required type="date" name="tanggalLahir" /></label>
             </fieldset>
 
             <fieldset class="langkah" data-langkah="1">
               <p class="langkah-judul">Alamat &amp; Lokasi Rumah</p>
-              <label>Alamat Rumah<textarea required name="alamat" rows="3" placeholder="Sesuai Kartu Keluarga: jalan, RT/RW, kelurahan, kecamatan"></textarea></label>
+              <label>Alamat Rumah<textarea required name="alamat" rows="3" maxlength="300" placeholder="Sesuai Kartu Keluarga: jalan, RT/RW, kelurahan, kecamatan"></textarea></label>
               <div class="jarak-box">
                 <button type="button" class="btn btn-outline" id="btn-cek-jarak"><i data-ikon="lokasi"></i> Cek jarak saya ke sekolah</button>
                 <div id="jarak-info" class="muted" style="margin:8px 0 0;font-size:12.5px">Lakukan dari rumah. Lokasi dipakai untuk menghitung jarak rumah ke sekolah (jalur Domisili, Afirmasi, dan Mutasi), dan menandai sekolah mana yang masuk radius Domisili.</div>

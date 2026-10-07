@@ -1415,3 +1415,13 @@ h1, h2 { font-weight: 600; }
 .sk-tombol { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .sk-tombol .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 13px; }
 .sk-tombol .btn svg { width: 14px; height: 14px; }
+
+/* v8.5: di HP, tabel Pengumuman muat tanpa geser ke samping (kolom Status langsung terlihat) */
+@media (max-width: 640px) {
+  #pengumuman-container .table-wrap table { min-width: 0; table-layout: fixed; width: 100%; }
+  #pengumuman-container th, #pengumuman-container td { padding: 10px 8px; font-size: 12.5px; overflow-wrap: anywhere; vertical-align: top; }
+  #pengumuman-container th:nth-child(1), #pengumuman-container td:nth-child(1) { width: 21%; padding-left: 12px; }
+  #pengumuman-container th:nth-child(2), #pengumuman-container td:nth-child(2) { width: 24%; }
+  #pengumuman-container th:nth-child(3), #pengumuman-container td:nth-child(3) { width: 28%; }
+  #pengumuman-container .pill { white-space: normal; font-size: 11px; padding: 3px 7px; }
+}

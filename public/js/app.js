@@ -1033,7 +1033,7 @@ function renderProgres(pendaftar, jumlahBerkas, totalBerkas = DOKUMEN_DASAR.leng
     final || berkasPenuh
       ? { label: "Unggah Berkas", status: "selesai", ket: `${Math.min(jumlahBerkas, totalBerkas)}/${totalBerkas} berkas` }
       : { label: "Unggah Berkas", status: "berjalan", ket: `${jumlahBerkas}/${totalBerkas} berkas` },
-    final || lengkap ? { label: "Verifikasi", status: "selesai", ket: "Berkas lengkap" }
+    final || lengkap ? { label: "Verifikasi", status: "selesai", ket: lengkap ? "Berkas lengkap" : "Selesai" }
       : kurang ? { label: "Verifikasi", status: "masalah", ket: "Perlu revisi" }
       : berkasPenuh ? { label: "Verifikasi", status: "berjalan", ket: `Diperiksa panitia${diPilihan}` }
       : { label: "Verifikasi", status: "", ket: "Oleh panitia" },
@@ -1156,7 +1156,7 @@ document.getElementById("form-login-pendaftar").addEventListener("submit", async
     const res = await fetch("/api/auth/pendaftar/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nomor: form.nomor.value, password: form.password.value }),
+      body: JSON.stringify({ nomor: form.nomor.value.trim().toUpperCase(), password: form.password.value }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -1259,7 +1259,7 @@ function pasangDaftarUlang(p) {
 }
 
 /* ---------- K3: Sanggahan atas penolakan ---------- */
-function sanggahHTML(pl, daftar, jamMasa) {
+function sanggahHTML(pl, daftar, jamMasa, statusGlobal) {
   const s = daftar.find((x) => x.pilihan_id === pl.id);
   if (s) {
     const kelas = s.status === "Dikabulkan" ? "dikabulkan" : s.status === "Ditolak" ? "ditolak" : "menunggu";
@@ -1270,6 +1270,8 @@ function sanggahHTML(pl, daftar, jamMasa) {
     </div>`;
   }
   if (pl.status !== "Ditolak" || !pl.ditolak_at) return "";
+  // sudah diterima di sekolah lain / mundur / tidak daftar ulang: sanggahan tidak bisa ditindaklanjuti lagi
+  if (!["Aktif", "Tidak Diterima Final"].includes(statusGlobal)) return "";
   const sisaJam = Math.floor((new Date(pl.ditolak_at).getTime() + jamMasa * 3600000 - Date.now()) / 3600000);
   if (sisaJam < 0) return "";
   return `<button type="button" class="link-btn btn-sanggah" data-sanggah="${pl.id}" data-sekolah="${esc(pl.sekolah_nama)}">${ikon("pengumuman")} Ajukan sanggahan · sisa ${sisaJam >= 24 ? `${Math.floor(sisaJam / 24)} hari ${sisaJam % 24} jam` : `${sisaJam} jam`}</button>`;
@@ -1515,7 +1517,7 @@ async function renderStatusView() {
               <span>Skor <strong>${p.skor}</strong> <span style="font-size:11px">(${asalSkor(p)})</span></span>
             </div>
             ${p.alasan_penolakan ? `<div class="pj-alasan">Alasan: ${esc(p.alasan_penolakan)}</div>` : ""}
-            ${sanggahHTML(p, sanggahan, jamMasaSanggah)}
+            ${sanggahHTML(p, sanggahan, jamMasaSanggah, pendaftar.status_global)}
             ${kelas === "aktif" ? estimasiHTML(estimasi) : ""}
           </div>
           ${pengalihan && pengalihan.ke_sekolah_id ? `<div class="pj-alih">↓ Dialihkan otomatis ke ${esc(pengalihan.ke_nama)} · ${esc(formatWaktuWIB(pengalihan.waktu))}</div>` : ""}
@@ -1565,6 +1567,7 @@ const FILTER_PENGUMUMAN = [
   { kunci: "Aktif", label: "Masih diproses", cocok: (p) => p.status_global === "Aktif" },
   { kunci: "Diterima Final", label: "Diterima", cocok: (p) => p.status_global === "Diterima Final" },
   { kunci: "Tidak Diterima Final", label: "Tidak diterima", cocok: (p) => p.status_global === "Tidak Diterima Final" || p.status_global === "Tidak Daftar Ulang" },
+  { kunci: "Mengundurkan Diri", label: "Mengundurkan diri", cocok: (p) => p.status_global === "Mengundurkan Diri" },
 ];
 let filterPengumuman = "semua";
 
