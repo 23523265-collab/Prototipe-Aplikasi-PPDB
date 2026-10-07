@@ -30,11 +30,15 @@
         <p class="muted">Masuk dengan akun panitia sekolah Anda. Halaman ini khusus staf dan tidak ditautkan dari situs pendaftar.</p>
         <div id="panitia-login-error" class="alert alert-error" style="display:none"></div>
         <form id="form-login-panitia">
-          <label>Username<input required name="username" placeholder="panitia_sma2" autocomplete="username" /></label>
+          <label id="login-sekolah-wrap">Sekolah
+            <select name="sekolahId" required><option value="">Memuat daftar sekolah…</option></select>
+          </label>
+          <label id="login-username-wrap" hidden>Username<input name="username" placeholder="panitia_sma2" autocomplete="username" /></label>
           <label>Password<input required type="password" name="password" autocomplete="current-password" /></label>
           <button type="submit" class="btn btn-primary" style="width:100%">Masuk</button>
         </form>
-        <p style="margin:16px 0 0;text-align:center"><a href="/admin.html" class="link-btn"><i data-ikon="dinas"></i> Login Admin Dinas</a></p>
+        <p style="margin:12px 0 0;text-align:center"><button type="button" class="link-btn" id="ganti-cara-login">Masuk dengan username</button></p>
+        <p style="margin:8px 0 0;text-align:center"><a href="/admin.html" class="link-btn"><i data-ikon="dinas"></i> Login Admin Dinas</a></p>
       </div>
     </div>
 

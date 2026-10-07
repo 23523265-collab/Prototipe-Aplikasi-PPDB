@@ -42,12 +42,31 @@ async function muatSesi() {
 async function init() {
   sekolahList = await fetch("/api/sekolah").then((r) => r.json());
   jalurList = await fetch("/api/jalur").then((r) => r.json());
+  isiPilihanSekolahLogin();
   await renderPanitiaView();
 }
 
 /* =========================================================
    LOGIN & PANEL PANITIA
    ========================================================= */
+// Login panitia: default memilih sekolah (tanpa menghafal username); bisa beralih ke username
+let caraLogin = "sekolah";
+function aturCaraLogin(cara) {
+  caraLogin = cara;
+  const form = document.getElementById("form-login-panitia");
+  document.getElementById("login-sekolah-wrap").hidden = cara !== "sekolah";
+  document.getElementById("login-username-wrap").hidden = cara === "sekolah";
+  form.sekolahId.required = cara === "sekolah";
+  form.username.required = cara !== "sekolah";
+  document.getElementById("ganti-cara-login").innerText = cara === "sekolah" ? "Masuk dengan username" : "Masuk dengan memilih sekolah";
+  document.getElementById("panitia-login-error").style.display = "none";
+}
+document.getElementById("ganti-cara-login").addEventListener("click", () => aturCaraLogin(caraLogin === "sekolah" ? "username" : "sekolah"));
+function isiPilihanSekolahLogin() {
+  const sel = document.querySelector("#form-login-panitia [name=sekolahId]");
+  sel.innerHTML = '<option value="">-- Pilih sekolah Anda --</option>' + sekolahList.map((s) => `<option value="${s.id}">${esc(s.nama)}</option>`).join("");
+}
+
 document.getElementById("form-login-panitia").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
@@ -57,7 +76,9 @@ document.getElementById("form-login-panitia").addEventListener("submit", async (
     const res = await fetch("/api/auth/panitia/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: form.username.value.trim().toLowerCase(), password: form.password.value }),
+      body: JSON.stringify(caraLogin === "sekolah"
+        ? { sekolahId: Number(form.sekolahId.value), password: form.password.value }
+        : { username: form.username.value.trim().toLowerCase(), password: form.password.value }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {

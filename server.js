@@ -164,17 +164,29 @@ app.post("/api/auth/pendaftar/login", async (req, res) => {
 });
 
 app.post("/api/auth/panitia/login", async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: "Username dan password wajib diisi." });
+  // Dua cara masuk: memilih sekolah (tanpa menghafal username) atau mengetik username.
+  // Username bukan rahasia; pengamannya tetap password + batas percobaan per sekolah/akun dan per IP.
+  const { password } = req.body;
+  const username = typeof req.body.username === "string" ? req.body.username.trim().toLowerCase() : "";
+  const sekolahId = Number(req.body.sekolahId);
+  const pakaiSekolah = !username && Number.isInteger(sekolahId) && sekolahId > 0;
+  if ((!username && !pakaiSekolah) || !password) return res.status(400).json({ error: "Pilih sekolah (atau isi username) dan password." });
 
-  const kunci = auth.kunciLogin("panitia", username, req.ip);
+  const kunci = auth.kunciLogin("panitia", pakaiSekolah ? `sekolah-${sekolahId}` : username, req.ip);
   const tunggu = await auth.cekBatasLogin(kunci);
   if (tunggu) return res.status(429).json({ error: `Terlalu banyak percobaan login gagal. Coba lagi dalam ${tunggu} menit.` });
 
-  const { data: akun, error } = await supabase.from("akun_panitia").select("*").eq("username", username).single();
-  if (error || !akun || !auth.verifyPassword(password, akun.password_hash)) {
+  let akun = null;
+  if (pakaiSekolah) {
+    const { data } = await supabase.from("akun_panitia").select("*").eq("sekolah_id", sekolahId).order("id");
+    akun = (data || []).find((a) => auth.verifyPassword(password, a.password_hash)) || null;
+  } else {
+    const { data } = await supabase.from("akun_panitia").select("*").eq("username", username).maybeSingle();
+    if (data && auth.verifyPassword(password, data.password_hash)) akun = data;
+  }
+  if (!akun) {
     await auth.catatLoginGagal(kunci);
-    return res.status(401).json({ error: "Username atau password salah." });
+    return res.status(401).json({ error: pakaiSekolah ? "Password salah untuk sekolah yang dipilih." : "Username atau password salah." });
   }
   await auth.resetLoginGagal(kunci);
 
